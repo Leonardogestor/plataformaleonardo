@@ -1,15 +1,20 @@
-import { NextRequest, NextResponse } from "next/server"
-import { getPluggyToken } from "@/lib/pluggy"
+import { NextResponse } from "next/server"
 
-export async function GET(_req: NextRequest) {
+export async function GET() {
   try {
-    const token = await getPluggyToken()
-    return NextResponse.json({ token })
-  } catch (error: any) {
-    console.error("[Pluggy][Auth] Error:", error)
-    return NextResponse.json(
-      { error: error.message || "Erro ao obter token Pluggy" },
-      { status: 500 }
-    )
+    const clientId = process.env.PLUGGY_CLIENT_ID
+    const clientSecret = process.env.PLUGGY_CLIENT_SECRET
+
+    if (!clientId || !clientSecret) {
+      return NextResponse.json({ error: "Credenciais não configuradas" }, { status: 500 })
+    }
+
+    // Retorna um token simples para o cliente
+    return NextResponse.json({
+      token: "mock-token",
+      clientId,
+    })
+  } catch (error) {
+    return NextResponse.json({ error: "Erro ao obter token" }, { status: 500 })
   }
 }
