@@ -1,6 +1,16 @@
 "use client"
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+interface Transaction {
+  date: string
+  amount: number
+  type: "INCOME" | "EXPENSE"
+}
+
+interface NetWorthChartProps {
+  transactions: Transaction[]
+  initialBalance: number
+}
+
 import {
   LineChart,
   Line,
@@ -10,114 +20,53 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts"
-import { formatCurrency } from "@/lib/utils"
-import { useState } from "react"
-import { NetWorthDetailModal } from "@/components/dashboard/net-worth-detail-modal"
 
-interface NetWorthChartProps {
-  data: Array<{
-    month: string
-    netWorth: number
-    variation?: number
-    aportes?: number
-    resgates?: number
-    rendimentos?: number
-  }>
+function formatMonth(date: Date) {
+  return date.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" })
 }
 
-export function NetWorthChart({ data }: NetWorthChartProps) {
-  const [detail, setDetail] = useState<null | {
-    month: string
-    netWorth: number
-    variation: number
-    aportes: number
-    resgates: number
-    rendimentos: number
-  }>(null)
+function groupByMonth(transactions: Transaction[]) {
+  const map = new Map<string, number>()
+  transactions.forEach((tx) => {
+    const key = formatMonth(new Date(tx.date))
+    map.set(key, (map.get(key) || 0) + tx.amount * (tx.type === "EXPENSE" ? -1 : 1))
+  })
+  return map
+}
 
-  if (!data || data.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Evolução Patrimonial</CardTitle>
-          <CardDescription>Últimos 6 meses</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex h-[300px] items-center justify-center text-muted-foreground">
-            Sem dados para exibir
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  const chartData = data.map((item) => ({
-    month: item.month,
-    valor: item.netWorth,
-    variation: item.variation ?? 0,
-    aportes: item.aportes ?? 0,
-    resgates: item.resgates ?? 0,
-    rendimentos: item.rendimentos ?? 0,
-  }))
-
-  const handleDotClick = (e: any) => {
-    if (!e || !e.activePayload || !e.activePayload[0]) return
-    const d = e.activePayload[0].payload
-    setDetail({
-      month: d.month,
-      netWorth: d.valor,
-      variation: d.variation,
-      aportes: d.aportes,
-      resgates: d.resgates,
-      rendimentos: d.rendimentos,
-    })
-  }
+export function NetWorthChart({ transactions, initialBalance }: NetWorthChartProps) {
+  // Agrupa por mês e calcula saldo acumulado
+  const months = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date()
+    d.setMonth(d.getMonth() - (5 - i))
+    return formatMonth(d)
+  })
+  const grouped = groupByMonth(transactions)
+  let saldo = initialBalance
+  const data = months.map((month) => {
+    saldo += grouped.get(month) || 0
+    return { month, saldo }
+  })
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Evolução Patrimonial</CardTitle>
-        <CardDescription>Crescimento do patrimônio nos últimos meses</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={chartData} onClick={handleDotClick}>
-            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-            <XAxis dataKey="month" className="text-xs" stroke="currentColor" />
-            <YAxis
-              className="text-xs"
-              stroke="currentColor"
-              tickFormatter={(value: number) => formatCurrency(value)}
-            />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: "hsl(var(--card))",
-                border: "1px solid hsl(var(--border))",
-                borderRadius: "8px",
-              }}
-              formatter={(value: number) => [formatCurrency(value), "Patrimônio"]}
-            />
-            <Line
-              type="monotone"
-              dataKey="valor"
-              stroke="hsl(var(--primary))"
-              strokeWidth={2}
-              dot={{ fill: "hsl(var(--primary))", r: 4 }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-        {detail && (
-          <NetWorthDetailModal
-            month={detail.month}
-            netWorth={detail.netWorth}
-            variation={detail.variation}
-            aportes={detail.aportes}
-            resgates={detail.resgates}
-            rendimentos={detail.rendimentos}
-            onClose={() => setDetail(null)}
+    <div className="bg-dark rounded-lg p-4 shadow-lg">
+      <h3 className="text-lg font-semibold mb-2 text-white">Evolução Patrimonial (6 meses)</h3>
+      <ResponsiveContainer width="100%" height={250}>
+        <LineChart data={data} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+          <XAxis dataKey="month" stroke="#fff" />
+          <YAxis
+            stroke="#fff"
+            tickFormatter={(v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
           />
-        )}
-      </CardContent>
-    </Card>
+          <Tooltip
+            formatter={(v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+            labelStyle={{ color: "#0ff" }}
+            contentStyle={{ background: "#222", border: "none", color: "#fff" }}
+          />
+          <Line type="monotone" dataKey="saldo" stroke="#14b8a6" strokeWidth={3} dot={{ r: 4 }} />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
   )
 }

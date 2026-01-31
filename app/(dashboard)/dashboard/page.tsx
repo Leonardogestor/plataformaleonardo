@@ -260,23 +260,24 @@ export default function DashboardPage() {
             monthIncome={data.metrics.monthIncome}
             monthExpense={data.metrics.monthExpense}
             cashFlow={data.metrics.cashFlow}
-            goalValue={
-              data.goals?.[0]?.targetAmount ? Number(data.goals[0].targetAmount) : undefined
-            }
-            projectionValue={data.metrics.netWorth + data.metrics.savingsRate * 12}
-            progressPercent={data.goals?.[0]?.progress}
-            status={
-              data.goals?.[0]?.status === "ACTIVE"
-                ? "ok"
-                : data.goals?.[0]?.status === "PAUSED"
-                  ? "risco"
-                  : "atrasado"
-            }
           />
         </div>
         {/* Linha de gráficos principais */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <NetWorthChart data={data.monthlyData} />
+          <NetWorthChart
+            transactions={data.monthlyData.map((item) => ({
+              date: item.month,
+              amount: item.income - Math.abs(item.expense),
+              type: item.income - Math.abs(item.expense) >= 0 ? "INCOME" : "EXPENSE",
+            }))}
+            initialBalance={
+              data.metrics.netWorth -
+              data.monthlyData.reduce(
+                (acc, item) => acc + (item.income - Math.abs(item.expense)),
+                0
+              )
+            }
+          />
           <ResultBarChart
             data={data.monthlyData.map((item) => ({
               month: item.month,
@@ -297,8 +298,20 @@ export default function DashboardPage() {
         </div>
         {/* Linha de blocos analíticos */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <CategoryChart data={data.categories} />
-          <InsightCard insights={data.insights} />
+          <CategoryChart
+            transactions={data.recentTransactions.map((tx) => ({
+              date: tx.date,
+              amount: Number(tx.amount),
+              type: tx.type === "INCOME" ? "INCOME" : "EXPENSE",
+              category: tx.category,
+            }))}
+          />
+          <InsightCard
+            cashFlow={data.metrics.cashFlow}
+            monthExpense={data.metrics.monthExpense}
+            monthIncome={data.metrics.monthIncome}
+            netWorthHistory={data.monthlyData.map((m) => m.netWorth)}
+          />
         </div>
         {/* Linha de orçamento por categoria e transações recentes */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -309,7 +322,13 @@ export default function DashboardPage() {
               spent: cat.total ?? 0,
             }))}
           />
-          <RecentTransactions transactions={data.recentTransactions} />
+          <RecentTransactions
+            transactions={data.recentTransactions.map((tx) => ({
+              ...tx,
+              amount: Number(tx.amount),
+              type: tx.type === "INCOME" ? "INCOME" : "EXPENSE",
+            }))}
+          />
         </div>
         {/* Metas e status das metas */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -319,6 +338,7 @@ export default function DashboardPage() {
               targetAmount: Number(goal.targetAmount) || 0,
               currentAmount: Number(goal.currentAmount) || 0,
               priority: goal.priority || "Normal",
+              deadline: goal.dueDate || "",
             }))}
           />
           <GoalsStatusBlock

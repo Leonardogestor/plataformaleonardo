@@ -15,7 +15,8 @@ let axiosInstance: AxiosInstance | null = null
 
 function getAxios(): AxiosInstance {
   if (!axiosInstance) {
-    axiosInstance = axios.create({ baseURL: PLUGGY_BASE_URL })
+    const baseURL = process.env.PLUGGY_BASE_URL || "https://api.pluggy.ai"
+    axiosInstance = axios.create({ baseURL })
   }
   return axiosInstance
 }
@@ -23,14 +24,15 @@ function getAxios(): AxiosInstance {
 export async function getPluggyToken(): Promise<string> {
   const now = Date.now()
   if (cachedToken && tokenExpiresAt && now < tokenExpiresAt) {
-    return cachedToken
+    return cachedToken ?? ""
   }
   const res = await getAxios().post("/auth", {
-    clientId: PLUGGY_CLIENT_ID,
-    clientSecret: PLUGGY_CLIENT_SECRET,
+    clientId: process.env.PLUGGY_CLIENT_ID,
+    clientSecret: process.env.PLUGGY_CLIENT_SECRET,
   })
   cachedToken = res.data.accessToken
   tokenExpiresAt = now + (res.data.expiresIn ? res.data.expiresIn * 1000 - 60000 : 9 * 60 * 1000) // 1 min safety
+  if (!cachedToken) throw new Error("Pluggy token not received")
   return cachedToken
 }
 
