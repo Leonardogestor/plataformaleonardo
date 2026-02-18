@@ -7,6 +7,7 @@ import { z } from "zod"
 const transactionSchema = z.object({
   type: z.enum(["INCOME", "EXPENSE", "TRANSFER"]),
   category: z.string().min(1, "Categoria é obrigatória"),
+  subcategory: z.string().optional(),
   amount: z.number().positive("Valor deve ser positivo"),
   description: z.string().min(1, "Descrição é obrigatória"),
   date: z.string().datetime(),
@@ -29,6 +30,7 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get("limit") ?? "50")
     const search = searchParams.get("search") ?? ""
     const category = searchParams.get("category") ?? ""
+    const subcategory = searchParams.get("subcategory") ?? ""
     const accountId = searchParams.get("accountId") ?? ""
     const type = searchParams.get("type") ?? ""
     const startDate = searchParams.get("startDate") ?? ""
@@ -38,6 +40,7 @@ export async function GET(request: Request) {
       userId: string
       description?: { contains: string; mode: "insensitive" }
       category?: string
+      subcategory?: string
       accountId?: string
       type?: "INCOME" | "EXPENSE" | "TRANSFER"
       date?: { gte?: Date; lte?: Date }
@@ -50,6 +53,9 @@ export async function GET(request: Request) {
     }
     if (category) {
       where.category = category
+    }
+    if (subcategory) {
+      where.subcategory = subcategory
     }
     if (accountId) {
       where.accountId = accountId
@@ -106,9 +112,16 @@ export async function POST(request: Request) {
 
     const transaction = await prisma.transaction.create({
       data: {
-        ...data,
+        type: data.type,
+        category: data.category,
+        subcategory: data.subcategory ?? null,
+        amount: data.amount,
+        description: data.description,
         date: new Date(data.date),
         userId: session.user.id,
+        accountId: data.accountId ?? null,
+        cardId: data.cardId ?? null,
+        isPending: data.isPending ?? null,
       },
       include: {
         account: { select: { name: true } },

@@ -48,4 +48,5 @@ prisma/migrations/*
 
 # uploads
 /public/uploads
+/uploads
 >>>>>>> a83b8fa (Primeiro commit da plataforma)

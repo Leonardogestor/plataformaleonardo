@@ -1,10 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Upload, FileSpreadsheet } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { ArrowLeft, Upload, FileSpreadsheet, FileUp, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { CsvUpload } from "@/components/transactions/csv-upload"
 import { CsvPreview } from "@/components/transactions/csv-preview"
@@ -28,22 +30,86 @@ interface ParsedRow {
   [key: string]: string
 }
 
+type ImportSource = "csv" | "ofx" | "xlsx" | null
+
 export default function ImportTransactionsPage() {
   const [csvData, setCsvData] = useState<ParsedRow[]>([])
   const [headers, setHeaders] = useState<string[]>([])
+  const [importSource, setImportSource] = useState<ImportSource>(null)
 
   const [isImporting, setIsImporting] = useState(false)
+  const [isParsing, setIsParsing] = useState(false)
   const [step, setStep] = useState<"upload" | "preview" | "mapping" | "review" | "confirm">(
     "upload"
   )
   const [reviewData, setReviewData] = useState<any[]>([])
   const router = useRouter()
   const { toast } = useToast()
+  const ofxExcelInputRef = useRef<HTMLInputElement>(null)
 
   const handleFileUpload = (data: ParsedRow[], fileHeaders: string[]) => {
     setCsvData(data)
     setHeaders(fileHeaders)
+    setImportSource("csv")
     setStep("preview")
+  }
+
+  const handleOfxExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const name = file.name.toLowerCase()
+    if (!name.endsWith(".ofx") && !name.endsWith(".xlsx") && !name.endsWith(".xls")) {
+      toast({
+        title: "Formato inválido",
+        description: "Use arquivo .ofx, .xlsx ou .xls",
+        variant: "destructive",
+      })
+      return
+    }
+    setIsParsing(true)
+    e.target.value = ""
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+      const res = await fetch("/api/transactions/import/parse", {
+        method: "POST",
+        body: formData,
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(data.error || "Falha ao processar arquivo")
+      }
+      if (data.format === "ofx" && Array.isArray(data.transactions)) {
+        const withIds = data.transactions.map((t: any, i: number) => ({
+          id: `ofx-${i}`,
+          type: t.type,
+          category: t.category || "Importado",
+          amount: String(t.amount),
+          description: t.description,
+          date: t.date?.slice(0, 10) ? `${t.date.slice(0, 10)}T12:00:00.000Z` : new Date().toISOString(),
+        }))
+        setReviewData(withIds)
+        setImportSource("ofx")
+        setStep("review")
+        toast({ title: `${withIds.length} transações extraídas do OFX` })
+      } else if (data.format === "xlsx" && Array.isArray(data.headers) && Array.isArray(data.rows)) {
+        setHeaders(data.headers)
+        setCsvData(data.rows)
+        setImportSource("xlsx")
+        setStep("preview")
+        toast({ title: "Planilha carregada. Faça o mapeamento das colunas." })
+      } else {
+        throw new Error("Resposta inválida do servidor")
+      }
+    } catch (err) {
+      toast({
+        title: "Erro",
+        description: err instanceof Error ? err.message : "Não foi possível processar o arquivo",
+        variant: "destructive",
+      })
+    } finally {
+      setIsParsing(false)
+    }
   }
 
   const handleReviewConfirm = (data: any[]) => {
@@ -95,7 +161,9 @@ export default function ImportTransactionsPage() {
         </Button>
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Importar Transações</h1>
-          <p className="text-muted-foreground">Importe suas transações de um arquivo CSV</p>
+          <p className="text-muted-foreground">
+            Importe de CSV, OFX (extrato bancário) ou Excel (XLS/XLSX)
+          </p>
         </div>
       </div>
 
@@ -149,7 +217,52 @@ export default function ImportTransactionsPage() {
         </span>
       </div>
 
-      {step === "upload" && <CsvUpload onUpload={handleFileUpload} />}
+      {step === "upload" && (
+        <div className="space-y-4">
+          <CsvUpload onUpload={handleFileUpload} />
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileUp className="h-5 w-5" />
+                OFX ou Excel
+              </CardTitle>
+              <CardDescription>
+                Extrato bancário (.ofx) ou planilha (.xlsx, .xls). OFX vai direto para revisão.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-4">
+                <Input
+                  ref={ofxExcelInputRef}
+                  type="file"
+                  accept=".ofx,.xlsx,.xls"
+                  className="hidden"
+                  onChange={handleOfxExcelUpload}
+                  disabled={isParsing}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isParsing}
+                  onClick={() => ofxExcelInputRef.current?.click()}
+                >
+                  {isParsing ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <>
+                      <Upload className="mr-2 h-4 w-4" />
+                      Enviar OFX ou Excel
+                    </>
+                  )}
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  {isParsing ? "Processando..." : "Selecione o arquivo"}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {step === "preview" && (
         <CsvPreview
@@ -175,7 +288,7 @@ export default function ImportTransactionsPage() {
         <ReviewImport
           transactions={reviewData}
           onConfirm={handleReviewConfirm}
-          onBack={() => setStep("mapping")}
+          onBack={() => setStep(importSource === "ofx" ? "upload" : "mapping")}
         />
       )}
 

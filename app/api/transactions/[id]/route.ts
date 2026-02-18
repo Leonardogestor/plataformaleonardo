@@ -7,6 +7,7 @@ import { z } from "zod"
 const transactionUpdateSchema = z.object({
   type: z.enum(["INCOME", "EXPENSE", "TRANSFER"]).optional(),
   category: z.string().min(1).optional(),
+  subcategory: z.string().nullable().optional(),
   amount: z.number().positive().optional(),
   description: z.string().min(1).optional(),
   date: z.string().datetime().optional(),

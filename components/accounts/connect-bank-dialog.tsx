@@ -57,13 +57,17 @@ export function ConnectBankDialog() {
     setIsLoading(true)
 
     try {
-      // 1. Criar Connect Token
+      // 1. Criar Connect Token (Pluggy pode demorar na primeira chamada)
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 35000)
       const response = await fetch("/api/open-finance/connect", {
         method: "POST",
+        signal: controller.signal,
       })
+      clearTimeout(timeoutId)
 
       if (!response.ok) {
-        throw new Error("Failed to create connect token")
+        throw new Error("Falha ao obter link de conexão. Tente novamente em instantes.")
       }
 
       const { accessToken } = await response.json()
@@ -71,7 +75,6 @@ export function ConnectBankDialog() {
       // 2. Abrir Pluggy Connect Widget
       // @ts-ignore - Pluggy SDK é carregado via CDN
       if (typeof window.PluggyConnect === "undefined") {
-        // Carregar SDK do Pluggy
         await loadPluggySDK()
       }
 
@@ -82,7 +85,6 @@ export function ConnectBankDialog() {
         onSuccess: async (itemData: { item: { id: string } }) => {
           console.log("Bank connected:", itemData)
 
-          // 3. Notificar backend
           await fetch("/api/open-finance/callback", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -95,6 +97,9 @@ export function ConnectBankDialog() {
           })
 
           fetchConnections()
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("open-finance:connected"))
+          }
         },
         onError: (error: { message: string }) => {
           console.error("Pluggy error:", error)
@@ -109,12 +114,24 @@ export function ConnectBankDialog() {
         },
       })
 
-      pluggyConnect.open()
-    } catch (error) {
+      if (typeof pluggyConnect.init === "function") {
+        pluggyConnect.init()
+      } else if (typeof pluggyConnect.open === "function") {
+        pluggyConnect.open()
+      } else {
+        throw new Error("Não foi possível abrir a tela de conexão. Recarregue a página e tente novamente.")
+      }
+    } catch (error: unknown) {
       console.error("Error connecting bank:", error)
+      const message =
+        error instanceof Error
+          ? error.name === "AbortError"
+            ? "A conexão demorou demais. Tente novamente."
+            : error.message
+          : "Não foi possível conectar o banco. Tente novamente."
       toast({
         title: "Erro",
-        description: "Não foi possível conectar o banco. Tente novamente.",
+        description: message,
         variant: "destructive",
       })
     } finally {
@@ -189,33 +206,16 @@ export function ConnectBankDialog() {
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Conectar Banco via Open Finance</DialogTitle>
+          <DialogTitle>Conectar Banco</DialogTitle>
           <DialogDescription>
-            Conecte suas contas bancárias de forma segura e sincronize automaticamente suas
-            transações.
+            Conecte suas contas bancárias de forma segura. Suas transações serão sincronizadas automaticamente.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Botão para adicionar nova conexão */}
-          <Button onClick={handleConnectBank} disabled={isLoading} className="w-full">
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Carregando...
-              </>
-            ) : (
-              <>
-                <Building2 className="mr-2 h-4 w-4" />
-                Adicionar Nova Conexão
-              </>
-            )}
-          </Button>
-
-          {/* Lista de conexões existentes */}
           {connections.length > 0 && (
             <div className="space-y-3">
-              <h3 className="text-sm font-medium text-muted-foreground">Suas Conexões</h3>
+              <h3 className="text-sm font-medium text-foreground">Suas conexões</h3>
               {connections.map((connection) => (
                 <div
                   key={connection.id}
@@ -275,9 +275,28 @@ export function ConnectBankDialog() {
             <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
               <Building2 className="mx-auto h-12 w-12 opacity-50 mb-4" />
               <p>Nenhum banco conectado ainda.</p>
-              <p className="text-sm">Clique no botão acima para conectar sua primeira conta.</p>
+              <p className="text-sm mb-4">Conecte sua conta para sincronizar transações automaticamente.</p>
             </div>
           )}
+
+          <Button onClick={handleConnectBank} disabled={isLoading} className="w-full" size="lg">
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Carregando...
+              </>
+            ) : connections.length > 0 ? (
+              <>
+                <Building2 className="mr-2 h-4 w-4" />
+                Conectar outro banco
+              </>
+            ) : (
+              <>
+                <Building2 className="mr-2 h-4 w-4" />
+                Conectar conta bancária
+              </>
+            )}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
@@ -324,7 +343,8 @@ function ConnectionStatusBadge({ status }: { status: string }) {
   )
 }
 
-// Função auxiliar para carregar SDK do Pluggy (URL correta, carregamento único)
+const PLUGGY_LOAD_TIMEOUT_MS = 12_000
+
 function loadPluggySDK(): Promise<void> {
   return new Promise((resolve, reject) => {
     if (typeof window !== "undefined" && (window as any).PluggyConnect) {
@@ -332,24 +352,44 @@ function loadPluggySDK(): Promise<void> {
       return
     }
 
-    // Evitar múltiplos scripts
-    if (document.getElementById("pluggy-connect-sdk")) {
-      // Se já existe, aguardar carregamento
-      const check = setInterval(() => {
-        if ((window as any).PluggyConnect) {
-          clearInterval(check)
-          resolve()
-        }
-      }, 50)
-      return
+    const existing = document.getElementById("pluggy-connect-sdk")
+    if (existing) {
+      if ((window as any).PluggyConnect) {
+        resolve()
+        return
+      }
+      existing.remove()
     }
 
     const script = document.createElement("script")
     script.id = "pluggy-connect-sdk"
-    script.src = "https://cdn.pluggy.ai/pluggy-connect/pluggy-connect.js"
+    script.src = "https://cdn.pluggy.ai/pluggy-connect/latest/pluggy-connect.js"
     script.async = true
-    script.onload = () => resolve()
-    script.onerror = () => reject(new Error("Failed to load Pluggy SDK"))
+    const timeoutId = setTimeout(() => {
+      if (!(window as any).PluggyConnect) {
+        reject(new Error("A tela de conexão demorou para carregar. Tente novamente."))
+      }
+    }, PLUGGY_LOAD_TIMEOUT_MS)
+    script.onload = () => {
+      clearTimeout(timeoutId)
+      const deadline = Date.now() + 5000
+      const check = () => {
+        if ((window as any).PluggyConnect) {
+          resolve()
+          return
+        }
+        if (Date.now() > deadline) {
+          reject(new Error("A tela de conexão não carregou. Recarregue a página e tente novamente."))
+          return
+        }
+        setTimeout(check, 100)
+      }
+      check()
+    }
+    script.onerror = () => {
+      clearTimeout(timeoutId)
+      reject(new Error("Não foi possível carregar o widget de conexão. Verifique sua conexão ou bloqueadores de anúncio."))
+    }
     document.head.appendChild(script)
   })
 }

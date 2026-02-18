@@ -30,10 +30,32 @@ export async function getPluggyToken(): Promise<string> {
     clientId: process.env.PLUGGY_CLIENT_ID,
     clientSecret: process.env.PLUGGY_CLIENT_SECRET,
   })
-  cachedToken = res.data.accessToken
+  cachedToken = res.data.accessToken ?? res.data.apiKey
   tokenExpiresAt = now + (res.data.expiresIn ? res.data.expiresIn * 1000 - 60000 : 9 * 60 * 1000) // 1 min safety
   if (!cachedToken) throw new Error("Pluggy token not received")
   return cachedToken
+}
+
+/** Cria connect token para o widget Pluggy (clientUserId = id do usuário na sua base) */
+export async function createConnectToken(
+  clientUserId: string,
+  options?: { webhookUrl?: string; avoidDuplicates?: boolean }
+): Promise<string> {
+  const apiKey = await getPluggyToken()
+  const res = await getAxios().post(
+    "/connect_token",
+    {
+      options: {
+        clientUserId,
+        avoidDuplicates: options?.avoidDuplicates ?? true,
+        ...(options?.webhookUrl && { webhookUrl: options.webhookUrl }),
+      },
+    },
+    { headers: { "X-API-KEY": apiKey } }
+  )
+  const connectToken = res.data?.accessToken
+  if (!connectToken) throw new Error("Pluggy connect token not received")
+  return connectToken
 }
 
 export async function createPluggyItem(connectorId: number, parameters: any): Promise<any> {
@@ -50,10 +72,11 @@ export async function createPluggyItem(connectorId: number, parameters: any): Pr
 
 export async function getPluggyAccounts(itemId: string): Promise<any[]> {
   const token = await getPluggyToken()
-  const res = await getAxios().get(`/items/${itemId}/accounts`, {
+  const res = await getAxios().get("/accounts", {
+    params: { itemId },
     headers: { Authorization: `Bearer ${token}` },
   })
-  return res.data.results
+  return res.data.results ?? []
 }
 
 export async function getPluggyTransactions(
@@ -62,14 +85,14 @@ export async function getPluggyTransactions(
   to?: string
 ): Promise<any[]> {
   const token = await getPluggyToken()
-  const params: any = {}
+  const params: Record<string, string | number> = { accountId, pageSize: 500 }
   if (from) params.from = from
   if (to) params.to = to
-  const res = await getAxios().get(`/accounts/${accountId}/transactions`, {
+  const res = await getAxios().get("/transactions", {
     headers: { Authorization: `Bearer ${token}` },
     params,
   })
-  return res.data.results
+  return res.data.results ?? []
 }
 
 export async function getPluggyItemStatus(itemId: string): Promise<any> {

@@ -22,12 +22,12 @@ export function DetailsTabs({ series }: DetailsTabsProps) {
   const [tab, setTab] = useState("income")
 
   return (
-    <div className="bg-white rounded shadow p-4 mb-6">
+    <div className="bg-card rounded-lg border border-border shadow p-4 mb-6">
       <div className="flex gap-2 mb-4">
         {tabList.map((t) => (
           <button
             key={t.key}
-            className={`px-4 py-2 rounded ${tab === t.key ? "bg-primary text-white" : "bg-muted text-primary"}`}
+            className={`px-4 py-2 rounded ${tab === t.key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"}`}
             onClick={() => setTab(t.key)}
           >
             {t.label}
@@ -39,28 +39,28 @@ export function DetailsTabs({ series }: DetailsTabsProps) {
           <DetailSection
             title="Receita Projetada"
             data={series.map((s) => ({ month: s.month, value: s.income }))}
-            color="text-green-700"
+            color="text-green-400"
           />
         )}
         {tab === "expense" && (
           <DetailSection
             title="Despesas Projetadas"
             data={series.map((s) => ({ month: s.month, value: s.expense }))}
-            color="text-red-700"
+            color="text-red-400"
           />
         )}
         {tab === "investment" && (
           <DetailSection
             title="Investimentos Projetados"
             data={series.map((s) => ({ month: s.month, value: s.investment }))}
-            color="text-blue-700"
+            color="text-blue-400"
           />
         )}
         {tab === "saving" && (
           <DetailSection
             title="Aportes/Retiradas"
             data={series.map((s) => ({ month: s.month, value: s.saving }))}
-            color="text-amber-700"
+            color="text-amber-400"
           />
         )}
       </div>

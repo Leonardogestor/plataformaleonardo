@@ -1,9 +1,6 @@
 import { Inter } from "next/font/google"
 import "./globals.css"
-import { ThemeProvider } from "@/components/theme-provider"
-import { Toaster } from "@/components/ui/toaster"
-import { SessionProvider } from "@/components/session-provider"
-import { TooltipProvider } from "@/components/tooltip-context"
+import { AppProviders } from "@/components/providers/app-providers"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -14,21 +11,9 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" suppressHydrationWarning>
+    <html lang="pt-BR" suppressHydrationWarning className="dark">
       <body className={inter.className}>
-        <SessionProvider>
-          <TooltipProvider>
-            <ThemeProvider
-              attribute="class"
-              defaultTheme="dark"
-              enableSystem
-              disableTransitionOnChange
-            >
-              {children}
-              <Toaster />
-            </ThemeProvider>
-          </TooltipProvider>
-        </SessionProvider>
+        <AppProviders>{children}</AppProviders>
       </body>
     </html>
   )

@@ -9,6 +9,7 @@ const importSchema = z.object({
     z.object({
       type: z.enum(["INCOME", "EXPENSE", "TRANSFER"]),
       category: z.string().min(1),
+      subcategory: z.string().optional(),
       amount: z.number().positive(),
       description: z.string().min(1),
       date: z.string(),
@@ -41,6 +42,7 @@ export async function POST(request: NextRequest) {
               userId: session.user.id,
               type: transaction.type,
               category: transaction.category,
+              subcategory: transaction.subcategory || null,
               amount: transaction.amount,
               description: transaction.description,
               date: new Date(transaction.date),

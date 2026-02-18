@@ -101,6 +101,12 @@ export default function AccountsPage() {
     fetchAccounts()
   }, [fetchAccounts])
 
+  useEffect(() => {
+    const onConnected = () => fetchAccounts()
+    window.addEventListener("open-finance:connected", onConnected)
+    return () => window.removeEventListener("open-finance:connected", onConnected)
+  }, [fetchAccounts])
+
   const onSubmit = async (data: AccountFormData) => {
     try {
       const url = editingAccount ? `/api/accounts/${editingAccount.id}` : "/api/accounts"

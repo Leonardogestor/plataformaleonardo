@@ -73,96 +73,74 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Poppins:wght@600&family=JetBrains+Mono:wght@400;700&display=swap");
-
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    :root {
-      /* Paleta Premium */
-      --background: 222 64% 6%; /* #0A0E27 */
-      --foreground: 0 0% 100%; /* #FFFFFF */
-      --background-light: 220 28% 98%; /* #F8F9FB */
-      --foreground-light: 222 64% 6%; /* #0A0E27 */
-
-      --card: 222 64% 8%;
-      --card-foreground: 0 0% 100%;
-
-      --popover: 222 64% 10%;
-      --popover-foreground: 0 0% 100%;
-
-      --primary: 174 62% 47%; /* Verde Sucesso #10B981 */
-      --primary-foreground: 0 0% 100%;
-
-      --secondary: 248 53% 60%; /* Roxo Destaque #8B5CF6 */
-      --secondary-foreground: 0 0% 100%;
-
-      --muted: 222 14% 20%;
-      --muted-foreground: 215 20% 65%;
-
-      --accent: 210 40% 96.1%;
-      --accent-foreground: 222 64% 6%;
-
-      --destructive: 0 84% 60%; /* Vermelho Alerta #EF4444 */
-      --destructive-foreground: 0 0% 100%;
-
-      --success: 174 62% 47%; /* Verde Sucesso #10B981 */
-      --success-foreground: 0 0% 100%;
-
-      --info: 217 91% 60%; /* Azul Informação #3B82F6 */
-      --info-foreground: 0 0% 100%;
-
-      --warning: 42 96% 54%; /* Amarelo Aviso #F59E0B */
-      --warning-foreground: 0 0% 100%;
-
-      --border: 222 14% 20%; /* #1E293B */
-      --input: 222 14% 20%;
-      --ring: 174 62% 47%;
-      --radius: 0.5rem;
-
-      /* Gradientes para gráficos */
-      --chart-1: 174 62% 47%;
-      --chart-2: 42 96% 54%;
-      --chart-3: 0 84% 60%;
-      --chart-4: 248 53% 60%;
-      --chart-5: 217 91% 60%;
-    }
-    --chart-5: 27 87% 67%;
-  }
-
-  .dark {
-    --background: 222 64% 6%; /* #0A0E27 */
-    --foreground: 0 0% 100%;
-    --card: 222 64% 8%;
-    --card-foreground: 0 0% 100%;
-    --popover: 222 64% 10%;
-    --popover-foreground: 0 0% 100%;
-    --primary: 174 62% 47%;
+    /* Estilo relatório marketing: fundo #1A1A1A, cores vibrantes */
+    --background: 0 0% 10%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 12%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 12%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 248 53% 60%;
+    --secondary: 24 95% 53%;
     --secondary-foreground: 0 0% 100%;
-    --muted: 222 14% 20%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222 64% 6%;
+    --muted: 0 0% 18%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 0 0% 16%;
+    --accent-foreground: 0 0% 98%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --success: 174 62% 47%;
+    --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
     --info: 217 91% 60%;
     --info-foreground: 0 0% 100%;
-    --warning: 42 96% 54%;
+    --warning: 24 95% 53%;
     --warning-foreground: 0 0% 100%;
-    --border: 222 14% 20%;
-    --input: 222 14% 20%;
-    --ring: 174 62% 47%;
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 217 91% 60%;
     --radius: 0.5rem;
-    --chart-1: 174 62% 47%;
-    --chart-2: 42 96% 54%;
-    --chart-3: 0 84% 60%;
-    --chart-4: 248 53% 60%;
-    --chart-5: 217 91% 60%;
+    --chart-1: 217 91% 60%;
+    --chart-2: 142 71% 45%;
+    --chart-3: 24 95% 53%;
+    --chart-4: 0 84% 60%;
+    --chart-5: 174 58% 45%;
+  }
+
+  .dark {
+    --background: 0 0% 10%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 12%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 12%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 24 95% 53%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 18%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 0 0% 16%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+    --info: 217 91% 60%;
+    --info-foreground: 0 0% 100%;
+    --warning: 24 95% 53%;
+    --warning-foreground: 0 0% 100%;
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 217 91% 60%;
+    --radius: 0.5rem;
+    --chart-1: 217 91% 60%;
+    --chart-2: 142 71% 45%;
+    --chart-3: 24 95% 53%;
+    --chart-4: 0 84% 60%;
+    --chart-5: 174 58% 45%;
   }
 }
 
@@ -173,52 +151,16 @@
   body {
     @apply bg-background text-foreground;
     font-family: "Inter", system-ui, sans-serif;
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 400;
     letter-spacing: 0.01em;
     line-height: 1.6;
-    background-color: #000 !important;
-    color: #fff !important;
+    -webkit-font-smoothing: antialiased;
   }
 
-  /* Forçar modo escuro para todo o app */
-  html,
-  body,
-  #__next,
-  #root {
-    background-color: #000 !important;
-    color: #fff !important;
-  }
-
-  /* Bordas e linhas delicadas em verde LMG */
-  .border,
-  .divide-y > :not([hidden]) ~ :not([hidden]),
-  .ring-1,
-  .ring-2,
-  .ring,
-  .border-border {
-    border-color: #10b981 !important;
-  }
-  .ring-primary,
-  .ring-success,
-  .border-primary,
-  .border-success {
-    --tw-ring-color: #10b981 !important;
-    border-color: #10b981 !important;
-  }
-  /* Cards e containers com fundo escuro */
-  .bg-white,
-  .bg-background,
-  .bg-card,
-  .bg-popover {
-    background-color: #111 !important;
-  }
-  /* Textos sempre brancos */
-  .text-foreground,
-  .text-white,
-  .text-card-foreground,
-  .text-popover-foreground {
-    color: #fff !important;
+  html, body {
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
   }
 
   h1 {

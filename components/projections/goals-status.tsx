@@ -11,8 +11,8 @@ interface GoalsStatusProps {
 export function GoalsStatus({ goals }: GoalsStatusProps) {
   if (!goals || goals.length === 0) return null
   return (
-    <div className="bg-white rounded shadow p-4 mb-6">
-      <h3 className="text-lg font-semibold mb-2">Metas e Projeção de Prazo</h3>
+    <div className="bg-card rounded-lg border border-border shadow p-4 mb-6">
+      <h3 className="text-lg font-semibold mb-2 text-foreground">Metas e Projeção de Prazo</h3>
       <ul className="space-y-2">
         {goals.map((goal) => (
           <li key={goal.name} className="flex items-center gap-2">

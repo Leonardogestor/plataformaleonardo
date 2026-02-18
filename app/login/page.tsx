@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import { signIn } from "next-auth/react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -22,7 +21,6 @@ const loginSchema = z.object({
 type LoginFormData = z.infer<typeof loginSchema>
 
 export default function LoginPage() {
-  const router = useRouter()
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
 
@@ -44,15 +42,25 @@ export default function LoginPage() {
       })
 
       if (result?.error) {
+        const isCredentialsError = result.error === "CredentialsSignin"
+        const hint =
+          typeof window !== "undefined" && window.location.port !== "3000"
+            ? " Confira no .env se NEXTAUTH_URL usa a mesma porta (ex: http://localhost:" +
+              window.location.port +
+              ")."
+            : ""
         toast({
           title: "Erro ao fazer login",
-          description: "Email ou senha incorretos",
+          description: isCredentialsError
+            ? "Email ou senha incorretos. Use os usuários de teste abaixo ou confira se rodou o seed (npm run db:seed)." + hint
+            : result.error + hint,
           variant: "destructive",
         })
-      } else {
-        router.push("/dashboard")
-        router.refresh()
+        return
       }
+
+      // Sucesso: forçar navegação com reload para o cookie de sessão ser enviado
+      window.location.href = "/dashboard"
     } catch (error) {
       toast({
         title: "Erro",

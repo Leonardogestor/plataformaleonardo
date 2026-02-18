@@ -25,6 +25,7 @@ interface Goal {
   monthlyTarget: number
   remaining: number
   contributions?: Array<{ id: string; amount: number; date: string }>
+  evolution?: { month: string; cumulative: number }[]
 }
 
 export default function GoalsPage() {

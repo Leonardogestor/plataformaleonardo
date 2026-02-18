@@ -4,34 +4,35 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Lightbulb } from "lucide-react"
 
 interface InsightCardProps {
-  netWorth: number
-  cashFlow: number
-  monthExpense: number
-  monthIncome: number
+  text?: string
+  netWorth?: number
+  cashFlow?: number
+  monthExpense?: number
+  monthIncome?: number
 }
 
-export function InsightCard({ netWorth, cashFlow, monthExpense, monthIncome }: InsightCardProps) {
-  const generateInsight = () => {
-    if (cashFlow > 0) {
-      return "Você teve superávit este mês! Seu patrimônio está crescendo 📈"
-    }
-    if (cashFlow < 0) {
-      return "Atenção! Suas despesas superaram suas receitas este mês. Revise seus gastos."
-    }
-    return "Suas receitas e despesas estão equilibradas. Considere aumentar seus investimentos."
+export function InsightCard({
+  text,
+  netWorth = 0,
+  cashFlow = 0,
+  monthExpense = 0,
+  monthIncome = 0,
+}: InsightCardProps) {
+  const generateInsight = (): string => {
+    if (text) return text
+    if (cashFlow > 0) return "Você teve superávit este mês. Seu patrimônio está crescendo."
+    if (cashFlow < 0) return "Atenção: despesas superaram as receitas. Revise seus gastos."
+    return "Receitas e despesas equilibradas. Considere aumentar investimentos."
   }
 
   return (
-    <Card className="bg-[#18181b] border-2 border-teal-500 rounded-lg shadow-lg">
-      <CardContent className="p-6">
-        <div className="flex items-start gap-4">
-          <div className="p-3 bg-yellow-500/20 rounded-full">
-            <Lightbulb className="h-6 w-6 text-yellow-500" />
+    <Card>
+      <CardContent className="p-4">
+        <div className="flex items-start gap-3">
+          <div className="rounded-lg bg-warning/20 p-2">
+            <Lightbulb className="h-4 w-4 text-warning" strokeWidth={2} />
           </div>
-          <div className="flex-1">
-            <h3 className="text-lg font-bold text-white mb-2">Insights</h3>
-            <p className="text-gray-300 text-sm leading-relaxed">{generateInsight()}</p>
-          </div>
+          <p className="text-sm leading-relaxed text-muted-foreground">{generateInsight()}</p>
         </div>
       </CardContent>
     </Card>

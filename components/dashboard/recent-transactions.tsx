@@ -85,48 +85,43 @@ export function RecentTransactions({ transactions }: RecentTransactionsProps) {
   }
 
   return (
-    <Card className="bg-[#18181b] border-2 border-teal-500 rounded-lg shadow-lg">
+    <Card>
       <CardHeader>
-        <CardTitle className="text-white">Transações Recentes</CardTitle>
+        <CardTitle className="text-base font-semibold">Transações recentes</CardTitle>
       </CardHeader>
       <CardContent>
         <Table>
           <TableHeader>
-            <TableRow className="border-gray-800 hover:bg-gray-900">
-              <TableHead className="text-gray-400">Data</TableHead>
-              <TableHead className="text-gray-400">Descrição</TableHead>
-              <TableHead className="text-gray-400">Categoria</TableHead>
-              <TableHead className="text-gray-400">Tipo</TableHead>
-              <TableHead className="text-right text-gray-400">Valor</TableHead>
+            <TableRow>
+              <TableHead className="text-muted-foreground">Data</TableHead>
+              <TableHead className="text-muted-foreground">Descrição</TableHead>
+              <TableHead className="text-muted-foreground">Categoria</TableHead>
+              <TableHead className="text-muted-foreground">Tipo</TableHead>
+              <TableHead className="text-right text-muted-foreground">Valor</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {displayTransactions.slice(0, 5).map((transaction, index) => (
-              <TableRow
-                key={transaction.id}
-                className={`border-gray-800 ${
-                  index % 2 === 0 ? "bg-gray-950" : "bg-black"
-                } hover:bg-gray-900`}
-              >
-                <TableCell className="text-gray-300">{formatDate(transaction.date)}</TableCell>
-                <TableCell className="text-white font-medium">{transaction.description}</TableCell>
-                <TableCell className="text-gray-400">
+            {displayTransactions.slice(0, 5).map((transaction) => (
+              <TableRow key={transaction.id} className="border-border/50">
+                <TableCell className="text-muted-foreground">{formatDate(transaction.date)}</TableCell>
+                <TableCell className="font-medium">{transaction.description}</TableCell>
+                <TableCell className="text-muted-foreground">
                   {transaction.category || "Sem categoria"}
                 </TableCell>
                 <TableCell>
                   <span
                     className={`px-2 py-1 rounded-full text-xs font-medium ${
                       transaction.type === "INCOME"
-                        ? "bg-green-500/20 text-green-500"
-                        : "bg-red-500/20 text-red-500"
+                        ? "bg-success/20 text-success"
+                        : "bg-destructive/20 text-destructive"
                     }`}
                   >
                     {transaction.type === "INCOME" ? "Crédito" : "Débito"}
                   </span>
                 </TableCell>
                 <TableCell
-                  className={`text-right font-bold ${
-                    transaction.type === "INCOME" ? "text-green-500" : "text-red-500"
+                  className={`text-right font-semibold ${
+                    transaction.type === "INCOME" ? "text-success" : "text-destructive"
                   }`}
                 >
                   {formatCurrency(transaction.amount)}

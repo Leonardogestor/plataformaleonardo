@@ -31,17 +31,16 @@ export async function GET(request: NextRequest) {
       where,
       include: {
         contributions: {
-          orderBy: { date: "desc" },
-          take: 5,
+          orderBy: { date: "asc" },
         },
       },
       orderBy: { deadline: "asc" },
     })
 
-    // Calcular progresso e projeções
+    // Calcular progresso, projeções e evolução mensal
     const enrichedGoals = goals.map((goal) => {
-      const progress = Number(goal.targetAmount) > 0 
-        ? (Number(goal.currentAmount) / Number(goal.targetAmount)) * 100 
+      const progress = Number(goal.targetAmount) > 0
+        ? (Number(goal.currentAmount) / Number(goal.targetAmount)) * 100
         : 0
 
       const daysRemaining = Math.ceil(
@@ -52,12 +51,27 @@ export async function GET(request: NextRequest) {
       const remaining = Number(goal.targetAmount) - Number(goal.currentAmount)
       const monthlyTarget = remaining > 0 ? remaining / monthsRemaining : 0
 
+      // Evolução mensal acumulada (para gráfico de barras)
+      const byMonth = new Map<string, number>()
+      goal.contributions.forEach((c) => {
+        const ym = c.date.toISOString().slice(0, 7)
+        byMonth.set(ym, (byMonth.get(ym) || 0) + Number(c.amount))
+      })
+      const months = Array.from(byMonth.keys()).sort()
+      let cum = 0
+      const evolution = months.map((m) => {
+        cum += byMonth.get(m) || 0
+        return { month: m, cumulative: cum }
+      })
+
       return {
         ...goal,
+        contributions: goal.contributions.slice(-5).reverse(),
         progress,
         daysRemaining,
         monthlyTarget,
         remaining,
+        evolution,
       }
     })
 

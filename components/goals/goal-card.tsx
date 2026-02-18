@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { formatCurrency } from "@/lib/utils"
 import { Target, Calendar, TrendingUp, Pencil, Trash2, Plus } from "lucide-react"
+import { GoalEvolutionChart } from "./goal-evolution-chart"
 
 interface GoalCardProps {
   goal: {
@@ -21,6 +22,7 @@ interface GoalCardProps {
     daysRemaining: number
     monthlyTarget: number
     remaining: number
+    evolution?: { month: string; cumulative: number }[]
   }
   onEdit: (goal: any) => void
   onDelete: (id: string) => void
@@ -77,6 +79,13 @@ export function GoalCard({ goal, onEdit, onDelete, onContribute }: GoalCardProps
             <span className="font-semibold">{formatCurrency(Number(goal.targetAmount))}</span>
           </div>
         </div>
+
+        {goal.evolution && goal.evolution.length > 0 && (
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground">Evolução mensal</p>
+            <GoalEvolutionChart evolution={goal.evolution} />
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div className="space-y-1">

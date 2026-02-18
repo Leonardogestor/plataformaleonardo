@@ -12,7 +12,7 @@ interface CardData {
 }
 
 interface CardsSummaryProps {
-  cards: CardData[]
+  cards?: CardData[] | null
 }
 
 export function CardsSummary({ cards }: CardsSummaryProps) {
@@ -21,7 +21,7 @@ export function CardsSummary({ cards }: CardsSummaryProps) {
     { id: "2", name: "Inter", limit: 3000, currentBalance: 800 },
   ]
 
-  const displayCards = cards.length > 0 ? cards : defaultCards
+  const displayCards = (cards?.length ?? 0) > 0 ? cards : defaultCards
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -41,7 +41,7 @@ export function CardsSummary({ cards }: CardsSummaryProps) {
   }
 
   return (
-    <Card className="bg-[#18181b] border-2 border-teal-500 rounded-lg shadow-lg">
+    <Card>
       <CardHeader>
         <CardTitle className="text-white">Cartões</CardTitle>
       </CardHeader>
@@ -61,17 +61,17 @@ export function CardsSummary({ cards }: CardsSummaryProps) {
               </div>
               <div className="space-y-1 mb-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-200">Limite</span>
+                  <span className="text-white/70">Limite</span>
                   <span className="text-white font-medium">{formatCurrency(card.limit)}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-200">Fatura</span>
+                  <span className="text-white/70">Fatura</span>
                   <span className="text-white font-medium">
                     {formatCurrency(card.currentBalance)}
                   </span>
                 </div>
               </div>
-              <Progress value={percentage} className="h-2 bg-gray-800" />
+              <Progress value={percentage} className="h-1.5 bg-white/20" />
             </div>
           )
         })}

@@ -81,8 +81,25 @@ model User {
   budgets             Budget[]
   investments         Investment[]
   categorizationRules CategoryRule[]
+  documents           Document[]
 
   @@map("users")
+}
+
+model Document {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  fileName  String
+  mimeType  String
+  size      Int?
+  filePath  String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("documents")
 }
 
 enum UserRole {
@@ -151,6 +168,7 @@ model Transaction {
   amount      Decimal         @db.Decimal(15, 2)
   type        TransactionType
   category    String
+  subcategory String?
   accountId   String?
   cardId      String?
 

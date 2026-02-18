@@ -1,5 +1,5 @@
 "use client"
-import { InvestmentDrilldown } from "@/components/investments/investment-drilldown"
+import { InvestmentDrilldownDialog } from "@/components/investments/investment-drilldown-dialog"
 import { AportRetiradaDialog } from "@/components/investments/aport-retirada-dialog"
 
 import { useEffect, useState, useCallback } from "react"
@@ -80,23 +80,10 @@ export default function InvestmentsPage() {
   const [investments, setInvestments] = useState<Investment[]>([])
   const [drilldownOpen, setDrilldownOpen] = useState(false)
   const [drilldownInvestment, setDrilldownInvestment] = useState<Investment | null>(null)
-  const [movements, setMovements] = useState<any[]>([])
 
-  const handleOpenDrilldown = async (investment: Investment) => {
+  const handleOpenDrilldown = (investment: Investment) => {
     setDrilldownInvestment(investment)
     setDrilldownOpen(true)
-    // Opcional: buscar movimentos do investimento se necessário
-    try {
-      const res = await fetch(`/api/investments/${investment.id}/movements`)
-      if (res.ok) {
-        const data = await res.json()
-        setMovements(data)
-      } else {
-        setMovements([])
-      }
-    } catch {
-      setMovements([])
-    }
   }
   const [isOpen, setIsOpen] = useState(false)
   const [editingInvestment, setEditingInvestment] = useState<Investment | null>(null)
@@ -220,152 +207,9 @@ export default function InvestmentsPage() {
     const current = parseFloat(currentValue)
     const returnValue = current - invested
     const returnPercent = ((returnValue / invested) * 100).toFixed(2)
-    return { returnValue, returnPercent, isPositive: returnValue >= 0 }
-  }
-
-  const totalInvested = investments.reduce((sum, inv) => sum + parseFloat(inv.amount), 0)
-  const totalCurrent = investments.reduce((sum, inv) => sum + parseFloat(inv.currentValue), 0)
-  const totalReturn = totalCurrent - totalInvested
-  const totalReturnPercent =
-    totalInvested > 0 ? ((totalReturn / totalInvested) * 100).toFixed(2) : "0.00"
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Investimentos</h2>
-          <p className="text-muted-foreground">Acompanhe sua carteira de investimentos</p>
-        </div>
-        <Dialog
-          open={isOpen}
-          onOpenChange={(open) => {
-            setIsOpen(open)
-            if (!open) {
-              reset()
-              setEditingInvestment(null)
-            }
-          }}
-        >
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Investimento
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>
-                {editingInvestment ? "Editar Investimento" : "Novo Investimento"}
-              </DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Nome do Investimento</Label>
-                  <Input id="name" {...register("name")} placeholder="Ex: Tesouro Selic 2027" />
-                  {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="type">Tipo</Label>
-                  <Select
-                    value={selectedType}
-                    onValueChange={(value) => setValue("type", value as InvestmentFormData["type"])}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o tipo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(investmentTypes).map(([key, value]) => (
-                        <SelectItem key={key} value={key}>
-                          {value.icon} {value.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {errors.type && <p className="text-sm text-destructive">{errors.type.message}</p>}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="institution">Instituição</Label>
-                  <Input id="institution" {...register("institution")} placeholder="Ex: Nubank" />
-                  {errors.institution && (
-                    <p className="text-sm text-destructive">{errors.institution.message}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="ticker">Ticker (opcional)</Label>
-                  <Input id="ticker" {...register("ticker")} placeholder="Ex: PETR4, BTC" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="amount">Valor Investido</Label>
-                  <Input
-                    id="amount"
-                    type="number"
-                    step="0.01"
-                    {...register("amount")}
-                    placeholder="0.00"
-                  />
-                  {errors.amount && (
-                    <p className="text-sm text-destructive">{errors.amount.message}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="currentValue">Valor Atual</Label>
-                  <Input
-                    id="currentValue"
-                    type="number"
-                    step="0.01"
-                    {...register("currentValue")}
-                    placeholder="0.00"
-                  />
-                  {errors.currentValue && (
-                    <p className="text-sm text-destructive">{errors.currentValue.message}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="quantity">Quantidade (opcional)</Label>
-                  <Input
-                    id="quantity"
-                    type="number"
-                    step="0.000001"
-                    {...register("quantity")}
-                    placeholder="0.00"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="acquiredAt">Data de Aquisição</Label>
-                  <Input id="acquiredAt" type="date" {...register("acquiredAt")} />
-                  {errors.acquiredAt && (
-                    <p className="text-sm text-destructive">{errors.acquiredAt.message}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="maturityDate">Data de Vencimento (opcional)</Label>
-                  <Input id="maturityDate" type="date" {...register("maturityDate")} />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="profitability">Rentabilidade % a.a. (opcional)</Label>
-                <Input
-                  id="profitability"
-                  type="number"
-                  step="0.01"
-                  {...register("profitability")}
-                  placeholder="Ex: 13.65"
+    export default function InvestmentsPage() {
+      return null
+    }
                 />
               </div>
 
@@ -453,33 +297,11 @@ export default function InvestmentsPage() {
               onClick={() => handleOpenDrilldown(investment)}
               style={{ cursor: "pointer" }}
             >
-              {drilldownOpen && drilldownInvestment && (
-                <Dialog open={drilldownOpen} onOpenChange={setDrilldownOpen}>
-                  <DialogContent className="max-w-2xl">
-                    <InvestmentDrilldown
-                      investment={{
-                        ...drilldownInvestment,
-                        amount: parseFloat(drilldownInvestment.amount),
-                        currentValue: parseFloat(drilldownInvestment.currentValue),
-                        profitability: drilldownInvestment.profitability
-                          ? parseFloat(drilldownInvestment.profitability)
-                          : 0,
-                        profit:
-                          parseFloat(drilldownInvestment.currentValue) -
-                          parseFloat(drilldownInvestment.amount),
-                        history: movements.map((m) => ({
-                          date: m.date.split("T")[0],
-                          value: m.amount,
-                          aportes: m.type === "APORTE" ? m.amount : undefined,
-                          retiradas: m.type === "RETIRADA" ? Math.abs(m.amount) : undefined,
-                        })),
-                        dividends: [], // Integrar dividendos reais se disponível
-                      }}
-                      onClose={() => setDrilldownOpen(false)}
-                    />
-                  </DialogContent>
-                </Dialog>
-              )}
+              <InvestmentDrilldownDialog
+                open={drilldownOpen}
+                onOpenChange={setDrilldownOpen}
+                investmentId={drilldownInvestment?.id ?? null}
+              />
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">

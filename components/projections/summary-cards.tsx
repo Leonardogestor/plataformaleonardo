@@ -18,7 +18,7 @@ export function SummaryCards({ summary }: SummaryCardsProps) {
           <CardTitle>Receita Média</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-green-700">
+          <div className="text-2xl font-bold text-green-400">
             R$ {summary.avgIncome.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
           </div>
         </CardContent>
@@ -28,7 +28,7 @@ export function SummaryCards({ summary }: SummaryCardsProps) {
           <CardTitle>Despesa Média</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-red-700">
+          <div className="text-2xl font-bold text-red-400">
             R$ {summary.avgExpense.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
           </div>
         </CardContent>
@@ -38,7 +38,7 @@ export function SummaryCards({ summary }: SummaryCardsProps) {
           <CardTitle>Capacidade de Aporte</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-blue-700">
+          <div className="text-2xl font-bold text-blue-400">
             R$ {summary.avgSaving.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
           </div>
         </CardContent>
@@ -48,7 +48,7 @@ export function SummaryCards({ summary }: SummaryCardsProps) {
           <CardTitle>Patrimônio Projetado</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-amber-700">
+          <div className="text-2xl font-bold text-amber-400">
             R$ {summary.finalNetWorth.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
           </div>
         </CardContent>
@@ -59,7 +59,7 @@ export function SummaryCards({ summary }: SummaryCardsProps) {
         </CardHeader>
         <CardContent>
           <div
-            className={`text-lg font-semibold ${summary.status === "dentro do planejado" ? "text-green-700" : summary.status === "exige ajuste" ? "text-yellow-700" : "text-red-700"}`}
+            className={`text-lg font-semibold ${summary.status === "dentro do planejado" ? "text-green-400" : summary.status === "exige ajuste" ? "text-amber-400" : "text-red-400"}`}
           >
             {summary.status.charAt(0).toUpperCase() + summary.status.slice(1)}
           </div>
