@@ -207,12 +207,93 @@ export default function InvestmentsPage() {
     const current = parseFloat(currentValue)
     const returnValue = current - invested
     const returnPercent = ((returnValue / invested) * 100).toFixed(2)
-    export default function InvestmentsPage() {
-      return null
+    return {
+      returnValue,
+      returnPercent: parseFloat(returnPercent),
+      isPositive: returnValue >= 0,
     }
-                />
-              </div>
+  }
 
+  const totalInvested = investments.reduce((s, i) => s + parseFloat(i.amount), 0)
+  const totalCurrent = investments.reduce((s, i) => s + parseFloat(i.currentValue), 0)
+  const totalReturn = totalCurrent - totalInvested
+  const totalReturnPercent = totalInvested > 0 ? ((totalReturn / totalInvested) * 100).toFixed(2) : "0"
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Investimentos</h2>
+          <p className="text-muted-foreground">Cadastre e acompanhe seus investimentos</p>
+        </div>
+        <Dialog
+          open={isOpen}
+          onOpenChange={(open) => {
+            setIsOpen(open)
+            if (!open) {
+              reset()
+              setEditingInvestment(null)
+            }
+          }}
+        >
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Novo Investimento
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>{editingInvestment ? "Editar Investimento" : "Novo Investimento"}</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Nome</Label>
+                <Input id="name" {...register("name")} placeholder="Ex: Tesouro Direto" />
+                {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label>Tipo</Label>
+                <Select
+                  value={selectedType}
+                  onValueChange={(v) => setValue("type", v as InvestmentFormData["type"])}
+                >
+                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(investmentTypes).map(([k, v]) => (
+                      <SelectItem key={k} value={k}>{v.icon} {v.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="amount">Valor investido</Label>
+                  <Input id="amount" type="number" step="0.01" {...register("amount")} placeholder="0.00" />
+                  {errors.amount && <p className="text-sm text-destructive">{errors.amount.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="currentValue">Valor atual</Label>
+                  <Input id="currentValue" type="number" step="0.01" {...register("currentValue")} placeholder="0.00" />
+                  {errors.currentValue && <p className="text-sm text-destructive">{errors.currentValue.message}</p>}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="institution">Instituição</Label>
+                <Input id="institution" {...register("institution")} placeholder="Ex: XP, Nu Invest" />
+                {errors.institution && <p className="text-sm text-destructive">{errors.institution.message}</p>}
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="acquiredAt">Data aquisição</Label>
+                  <Input id="acquiredAt" type="date" {...register("acquiredAt")} />
+                  {errors.acquiredAt && <p className="text-sm text-destructive">{errors.acquiredAt.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ticker">Ticker (opcional)</Label>
+                  <Input id="ticker" {...register("ticker")} placeholder="Ex: BOVA11" />
+                </div>
+              </div>
               <Button type="submit" className="w-full">
                 {editingInvestment ? "Atualizar" : "Criar"} Investimento
               </Button>
