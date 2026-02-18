@@ -4,9 +4,19 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { z } from "zod"
 
+const conditionSchema = z
+  .object({
+    type: z.enum(["EXPENSE", "INCOME"]).optional(),
+    amountMin: z.number().optional(),
+    amountMax: z.number().optional(),
+    descriptionRegex: z.string().optional(),
+  })
+  .optional()
+
 const ruleSchema = z.object({
   pattern: z.string().min(1),
   category: z.string().min(1),
+  condition: conditionSchema,
 })
 
 export async function GET(_request: NextRequest) {
@@ -19,6 +29,14 @@ export async function GET(_request: NextRequest) {
     const rules = await prisma.categoryRule.findMany({
       where: { userId: session.user.id },
       orderBy: [{ isActive: "desc" }, { matchCount: "desc" }],
+      select: {
+        id: true,
+        pattern: true,
+        category: true,
+        matchCount: true,
+        isActive: true,
+        conditionJson: true,
+      },
     })
 
     return NextResponse.json(rules)
@@ -35,7 +53,12 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { pattern, category } = ruleSchema.parse(body)
+    const parsed = ruleSchema.parse(body)
+    const { pattern, category, condition } = parsed
+    const conditionJson =
+      condition && Object.keys(condition).length > 0
+        ? JSON.stringify(condition)
+        : null
 
     const existing = await prisma.categoryRule.findUnique({
       where: {
@@ -49,7 +72,7 @@ export async function POST(request: NextRequest) {
     if (existing) {
       const updated = await prisma.categoryRule.update({
         where: { id: existing.id },
-        data: { category, isActive: true },
+        data: { category, isActive: true, conditionJson },
       })
       return NextResponse.json(updated)
     }
@@ -59,6 +82,7 @@ export async function POST(request: NextRequest) {
         userId: session.user.id,
         pattern: pattern.toLowerCase(),
         category,
+        conditionJson,
       },
     })
 

@@ -124,10 +124,17 @@ export function TransactionDialog({
     if (description && description.length > 3 && !transaction && !selectedCategory) {
       const timer = setTimeout(async () => {
         try {
+          const type = watch("type")
+          const amountStr = watch("amount")
+          const amount = parseFloat(amountStr?.replace(",", ".") || "0") || 0
           const response = await fetch("/api/categorization/suggest", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ description }),
+            body: JSON.stringify({
+              description,
+              type: type === "INCOME" ? "INCOME" : "EXPENSE",
+              amount,
+            }),
           })
           if (response.ok) {
             const data = await response.json()

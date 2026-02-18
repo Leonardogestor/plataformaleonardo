@@ -5,19 +5,39 @@ import { prisma } from "@/lib/db"
 import { writeFile, mkdir } from "fs/promises"
 import path from "path"
 import crypto from "crypto"
+import { extractTextFromFile } from "@/lib/document-extract"
 
 const UPLOAD_DIR = path.join(process.cwd(), "uploads", "documents")
 const MAX_SIZE = 10 * 1024 * 1024 // 10MB
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
+    const { searchParams } = new URL(request.url)
+    const q = searchParams.get("q")?.trim()
+
+    const where: { userId: string; AND?: unknown[] } = {
+      userId: session.user.id,
+    }
+    if (q && q.length >= 2) {
+      const term = { contains: q, mode: "insensitive" as const }
+      where.AND = [
+        {
+          OR: [
+            { name: term },
+            { fileName: term },
+            ...(q.length <= 500 ? [{ extractedText: term }] : []),
+          ],
+        },
+      ]
+    }
+
     const documents = await prisma.document.findMany({
-      where: { userId: session.user.id },
+      where,
       orderBy: { createdAt: "desc" },
     })
 
@@ -86,6 +106,21 @@ export async function POST(request: NextRequest) {
         filePath: relativePath,
       },
     })
+
+    // Extração automática em background (OCR/PDF/Excel) para indexação e busca
+    void (async () => {
+      try {
+        const text = await extractTextFromFile(buffer, file.type)
+        if (text) {
+          await prisma.document.update({
+            where: { id: doc.id },
+            data: { extractedText: text },
+          })
+        }
+      } catch (e) {
+        console.warn("Extração automática falhou para documento", doc.id, e)
+      }
+    })()
 
     return NextResponse.json(doc, { status: 201 })
   } catch (error) {

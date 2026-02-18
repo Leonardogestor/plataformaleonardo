@@ -96,9 +96,31 @@ async function exportReportExcel(
   if (type === "monthly") {
     const monthlyReport = report as any
 
+    // Aba: Relatório Estruturado
+    const structuredData = [
+      ["RELATÓRIO ESTRUTURADO"],
+      ["Período", `${monthlyReport.period.month}/${monthlyReport.period.year}`],
+      [""],
+      ["Diagnóstico", monthlyReport.diagnostico ?? ""],
+      ["Principal risco", monthlyReport.principal_risco ?? ""],
+      ["Principal oportunidade", monthlyReport.principal_oportunidade ?? ""],
+      ["Decisão recomendada", monthlyReport.decisao_recomendada ?? ""],
+      [""],
+      ["BENCHMARKING COMPARATIVO"],
+      ["Métrica", "Seu valor", "Referência", "Status"],
+      ...(monthlyReport.benchmarking_comparativo || []).map((b: { metrica: string; seuValor: string; referencia: string; status: string }) => [
+        b.metrica,
+        b.seuValor,
+        b.referencia,
+        b.status === "acima" ? "Acima" : b.status === "no_alvo" ? "No alvo" : "Abaixo",
+      ]),
+    ]
+    const structuredSheet = XLSX.utils.aoa_to_sheet(structuredData)
+    XLSX.utils.book_append_sheet(workbook, structuredSheet, "Relatório")
+
     // Aba: Resumo
     const summaryData = [
-      ["RELATÓRIO MENSAL"],
+      ["RESUMO FINANCEIRO"],
       [`Período: ${monthlyReport.period.month}/${monthlyReport.period.year}`],
       [""],
       ["Métrica", "Valor"],
@@ -126,9 +148,31 @@ async function exportReportExcel(
   } else {
     const annualReport = report as any
 
+    // Aba: Relatório Estruturado
+    const structuredData = [
+      ["RELATÓRIO ESTRUTURADO"],
+      ["Ano", annualReport.period.year],
+      [""],
+      ["Diagnóstico", annualReport.diagnostico ?? ""],
+      ["Principal risco", annualReport.principal_risco ?? ""],
+      ["Principal oportunidade", annualReport.principal_oportunidade ?? ""],
+      ["Decisão recomendada", annualReport.decisao_recomendada ?? ""],
+      [""],
+      ["BENCHMARKING COMPARATIVO"],
+      ["Métrica", "Seu valor", "Referência", "Status"],
+      ...(annualReport.benchmarking_comparativo || []).map((b: { metrica: string; seuValor: string; referencia: string; status: string }) => [
+        b.metrica,
+        b.seuValor,
+        b.referencia,
+        b.status === "acima" ? "Acima" : b.status === "no_alvo" ? "No alvo" : "Abaixo",
+      ]),
+    ]
+    const structuredSheet = XLSX.utils.aoa_to_sheet(structuredData)
+    XLSX.utils.book_append_sheet(workbook, structuredSheet, "Relatório")
+
     // Aba: Resumo Anual
     const summaryData = [
-      ["RELATÓRIO ANUAL"],
+      ["RESUMO ANUAL"],
       [`Ano: ${annualReport.period.year}`],
       [""],
       ["Métrica", "Valor"],
@@ -193,7 +237,7 @@ async function exportReportExcel(
   return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" })
 }
 
-// Exportar relatório como PDF
+// Exportar relatório como PDF (template premium)
 async function exportReportPDF(
   userId: string,
   type: "monthly" | "annual",
@@ -204,184 +248,242 @@ async function exportReportPDF(
       ? await generateMonthlyReport(userId, params.month!, params.year)
       : await generateAnnualReport(userId, params.year)
 
-  const doc = new jsPDF()
+  const doc = new jsPDF({ unit: "mm", format: "a4" })
+  const pageW = (doc.internal.pageSize as { width: number }).width
+  const margin = 18
+  const primaryColor: [number, number, number] = [30, 64, 175] // blue-800
+  const textColor: [number, number, number] = [17, 24, 39]
+  const mutedColor: [number, number, number] = [100, 116, 139]
 
-  // Configurações
-  const primaryColor: [number, number, number] = [59, 130, 246] // blue-500
-  const textColor: [number, number, number] = [17, 24, 39] // gray-900
+  let y = margin
+
+  // --- Capa premium ---
+  doc.setFillColor(30, 64, 175)
+  doc.rect(0, 0, pageW, 42, "F")
+  doc.setTextColor(255, 255, 255)
+  doc.setFontSize(22)
+  doc.setFont("helvetica", "bold")
+  doc.text(type === "monthly" ? "Relatório Financeiro Mensal" : "Relatório Financeiro Anual", margin, 22)
+  doc.setFontSize(11)
+  doc.setFont("helvetica", "normal")
+  const periodLabel = type === "monthly"
+    ? `${(report as any).period.month} de ${(report as any).period.year}`
+    : `Ano ${(report as any).period.year}`
+  doc.text(periodLabel, margin, 32)
+  doc.text(`Gerado em ${new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}`, margin, 38)
+  doc.setTextColor(...textColor)
+  y = 50
+
+  // --- Relatório Estruturado ---
+  const r = report as any
+  if (r.diagnostico || r.principal_risco || r.principal_oportunidade || r.decisao_recomendada) {
+    doc.setFontSize(12)
+    doc.setFont("helvetica", "bold")
+    doc.setTextColor(...primaryColor)
+    doc.text("Relatório Estruturado", margin, y)
+    y += 8
+    doc.setFont("helvetica", "normal")
+    doc.setFontSize(10)
+    doc.setTextColor(...textColor)
+
+    if (r.diagnostico) {
+      doc.setFont("helvetica", "bold")
+      doc.setTextColor(80, 80, 80)
+      doc.text("Diagnóstico", margin, y)
+      y += 5
+      doc.setFont("helvetica", "normal")
+      doc.setTextColor(...textColor)
+      const diagLines = doc.splitTextToSize(r.diagnostico, pageW - 2 * margin)
+      diagLines.forEach((line: string) => { doc.text(line, margin, y); y += 5 })
+      y += 4
+    }
+    if (r.principal_risco) {
+      doc.setFont("helvetica", "bold")
+      doc.setTextColor(180, 83, 9)
+      doc.text("Principal risco", margin, y)
+      y += 5
+      doc.setFont("helvetica", "normal")
+      doc.setTextColor(...textColor)
+      const riskLines = doc.splitTextToSize(r.principal_risco, pageW - 2 * margin)
+      riskLines.forEach((line: string) => { doc.text(line, margin, y); y += 5 })
+      y += 4
+    }
+    if (r.principal_oportunidade) {
+      doc.setFont("helvetica", "bold")
+      doc.setTextColor(21, 128, 61)
+      doc.text("Principal oportunidade", margin, y)
+      y += 5
+      doc.setFont("helvetica", "normal")
+      doc.setTextColor(...textColor)
+      const oppLines = doc.splitTextToSize(r.principal_oportunidade, pageW - 2 * margin)
+      oppLines.forEach((line: string) => { doc.text(line, margin, y); y += 5 })
+      y += 4
+    }
+    if (r.decisao_recomendada) {
+      doc.setFont("helvetica", "bold")
+      doc.setTextColor(...primaryColor)
+      doc.text("Decisão recomendada", margin, y)
+      y += 5
+      doc.setFont("helvetica", "normal")
+      doc.setTextColor(...textColor)
+      const decLines = doc.splitTextToSize(r.decisao_recomendada, pageW - 2 * margin)
+      decLines.forEach((line: string) => { doc.text(line, margin, y); y += 5 })
+      y += 6
+    }
+  }
+
+  // --- Benchmarking ---
+  if (r.benchmarking_comparativo && r.benchmarking_comparativo.length > 0) {
+    if (y > 240) { doc.addPage(); y = margin }
+    doc.setFontSize(12)
+    doc.setFont("helvetica", "bold")
+    doc.setTextColor(...primaryColor)
+    doc.text("Benchmarking comparativo", margin, y)
+    y += 8
+    const benchBody = r.benchmarking_comparativo.map((b: { metrica: string; seuValor: string; referencia: string; status: string }) => [
+      b.metrica,
+      b.seuValor,
+      b.referencia,
+      b.status === "acima" ? "Acima" : b.status === "no_alvo" ? "No alvo" : "Abaixo",
+    ])
+    autoTable(doc, {
+      startY: y,
+      head: [["Métrica", "Seu valor", "Referência", "Status"]],
+      body: benchBody,
+      theme: "striped",
+      headStyles: { fillColor: primaryColor, textColor: [255, 255, 255] },
+      margin: { left: margin, right: margin },
+    })
+    y = (doc as any).lastAutoTable.finalY + 12
+  }
+
+  // --- Resumo financeiro ---
+  if (y > 220) { doc.addPage(); y = margin }
+  doc.setFontSize(12)
+  doc.setFont("helvetica", "bold")
+  doc.setTextColor(...primaryColor)
+  doc.text(type === "monthly" ? "Resumo financeiro" : "Resumo anual", margin, y)
+  y += 8
+
+  const summaryData = type === "monthly"
+    ? [
+        ["Receita total", formatCurrency(r.summary.totalIncome)],
+        ["Despesa total", formatCurrency(r.summary.totalExpense)],
+        ["Fluxo de caixa", formatCurrency(r.summary.cashFlow)],
+        ["Taxa de poupança", `${r.summary.savingsRate.toFixed(2)}%`],
+        ["Patrimônio líquido", formatCurrency(r.summary.netWorth)],
+      ]
+    : [
+        ["Receita total", formatCurrency(r.summary.totalIncome)],
+        ["Despesa total", formatCurrency(r.summary.totalExpense)],
+        ["Fluxo de caixa total", formatCurrency(r.summary.totalCashFlow)],
+        ["Receita média mensal", formatCurrency(r.summary.averageMonthlyIncome)],
+        ["Despesa média mensal", formatCurrency(r.summary.averageMonthlyExpense)],
+        ["Taxa de poupança anual", `${r.summary.annualSavingsRate.toFixed(2)}%`],
+        ["Crescimento patrimonial", formatCurrency(r.summary.netWorthGrowth)],
+        ["Crescimento patrimonial (%)", `${r.summary.netWorthGrowthPercentage.toFixed(2)}%`],
+      ]
+
+  autoTable(doc, {
+    startY: y,
+    head: [["Métrica", "Valor"]],
+    body: summaryData,
+    theme: "grid",
+    headStyles: { fillColor: primaryColor, textColor: [255, 255, 255] },
+    margin: { left: margin, right: margin },
+  })
+  y = (doc as any).lastAutoTable.finalY + 12
 
   if (type === "monthly") {
-    const monthlyReport = report as any
-
-    // Cabeçalho
-    doc.setFontSize(20)
-    doc.setTextColor(...textColor)
-    doc.text("Relatório Mensal", 14, 20)
-
-    doc.setFontSize(12)
-    doc.setTextColor(100, 100, 100)
-    doc.text(
-      `${monthlyReport.period.month} de ${monthlyReport.period.year}`,
-      14,
-      28
-    )
-
-    // Resumo Financeiro
-    doc.setFontSize(14)
-    doc.setTextColor(...primaryColor)
-    doc.text("Resumo Financeiro", 14, 42)
-
-    const summaryData = [
-      ["Receita Total", formatCurrency(monthlyReport.summary.totalIncome)],
-      ["Despesa Total", formatCurrency(monthlyReport.summary.totalExpense)],
-      ["Fluxo de Caixa", formatCurrency(monthlyReport.summary.cashFlow)],
-      ["Taxa de Poupança", `${monthlyReport.summary.savingsRate.toFixed(2)}%`],
-      ["Patrimônio Líquido", formatCurrency(monthlyReport.summary.netWorth)],
-    ]
-
-    autoTable(doc, {
-      startY: 48,
-      head: [["Métrica", "Valor"]],
-      body: summaryData,
-      theme: "grid",
-      headStyles: { fillColor: primaryColor },
-    })
-
-    // Top Categorias
-    if (monthlyReport.topCategories.length > 0) {
-      const lastY = (doc as any).lastAutoTable.finalY || 48
-      doc.setFontSize(14)
+    if (r.topCategories?.length > 0) {
+      if (y > 230) { doc.addPage(); y = margin }
+      doc.setFontSize(12)
+      doc.setFont("helvetica", "bold")
       doc.setTextColor(...primaryColor)
-      doc.text("Top 5 Categorias de Despesa", 14, lastY + 10)
-
-      const categoriesData = monthlyReport.topCategories.map((c: { category: string; amount: number; percentage: number; count: number }) => [
+      doc.text("Top 5 categorias de despesa", margin, y)
+      y += 8
+      const catData = r.topCategories.map((c: { category: string; amount: number; percentage: number; count: number }) => [
         c.category,
         formatCurrency(c.amount),
         `${c.percentage.toFixed(1)}%`,
         c.count.toString(),
       ])
-
       autoTable(doc, {
-        startY: lastY + 16,
+        startY: y,
         head: [["Categoria", "Valor", "%", "Transações"]],
-        body: categoriesData,
+        body: catData,
         theme: "striped",
-        headStyles: { fillColor: primaryColor },
+        headStyles: { fillColor: primaryColor, textColor: [255, 255, 255] },
+        margin: { left: margin, right: margin },
       })
+      y = (doc as any).lastAutoTable.finalY + 10
     }
-
-    // Insights
-    if (monthlyReport.insights.length > 0) {
-      const lastY = (doc as any).lastAutoTable.finalY || 100
-      doc.setFontSize(14)
+    if (r.insights?.length > 0 && y < 260) {
+      doc.setFontSize(12)
+      doc.setFont("helvetica", "bold")
       doc.setTextColor(...primaryColor)
-      doc.text("Insights", 14, lastY + 10)
-
+      doc.text("Insights", margin, y)
+      y += 6
+      doc.setFont("helvetica", "normal")
       doc.setFontSize(10)
       doc.setTextColor(...textColor)
-      monthlyReport.insights.forEach((insight: string, i: number) => {
-        doc.text(`• ${insight}`, 14, lastY + 18 + i * 6)
+      r.insights.forEach((insight: string) => {
+        doc.text(`• ${insight}`, margin, y)
+        y += 5
       })
     }
   } else {
-    const annualReport = report as any
-
-    // Cabeçalho
-    doc.setFontSize(20)
-    doc.setTextColor(...textColor)
-    doc.text("Relatório Anual", 14, 20)
-
+    if (y > 200) { doc.addPage(); y = margin }
     doc.setFontSize(12)
-    doc.setTextColor(100, 100, 100)
-    doc.text(`Ano ${annualReport.period.year}`, 14, 28)
-
-    // Resumo
-    doc.setFontSize(14)
+    doc.setFont("helvetica", "bold")
     doc.setTextColor(...primaryColor)
-    doc.text("Resumo Anual", 14, 42)
-
-    const summaryData = [
-      ["Receita Total", formatCurrency(annualReport.summary.totalIncome)],
-      ["Despesa Total", formatCurrency(annualReport.summary.totalExpense)],
-      ["Fluxo de Caixa Total", formatCurrency(annualReport.summary.totalCashFlow)],
-      ["Receita Média Mensal", formatCurrency(annualReport.summary.averageMonthlyIncome)],
-      ["Despesa Média Mensal", formatCurrency(annualReport.summary.averageMonthlyExpense)],
-      ["Taxa de Poupança Anual", `${annualReport.summary.annualSavingsRate.toFixed(2)}%`],
-      ["Crescimento Patrimonial", formatCurrency(annualReport.summary.netWorthGrowth)],
-      [
-        "Crescimento Patrimonial (%)",
-        `${annualReport.summary.netWorthGrowthPercentage.toFixed(2)}%`,
-      ],
+    doc.text("Performance mensal", margin, y)
+    y += 8
+    const perfData = [
+      ["Melhor mês", r.bestMonth.month, formatCurrency(r.bestMonth.cashFlow)],
+      ["Pior mês", r.worstMonth.month, formatCurrency(r.worstMonth.cashFlow)],
     ]
-
     autoTable(doc, {
-      startY: 48,
-      head: [["Métrica", "Valor"]],
-      body: summaryData,
-      theme: "grid",
-      headStyles: { fillColor: primaryColor },
-    })
-
-    // Melhor e pior mês
-    const performanceY = (doc as any).lastAutoTable.finalY + 10
-    doc.setFontSize(14)
-    doc.setTextColor(...primaryColor)
-    doc.text("Performance", 14, performanceY)
-
-    const performanceData = [
-      [
-        "Melhor Mês",
-        annualReport.bestMonth.month,
-        formatCurrency(annualReport.bestMonth.cashFlow),
-      ],
-      [
-        "Pior Mês",
-        annualReport.worstMonth.month,
-        formatCurrency(annualReport.worstMonth.cashFlow),
-      ],
-    ]
-
-    autoTable(doc, {
-      startY: performanceY + 6,
-      head: [["Indicador", "Mês", "Fluxo de Caixa"]],
-      body: performanceData,
+      startY: y,
+      head: [["Indicador", "Mês", "Fluxo de caixa"]],
+      body: perfData,
       theme: "striped",
-      headStyles: { fillColor: primaryColor },
+      headStyles: { fillColor: primaryColor, textColor: [255, 255, 255] },
+      margin: { left: margin, right: margin },
     })
-
-    // Top Categorias
-    if (annualReport.topCategories.length > 0) {
-      const categoriesY = (doc as any).lastAutoTable.finalY + 10
-      doc.setFontSize(14)
+    y = (doc as any).lastAutoTable.finalY + 12
+    if (r.topCategories?.length > 0 && y < 230) {
+      doc.setFontSize(12)
+      doc.setFont("helvetica", "bold")
       doc.setTextColor(...primaryColor)
-      doc.text("Top 5 Categorias do Ano", 14, categoriesY)
-
-      const categoriesData = annualReport.topCategories.map((c: { category: string; amount: number; percentage: number }) => [
+      doc.text("Top 5 categorias do ano", margin, y)
+      y += 8
+      const catData = r.topCategories.map((c: { category: string; amount: number; percentage: number }) => [
         c.category,
         formatCurrency(c.amount),
         `${c.percentage.toFixed(1)}%`,
       ])
-
       autoTable(doc, {
-        startY: categoriesY + 6,
-        head: [["Categoria", "Valor Total", "%"]],
-        body: categoriesData,
+        startY: y,
+        head: [["Categoria", "Valor total", "%"]],
+        body: catData,
         theme: "striped",
-        headStyles: { fillColor: primaryColor },
+        headStyles: { fillColor: primaryColor, textColor: [255, 255, 255] },
+        margin: { left: margin, right: margin },
       })
     }
   }
 
-  // Rodapé
+  // Rodapé em todas as páginas
   const pageCount = doc.getNumberOfPages()
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i)
     doc.setFontSize(8)
-    doc.setTextColor(150, 150, 150)
+    doc.setTextColor(...mutedColor)
     doc.text(
-      `Gerado em ${new Date().toLocaleDateString("pt-BR")} - Página ${i} de ${pageCount}`,
-      14,
-      doc.internal.pageSize.height - 10
+      `Relatório gerado em ${new Date().toLocaleDateString("pt-BR")} — Página ${i} de ${pageCount}`,
+      margin,
+      (doc.internal.pageSize as { height: number }).height - 10
     )
   }
 

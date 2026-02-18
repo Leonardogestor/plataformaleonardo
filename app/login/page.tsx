@@ -52,7 +52,7 @@ export default function LoginPage() {
         toast({
           title: "Erro ao fazer login",
           description: isCredentialsError
-            ? "Email ou senha incorretos. Use os usuários de teste abaixo ou confira se rodou o seed (npm run db:seed)." + hint
+            ? "Email ou senha incorretos." + hint
             : result.error + hint,
           variant: "destructive",
         })
@@ -108,15 +108,6 @@ export default function LoginPage() {
             <Link href="/register" className="text-primary hover:underline">
               Cadastre-se
             </Link>
-          </div>
-          <div className="mt-6 rounded-lg bg-muted p-4 text-sm">
-            <p className="font-semibold mb-2">Usuários de teste:</p>
-            <p className="text-muted-foreground">
-              <strong>Admin:</strong> admin@lmg.com / admin123
-            </p>
-            <p className="text-muted-foreground">
-              <strong>User:</strong> user@lmg.com / user123
-            </p>
           </div>
         </CardContent>
       </Card>

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/db"
+import { ruleMatchesTransaction } from "@/lib/categorization-analytics"
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,7 +11,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { description } = await request.json()
+    const body = await request.json().catch(() => ({}))
+    const { description, type = "EXPENSE", amount = 0 } = body as {
+      description?: string
+      type?: string
+      amount?: number
+    }
 
     if (!description) {
       return NextResponse.json({ category: null })
@@ -24,10 +30,18 @@ export async function POST(request: NextRequest) {
       orderBy: { matchCount: "desc" },
     })
 
-    const descriptionLower = description.toLowerCase()
+    const typeStr = type === "INCOME" ? "INCOME" : "EXPENSE"
+    const amountNum = Number(amount) || 0
 
     for (const rule of rules) {
-      if (descriptionLower.includes(rule.pattern)) {
+      if (
+        ruleMatchesTransaction(
+          { pattern: rule.pattern, conditionJson: rule.conditionJson },
+          description,
+          typeStr,
+          amountNum
+        )
+      ) {
         await prisma.categoryRule.update({
           where: { id: rule.id },
           data: { matchCount: { increment: 1 } },

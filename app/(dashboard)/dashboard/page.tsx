@@ -11,6 +11,8 @@ import { ProjectionsCard } from "@/components/dashboard/projections-card"
 import { GoalsProgress } from "@/components/dashboard/goals-progress"
 import { CardsSummary } from "@/components/dashboard/cards-summary"
 import { InvestmentsSummary } from "@/components/dashboard/investments-summary"
+import { FinancialHealthScore } from "@/components/dashboard/financial-health-score"
+import { IndependencePreview } from "@/components/dashboard/independence-preview"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -25,11 +27,27 @@ const ConnectBankDialog = dynamic(
   { ssr: false }
 )
 
+type RiscoConsolidado = "baixo" | "moderado" | "alto"
+type TendenciaPatrimonial = "ascendente" | "estável" | "descendente"
+
+interface IndependenceFinanceiraData {
+  patrimonioAtual: number
+  despesaAnual: number
+  patrimonioNecessario: number
+  percentual: number
+  mensagem: string
+}
+
 interface DashboardData {
   metrics: { netWorth: number; monthIncome: number; monthExpense: number; cashFlow: number; savingsRate: number }
   monthlyData: { month: string; income: number; expense: number; netWorth: number }[]
   recentTransactions: unknown[]
   insights: string[]
+  risco_consolidado?: RiscoConsolidado
+  tendencia_patrimonial?: TendenciaPatrimonial
+  impacto_longo_prazo?: string | null
+  decisao_recomendada?: string | null
+  independencia_financeira?: IndependenceFinanceiraData | null
 }
 
 interface GoalItem {
@@ -115,8 +133,29 @@ export default function DashboardPage() {
     )
   }
 
-  const { metrics, monthlyData, recentTransactions, insights } = data
+  const {
+    metrics,
+    monthlyData,
+    recentTransactions,
+    insights,
+    risco_consolidado = "moderado",
+    tendencia_patrimonial = "estável",
+    impacto_longo_prazo = null,
+    decisao_recomendada = null,
+    independencia_financeira = null,
+  } = data
   const evolutionData = monthlyData.map((m) => ({ month: m.month, netWorth: m.netWorth }))
+
+  const healthScore = (() => {
+    let s = 50
+    if (risco_consolidado === "baixo") s += 20
+    else if (risco_consolidado === "alto") s -= 20
+    if (tendencia_patrimonial === "ascendente") s += 15
+    else if (tendencia_patrimonial === "descendente") s -= 15
+    s += Math.min(15, Math.max(0, metrics.savingsRate / 2))
+    s += metrics.netWorth > 0 ? 10 : -10
+    return Math.max(0, Math.min(100, Math.round(s)))
+  })()
 
   return (
     <div className="space-y-6">
@@ -152,6 +191,11 @@ export default function DashboardPage() {
         </TabsContent>
 
         <TabsContent value="presente" className="mt-6 space-y-6">
+          <FinancialHealthScore
+            score={healthScore}
+            risco_consolidado={risco_consolidado}
+            tendencia_patrimonial={tendencia_patrimonial}
+          />
           <DashboardStats
             netWorth={metrics.netWorth}
             monthIncome={metrics.monthIncome}
@@ -166,15 +210,24 @@ export default function DashboardPage() {
             />
             <ProjectionsCard />
           </div>
-          {insights.length > 0 && (
+          {(insights.length > 0 || impacto_longo_prazo || decisao_recomendada) && (
             <div>
               <h3 className="mb-3 text-base font-semibold">Insights</h3>
               <div className="grid gap-3 sm:grid-cols-2">
                 {insights.map((text, i) => (
                   <InsightCard key={i} text={text} />
                 ))}
+                {impacto_longo_prazo && (
+                  <InsightCard key="impacto" text={impacto_longo_prazo} />
+                )}
+                {decisao_recomendada && (
+                  <InsightCard key="decisao" text={decisao_recomendada} />
+                )}
               </div>
             </div>
+          )}
+          {independencia_financeira && (
+            <IndependencePreview data={independencia_financeira} />
           )}
           <RecentTransactions
             transactions={

@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/db"
+import {
+  calcIndicePrevisibilidadeFinanceira,
+  calcTaxaExecucaoOrcamento,
+  calcHeatmapExecucao,
+} from "@/lib/planning-analytics"
 
 // GET /api/planning?startMonth=YYYY-MM&endMonth=YYYY-MM
 // Retorna matriz: meses e por categoria o planejado x realizado por mês
@@ -103,7 +108,17 @@ export async function GET(request: NextRequest) {
       return { category, byMonth }
     })
 
-    return NextResponse.json({ months, categories })
+    const indice_previsibilidade_financeira = calcIndicePrevisibilidadeFinanceira(categories)
+    const taxa_execucao_orcamento = calcTaxaExecucaoOrcamento(categories)
+    const heatmap_execucao = calcHeatmapExecucao(categories, months)
+
+    return NextResponse.json({
+      months,
+      categories,
+      indice_previsibilidade_financeira,
+      taxa_execucao_orcamento,
+      heatmap_execucao,
+    })
   } catch (error) {
     console.error("Erro planejamento:", error)
     return NextResponse.json({ error: "Erro ao buscar planejamento" }, { status: 500 })

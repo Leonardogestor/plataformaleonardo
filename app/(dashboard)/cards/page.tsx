@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
 import { formatCurrency } from "@/lib/utils"
-import { Plus, CreditCard, Edit, Trash2, Calendar } from "lucide-react"
+import { Plus, CreditCard, Edit, Trash2, Calendar, AlertTriangle, TrendingUp, Wallet } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -60,6 +60,18 @@ const cardBrands = [
   "Outro",
 ]
 
+interface CardsAnalytics {
+  renda_futura_comprometida: number
+  endividamento_12_meses: number
+  indicador_alavancagem: number
+  por_cartao: {
+    cardId: string
+    limite: number
+    uso_percentual: number
+    divida_restante: number
+  }[]
+}
+
 const cardColors = [
   { name: "Verde", value: "hsl(var(--success))" },
   { name: "Roxo", value: "hsl(var(--secondary))" },
@@ -73,6 +85,7 @@ const cardColors = [
 
 export default function CardsPage() {
   const [cards, setCards] = useState<CreditCard[]>([])
+  const [analytics, setAnalytics] = useState<CardsAnalytics | null>(null)
   const [isOpen, setIsOpen] = useState(false)
   const [editingCard, setEditingCard] = useState<CreditCard | null>(null)
   const { toast } = useToast()
@@ -93,10 +106,17 @@ export default function CardsPage() {
 
   const fetchCards = useCallback(async () => {
     try {
-      const response = await fetch("/api/cards")
-      if (response.ok) {
-        const data = await response.json()
+      const [cardsRes, analyticsRes] = await Promise.all([
+        fetch("/api/cards"),
+        fetch("/api/cards/analytics"),
+      ])
+      if (cardsRes.ok) {
+        const data = await cardsRes.json()
         setCards(data)
+      }
+      if (analyticsRes.ok) {
+        const data = await analyticsRes.json()
+        setAnalytics(data)
       }
     } catch (error) {
       toast({
@@ -183,6 +203,9 @@ export default function CardsPage() {
   }
 
   const totalLimit = cards.reduce((sum, card) => sum + parseFloat(card.limit), 0)
+  const porCartaoMap = analytics?.por_cartao
+    ? new Map(analytics.por_cartao.map((p) => [p.cardId, p]))
+    : null
 
   return (
     <div className="space-y-6">
@@ -334,13 +357,59 @@ export default function CardsPage() {
         </CardContent>
       </Card>
 
+      {analytics && cards.length > 0 && (
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Renda futura comprometida</CardTitle>
+              <Wallet className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold">{formatCurrency(analytics.renda_futura_comprometida)}</p>
+              <p className="text-xs text-muted-foreground mt-1">Valor mensal em parcelas</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Endividamento (12 meses)</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold">{formatCurrency(analytics.endividamento_12_meses)}</p>
+              <p className="text-xs text-muted-foreground mt-1">Parcelas nos próximos 12 meses</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Indicador alavancagem</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold">{(analytics.indicador_alavancagem * 100).toFixed(0)}%</p>
+              <p className="text-xs text-muted-foreground mt-1">Dívida parcelada / limite total</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {cards.map((card) => (
+        {cards.map((card) => {
+          const uso = porCartaoMap?.get(card.id)
+          const usoPercent = uso?.uso_percentual ?? 0
+          const alertaLimite = usoPercent > 60
+
+          return (
           <Card
             key={card.id}
-            className="overflow-hidden"
+            className={`overflow-hidden ${alertaLimite ? "ring-2 ring-amber-500 ring-offset-2 border-amber-500/50" : ""}`}
             style={{ borderTop: `4px solid ${card.color || "#6b7280"}` }}
           >
+            {alertaLimite && (
+              <div className="flex items-center gap-2 px-4 py-2 bg-amber-500/15 text-amber-700 dark:text-amber-400 border-b border-amber-500/30">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <span className="text-sm font-medium">Uso do limite acima de 60%</span>
+              </div>
+            )}
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{card.name}</CardTitle>
               <CreditCard className="h-4 w-4 text-muted-foreground" />
@@ -351,6 +420,25 @@ export default function CardsPage() {
                   <p className="text-xs text-muted-foreground">Número</p>
                   <p className="text-lg font-mono">•••• {card.lastFourDigits}</p>
                 </div>
+
+                {uso != null && (
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">Uso do limite (parcelas)</span>
+                      <span className={alertaLimite ? "font-semibold text-amber-600 dark:text-amber-400" : "font-medium"}>
+                        {usoPercent.toFixed(0)}%
+                      </span>
+                    </div>
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                      <div
+                        className={`h-full rounded-full transition-all ${
+                          alertaLimite ? "bg-amber-500" : "bg-primary"
+                        }`}
+                        style={{ width: `${Math.min(100, usoPercent)}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between text-xs">
                   <div>
@@ -399,7 +487,8 @@ export default function CardsPage() {
               </div>
             </CardContent>
           </Card>
-        ))}
+          )
+        })}
       </div>
 
       {cards.length === 0 && (

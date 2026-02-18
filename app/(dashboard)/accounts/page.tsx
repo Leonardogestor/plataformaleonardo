@@ -21,7 +21,8 @@ import {
 } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
 import { formatCurrency } from "@/lib/utils"
-import { Plus, Wallet, Edit, Trash2 } from "lucide-react"
+import { Plus, Wallet, Edit, Trash2, TrendingDown, PieChart } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -63,8 +64,23 @@ const accountTypes = {
   OTHER: "Outro",
 }
 
+const liquidezLabels: Record<string, string> = {
+  alta: "Alta liquidez",
+  média: "Média liquidez",
+  baixa: "Baixa liquidez",
+}
+
+const liquidezOrder: Record<string, number> = { alta: 0, média: 1, baixa: 2 }
+
+interface AccountsAnalytics {
+  liquidez_por_conta: { accountId: string; liquidez: string }[]
+  custo_oportunidade_mensal: number
+  percentual_patrimonio_improdutivo: number
+}
+
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([])
+  const [analytics, setAnalytics] = useState<AccountsAnalytics | null>(null)
   const [isOpen, setIsOpen] = useState(false)
   const [editingAccount, setEditingAccount] = useState<Account | null>(null)
   const { toast } = useToast()
@@ -84,10 +100,17 @@ export default function AccountsPage() {
 
   const fetchAccounts = useCallback(async () => {
     try {
-      const response = await fetch("/api/accounts")
-      if (response.ok) {
-        const data = await response.json()
+      const [accountsRes, analyticsRes] = await Promise.all([
+        fetch("/api/accounts"),
+        fetch("/api/accounts/analytics"),
+      ])
+      if (accountsRes.ok) {
+        const data = await accountsRes.json()
         setAccounts(data)
+      }
+      if (analyticsRes.ok) {
+        const data = await analyticsRes.json()
+        setAnalytics(data)
       }
     } catch (error) {
       toast({
@@ -176,6 +199,14 @@ export default function AccountsPage() {
   }
 
   const totalBalance = accounts.reduce((sum, acc) => sum + parseFloat(acc.balance), 0)
+  const liquidezMap = analytics?.liquidez_por_conta
+    ? new Map(analytics.liquidez_por_conta.map((c) => [c.accountId, c.liquidez]))
+    : null
+  const accountsSorted = [...accounts].sort((a, b) => {
+    const la = liquidezMap?.get(a.id) ?? "média"
+    const lb = liquidezMap?.get(b.id) ?? "média"
+    return (liquidezOrder[la] ?? 1) - (liquidezOrder[lb] ?? 1)
+  })
 
   return (
     <div className="space-y-6">
@@ -274,12 +305,50 @@ export default function AccountsPage() {
         </CardContent>
       </Card>
 
+      {analytics && (
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Custo de oportunidade (mensal)</CardTitle>
+              <TrendingDown className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold">{formatCurrency(analytics.custo_oportunidade_mensal)}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Estimativa do que deixaria de render em conta corrente/dinheiro parado (referência CDI)
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Patrimônio improdutivo</CardTitle>
+              <PieChart className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold">{analytics.percentual_patrimonio_improdutivo.toFixed(1)}%</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                % do saldo em conta corrente e dinheiro (sem rendimento relevante)
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {accounts.map((account) => (
+        {accountsSorted.map((account) => {
+          const liquidez = liquidezMap?.get(account.id)
+          return (
           <Card key={account.id}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{account.name}</CardTitle>
-              <Wallet className="h-4 w-4 text-muted-foreground" />
+              <div className="flex items-center gap-1">
+                {liquidez && (
+                  <Badge variant="outline" className="text-xs">
+                    {liquidezLabels[liquidez] ?? liquidez}
+                  </Badge>
+                )}
+                <Wallet className="h-4 w-4 text-muted-foreground" />
+              </div>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
@@ -300,7 +369,8 @@ export default function AccountsPage() {
               </div>
             </CardContent>
           </Card>
-        ))}
+          )
+        })}
       </div>
     </div>
   )

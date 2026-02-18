@@ -80,26 +80,50 @@ model User {
   goals               Goal[]
   budgets             Budget[]
   investments         Investment[]
-  categorizationRules CategoryRule[]
-  documents           Document[]
+  categorizationRules    CategoryRule[]
+  documents             Document[]
+  governanceChecklist   GovernanceChecklistItem[]
 
   @@map("users")
 }
 
 model Document {
-  id        String   @id @default(cuid())
-  userId    String
-  name      String
-  fileName  String
-  mimeType  String
-  size      Int?
-  filePath  String
-  createdAt DateTime @default(now())
+  id            String    @id @default(cuid())
+  userId        String
+  name          String
+  fileName      String
+  mimeType      String
+  size          Int?
+  filePath      String
+  vencimentoAt  DateTime?
+  extractedText String?   @db.Text
+  createdAt     DateTime  @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  governanceItems   GovernanceChecklistItem[]
 
   @@index([userId])
+  @@index([userId, vencimentoAt])
   @@map("documents")
+}
+
+model GovernanceChecklistItem {
+  id          String    @id @default(cuid())
+  userId      String
+  year        Int
+  itemKey     String
+  itemLabel   String
+  completedAt DateTime?
+  documentId  String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  document Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, year, itemKey], name: "userId_year_itemKey")
+  @@index([userId, year])
+  @@map("governance_checklist_items")
 }
 
 enum UserRole {
@@ -294,14 +318,15 @@ enum InvestmentType {
 }
 
 model CategoryRule {
-  id         String   @id @default(cuid())
-  userId     String
-  pattern    String
-  category   String
-  matchCount Int      @default(0)
-  isActive   Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id            String   @id @default(cuid())
+  userId        String
+  pattern       String
+  category      String
+  matchCount    Int      @default(0)
+  isActive      Boolean  @default(true)
+  conditionJson String?  @db.Text // JSON: { type?, amountMin?, amountMax?, descriptionRegex? }
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

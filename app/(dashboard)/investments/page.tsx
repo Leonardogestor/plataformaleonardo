@@ -31,6 +31,11 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   DollarSign,
+  Shield,
+  BarChart3,
+  PieChart,
+  Target,
+  AlertTriangle,
 } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -76,8 +81,32 @@ const investmentTypes = {
   OTHER: { label: "Outro", icon: "📊" },
 }
 
+interface ConcentracaoAtivo {
+  id: string
+  name: string
+  type: string
+  currentValue: number
+  percentual: number
+}
+
+interface SugestaoRebalanceamento {
+  tipo: string
+  prioridade: string
+  mensagem: string
+  ativoOuTipo?: string
+}
+
+interface InvestmentAnalytics {
+  risco_consolidado_portfolio: "baixo" | "moderado" | "alto"
+  indice_sharpe: number | null
+  concentracao_por_ativo: ConcentracaoAtivo[]
+  renda_passiva_mensal: number
+  sugestao_rebalanceamento: SugestaoRebalanceamento[]
+}
+
 export default function InvestmentsPage() {
   const [investments, setInvestments] = useState<Investment[]>([])
+  const [analytics, setAnalytics] = useState<InvestmentAnalytics | null>(null)
   const [drilldownOpen, setDrilldownOpen] = useState(false)
   const [drilldownInvestment, setDrilldownInvestment] = useState<Investment | null>(null)
 
@@ -104,10 +133,17 @@ export default function InvestmentsPage() {
 
   const fetchInvestments = useCallback(async () => {
     try {
-      const response = await fetch("/api/investments")
-      if (response.ok) {
-        const data = await response.json()
+      const [invRes, analyticsRes] = await Promise.all([
+        fetch("/api/investments"),
+        fetch("/api/investments/analytics"),
+      ])
+      if (invRes.ok) {
+        const data = await invRes.json()
         setInvestments(data)
+      }
+      if (analyticsRes.ok) {
+        const analyticsData = await analyticsRes.json()
+        setAnalytics(analyticsData)
       }
     } catch (error) {
       toast({
@@ -345,6 +381,124 @@ export default function InvestmentsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {analytics && investments.length > 0 && (
+        <>
+          <div className="grid gap-4 md:grid-cols-3">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Risco do portfólio</CardTitle>
+                <Shield className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold capitalize">
+                  {analytics.risco_consolidado_portfolio}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Consolidado por tipo de ativo
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Índice Sharpe</CardTitle>
+                <BarChart3 className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {analytics.indice_sharpe != null
+                    ? analytics.indice_sharpe.toFixed(2)
+                    : "—"}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Retorno ajustado ao risco (simplificado)
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Renda passiva (mensal)</CardTitle>
+                <Target className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {formatCurrency(analytics.renda_passiva_mensal)}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Projeção com rentabilidade atual
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {analytics.concentracao_por_ativo.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <PieChart className="h-4 w-4" />
+                  Concentração por ativo
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Percentual do portfólio em cada investimento
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {analytics.concentracao_por_ativo.map((c) => (
+                  <div key={c.id} className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span className="font-medium">{c.name}</span>
+                      <span className="text-muted-foreground">
+                        {c.percentual.toFixed(1)}% · {formatCurrency(c.currentValue)}
+                      </span>
+                    </div>
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-primary transition-all"
+                        style={{ width: `${Math.min(100, c.percentual)}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {analytics.sugestao_rebalanceamento.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <AlertTriangle className="h-4 w-4" />
+                  Sugestão de rebalanceamento
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Recomendações automáticas com base na alocação atual
+                </p>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2">
+                  {analytics.sugestao_rebalanceamento.map((s, i) => (
+                    <li
+                      key={i}
+                      className={`flex items-start gap-2 rounded-lg border p-3 text-sm ${
+                        s.prioridade === "alta"
+                          ? "border-amber-500/50 bg-amber-500/5"
+                          : s.prioridade === "media"
+                            ? "border-muted bg-muted/30"
+                            : "border-border"
+                      }`}
+                    >
+                      <span className="text-muted-foreground shrink-0">
+                        {s.prioridade === "alta" ? "🔴" : s.prioridade === "media" ? "🟡" : "🔵"}
+                      </span>
+                      <span className="text-foreground">{s.mensagem}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+        </>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {investments.map((investment) => {

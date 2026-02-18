@@ -8,6 +8,13 @@ import { formatCurrency } from "@/lib/utils"
 import { Target, Calendar, TrendingUp, Pencil, Trash2, Plus } from "lucide-react"
 import { GoalEvolutionChart } from "./goal-evolution-chart"
 
+const CLASSIFICACAO_LABELS: Record<string, string> = {
+  URGENTE: "Urgente",
+  CURTO_PRAZO: "Curto prazo",
+  MEDIO_PRAZO: "Médio prazo",
+  LONGO_PRAZO: "Longo prazo",
+}
+
 interface GoalCardProps {
   goal: {
     id: string
@@ -24,12 +31,13 @@ interface GoalCardProps {
     remaining: number
     evolution?: { month: string; cumulative: number }[]
   }
+  classificacaoEstrategica?: string
   onEdit: (goal: any) => void
   onDelete: (id: string) => void
   onContribute: (goal: any) => void
 }
 
-export function GoalCard({ goal, onEdit, onDelete, onContribute }: GoalCardProps) {
+export function GoalCard({ goal, classificacaoEstrategica, onEdit, onDelete, onContribute }: GoalCardProps) {
   const isOverdue = goal.daysRemaining < 0 && goal.status === "ACTIVE"
   const isCompleted = goal.status === "COMPLETED"
   const isPaused = goal.status === "PAUSED"
@@ -58,9 +66,16 @@ export function GoalCard({ goal, onEdit, onDelete, onContribute }: GoalCardProps
             <Target className="h-5 w-5 text-primary" />
             <CardTitle className="text-lg">{goal.name}</CardTitle>
           </div>
-          <Badge variant="outline" className={getStatusColor()}>
-            {getStatusText()}
-          </Badge>
+          <div className="flex flex-wrap items-center gap-1 justify-end">
+            {classificacaoEstrategica && (
+              <Badge variant="secondary" className="text-xs">
+                {CLASSIFICACAO_LABELS[classificacaoEstrategica] ?? classificacaoEstrategica}
+              </Badge>
+            )}
+            <Badge variant="outline" className={getStatusColor()}>
+              {getStatusText()}
+            </Badge>
+          </div>
         </div>
         {goal.description && (
           <CardDescription>{goal.description}</CardDescription>

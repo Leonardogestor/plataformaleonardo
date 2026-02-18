@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatCurrency } from "@/lib/utils"
-import { TrendingUp, Award, AlertTriangle, Target } from "lucide-react"
+import { TrendingUp, Award, AlertTriangle, Target, FileText, Lightbulb, CheckCircle2, BarChart3 } from "lucide-react"
 import {
   BarChart,
   Bar,
@@ -18,9 +18,7 @@ import {
 
 interface AnnualReportViewProps {
   data: {
-    period: {
-      year: number
-    }
+    period: { year: number }
     summary: {
       totalIncome: number
       totalExpense: number
@@ -38,25 +36,26 @@ interface AnnualReportViewProps {
       cashFlow: number
       savingsRate: number
     }>
-    topCategories: Array<{
-      category: string
-      amount: number
-      percentage: number
-    }>
-    bestMonth: {
-      month: string
-      cashFlow: number
-    }
-    worstMonth: {
-      month: string
-      cashFlow: number
-    }
+    topCategories: Array<{ category: string; amount: number; percentage: number }>
+    bestMonth: { month: string; cashFlow: number }
+    worstMonth: { month: string; cashFlow: number }
     goalsProgress: Array<{
       name: string
       targetAmount: number
       currentAmount: number
       progress: number
       status: string
+    }>
+    diagnostico?: string
+    principal_risco?: string
+    principal_oportunidade?: string
+    decisao_recomendada?: string
+    benchmarking_comparativo?: Array<{
+      metrica: string
+      seuValor: string
+      referencia: string
+      status: string
+      descricao: string
     }>
   }
 }
@@ -70,6 +69,11 @@ export function AnnualReportView({ data }: AnnualReportViewProps) {
     bestMonth,
     worstMonth,
     goalsProgress,
+    diagnostico,
+    principal_risco,
+    principal_oportunidade,
+    decisao_recomendada,
+    benchmarking_comparativo,
   } = data
 
   const monthlyChartData = monthlyComparison.map((m) => ({
@@ -92,6 +96,99 @@ export function AnnualReportView({ data }: AnnualReportViewProps) {
           <CardDescription>Visão completa do ano financeiro</CardDescription>
         </CardHeader>
       </Card>
+
+      {/* Relatório Estruturado */}
+      {(diagnostico || principal_risco || principal_oportunidade || decisao_recomendada) && (
+        <Card className="border-primary/20 bg-primary/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Relatório Estruturado
+            </CardTitle>
+            <CardDescription>Diagnóstico e recomendações com base no ano</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {diagnostico && (
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Diagnóstico</p>
+                <p className="text-sm leading-relaxed">{diagnostico}</p>
+              </div>
+            )}
+            {principal_risco && (
+              <div className="flex gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+                <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+                <div>
+                  <p className="text-xs font-semibold text-amber-700 dark:text-amber-300 uppercase tracking-wide mb-1">Principal risco</p>
+                  <p className="text-sm leading-relaxed">{principal_risco}</p>
+                </div>
+              </div>
+            )}
+            {principal_oportunidade && (
+              <div className="flex gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3">
+                <Lightbulb className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                <div>
+                  <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 uppercase tracking-wide mb-1">Principal oportunidade</p>
+                  <p className="text-sm leading-relaxed">{principal_oportunidade}</p>
+                </div>
+              </div>
+            )}
+            {decisao_recomendada && (
+              <div className="flex gap-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
+                <CheckCircle2 className="h-5 w-5 shrink-0 text-primary" />
+                <div>
+                  <p className="text-xs font-semibold text-primary uppercase tracking-wide mb-1">Decisão recomendada</p>
+                  <p className="text-sm leading-relaxed font-medium">{decisao_recomendada}</p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Benchmarking comparativo */}
+      {benchmarking_comparativo && benchmarking_comparativo.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              Benchmarking comparativo
+            </CardTitle>
+            <CardDescription>Seus indicadores frente a referências de mercado</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2 font-medium">Métrica</th>
+                    <th className="text-right py-2 font-medium">Seu valor</th>
+                    <th className="text-right py-2 font-medium">Referência</th>
+                    <th className="text-center py-2 font-medium">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {benchmarking_comparativo.map((b, i) => (
+                    <tr key={i} className="border-b last:border-0">
+                      <td className="py-2">{b.metrica}</td>
+                      <td className="text-right tabular-nums font-medium">{b.seuValor}</td>
+                      <td className="text-right text-muted-foreground">{b.referencia}</td>
+                      <td className="text-center">
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                          b.status === "acima" ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300" :
+                          b.status === "no_alvo" ? "bg-amber-500/20 text-amber-700 dark:text-amber-300" :
+                          "bg-destructive/20 text-destructive"
+                        }`}>
+                          {b.status === "acima" ? "Acima" : b.status === "no_alvo" ? "No alvo" : "Abaixo"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Métricas Anuais */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

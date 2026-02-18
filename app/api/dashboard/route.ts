@@ -7,6 +7,10 @@ import {
   getMonthlyEvolution,
   getRecentTransactions,
   getInsights,
+  getRiscoConsolidado,
+  getTendenciaPatrimonial,
+  getInsightsEstrategicos,
+  getIndependenciaFinanceira,
 } from "@/lib/dashboard-queries"
 
 const emptyDashboardData = {
@@ -21,6 +25,17 @@ const emptyDashboardData = {
   monthlyData: [],
   recentTransactions: [],
   insights: [],
+  risco_consolidado: "moderado" as const,
+  tendencia_patrimonial: "estável" as const,
+  impacto_longo_prazo: null as string | null,
+  decisao_recomendada: null as string | null,
+  independencia_financeira: null as {
+    patrimonioAtual: number
+    despesaAnual: number
+    patrimonioNecessario: number
+    percentual: number
+    mensagem: string
+  } | null,
 }
 
 export async function GET(_request: NextRequest) {
@@ -30,14 +45,27 @@ export async function GET(_request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const [metrics, categories, monthlyData, recentTransactions, insights] =
-      await Promise.all([
-        getDashboardMetrics(session.user.id),
-        getCategoryBreakdown(session.user.id),
-        getMonthlyEvolution(session.user.id),
-        getRecentTransactions(session.user.id, 10),
-        getInsights(session.user.id),
-      ])
+    const [
+      metrics,
+      categories,
+      monthlyData,
+      recentTransactions,
+      insights,
+      risco_consolidado,
+      tendencia_patrimonial,
+      insightsEstrategicos,
+      independencia_financeira,
+    ] = await Promise.all([
+      getDashboardMetrics(session.user.id),
+      getCategoryBreakdown(session.user.id),
+      getMonthlyEvolution(session.user.id),
+      getRecentTransactions(session.user.id, 10),
+      getInsights(session.user.id),
+      getRiscoConsolidado(session.user.id),
+      getTendenciaPatrimonial(session.user.id),
+      getInsightsEstrategicos(session.user.id),
+      getIndependenciaFinanceira(session.user.id),
+    ])
 
     return NextResponse.json({
       metrics,
@@ -45,6 +73,11 @@ export async function GET(_request: NextRequest) {
       monthlyData,
       recentTransactions,
       insights,
+      risco_consolidado,
+      tendencia_patrimonial,
+      impacto_longo_prazo: insightsEstrategicos.impacto_longo_prazo,
+      decisao_recomendada: insightsEstrategicos.decisao_recomendada,
+      independencia_financeira,
     })
   } catch (error) {
     console.error("Dashboard API Error:", error)
