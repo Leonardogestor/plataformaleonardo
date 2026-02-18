@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/db"
+import type { Prisma } from "@prisma/client"
 import { writeFile, mkdir } from "fs/promises"
 import path from "path"
 import crypto from "crypto"
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const q = searchParams.get("q")?.trim()
 
-    const where: { userId: string; AND?: unknown[] } = {
+    const where: Prisma.DocumentWhereInput = {
       userId: session.user.id,
     }
     if (q && q.length >= 2) {

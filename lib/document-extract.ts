@@ -6,7 +6,8 @@ const MAX_EXTRACT_LENGTH = 100_000
 
 export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
   try {
-    const pdfParse = (await import("pdf-parse")).default
+    const mod = await import("pdf-parse")
+    const pdfParse = (mod as { default?: (b: Buffer) => Promise<{ text?: string }> }).default ?? (mod as (b: Buffer) => Promise<{ text?: string }>)
     const data = await pdfParse(buffer)
     const text = typeof data?.text === "string" ? data.text : ""
     return text.slice(0, MAX_EXTRACT_LENGTH).trim()

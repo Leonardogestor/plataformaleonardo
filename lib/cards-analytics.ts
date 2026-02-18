@@ -67,7 +67,7 @@ export function calcCardsAnalytics(
     const uso_percentual = e.limite > 0 ? (e.divida / e.limite) * 100 : 0
     return {
       cardId: c.id,
-      limite: c.limite,
+      limite: c.limit,
       uso_percentual,
       divida_restante: e.divida,
     }

@@ -29,7 +29,6 @@ export async function GET() {
     })
     const existingPatterns = new Set(rules.map((r) => r.pattern.toLowerCase()))
 
-    type Group = { category: string; count: number }[]
     const byPattern = new Map<string, Map<string, number>>()
 
     for (const t of transactions) {
@@ -64,6 +63,7 @@ export async function GET() {
       if (total < MIN_OCORRENCIAS) continue
 
       const top = entries[0]
+      if (!top) continue
       const confidence = top.count / total
       if (confidence < MIN_CONFIANCA) continue
 
