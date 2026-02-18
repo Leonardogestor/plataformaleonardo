@@ -21,14 +21,20 @@ export async function GET(request: NextRequest) {
       endMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
     }
     if (!startMonth) {
-      const [y, m] = endMonth.split("-").map(Number)
+      const parts = endMonth.split("-").map(Number)
+      const y = parts[0] ?? now.getFullYear()
+      const m = parts[1] ?? now.getMonth() + 1
       const d = new Date(y, m - 1, 1)
       d.setMonth(d.getMonth() - 5)
       startMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
     }
 
-    const [sy, sm] = startMonth.split("-").map(Number)
-    const [ey, em] = endMonth.split("-").map(Number)
+    const startParts = startMonth.split("-").map(Number)
+    const endParts = endMonth.split("-").map(Number)
+    const sy = startParts[0] ?? 0
+    const sm = startParts[1] ?? 1
+    const ey = endParts[0] ?? 0
+    const em = endParts[1] ?? 1
     if (!Number.isFinite(sy) || !Number.isFinite(sm) || !Number.isFinite(ey) || !Number.isFinite(em)) {
       return NextResponse.json({ error: "Meses inválidos" }, { status: 400 })
     }

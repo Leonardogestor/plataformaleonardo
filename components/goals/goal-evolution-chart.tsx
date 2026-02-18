@@ -9,8 +9,10 @@ const MONTH_LABELS: Record<string, string> = {
 }
 
 function formatMonth(ym: string) {
-  const [y, m] = ym.split("-")
-  return `${MONTH_LABELS[m] || m}/${y?.slice(2) ?? ""}`
+  const parts = ym.split("-")
+  const y = parts[0] ?? ""
+  const m = parts[1] ?? ""
+  return `${MONTH_LABELS[m] ?? m}/${y.slice(2)}`
 }
 
 interface GoalEvolutionChartProps {

@@ -14,7 +14,7 @@ import { InvestmentsSummary } from "@/components/dashboard/investments-summary"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Building2, Calendar, TrendingUp, FileText, ChevronRight, Loader2 } from "lucide-react"
+import { Building2, FileText, ChevronRight, Loader2 } from "lucide-react"
 import dynamic from "next/dynamic"
 
 const ConnectBankDialog = dynamic(
@@ -65,14 +65,13 @@ export default function DashboardPage() {
     setError(null)
     Promise.all([
       fetch("/api/dashboard").then((res) => (res.ok ? res.json() : Promise.reject(new Error("Dashboard")))),
-      fetch("/api/goals").then((res) => (res.ok ? res.json() : [])).then((list: { targetAmount: unknown; currentAmount: unknown }[]) =>
-        list.map((g) => ({
-          id: (g as { id: string }).id,
-          name: (g as { name: string }).name,
-          targetAmount: Number(g.targetAmount),
-          currentAmount: Number(g.currentAmount),
-        }))
-      ).catch(() => []),
+      fetch("/api/goals").then((res) => (res.ok ? res.json() : [])).then((list: unknown) => {
+        const arr = Array.isArray(list) ? list : []
+        return arr.map((g: unknown) => {
+          const x = g as { id: string; name: string; targetAmount: unknown; currentAmount: unknown }
+          return { id: x.id, name: x.name, targetAmount: Number(x.targetAmount), currentAmount: Number(x.currentAmount) }
+        })
+      }).catch(() => []),
       fetch("/api/cards").then((res) => (res.ok ? res.json() : [])).then((list: { id: string; name: string; limit: unknown }[]) =>
         list.map((c) => ({ id: c.id, name: c.name, limit: Number(c.limit), currentBalance: 0 }))
       ).catch(() => []),

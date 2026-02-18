@@ -42,11 +42,15 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Planilha vazia" }, { status: 400 })
       }
       const sheet = wb.Sheets[firstSheet]
+      if (!sheet) {
+        return NextResponse.json({ error: "Planilha não encontrada" }, { status: 400 })
+      }
       const data = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, defval: "" }) as string[][]
       if (data.length < 2) {
         return NextResponse.json({ error: "Planilha sem dados. Use a primeira linha como cabeçalho." }, { status: 400 })
       }
-      const headers = data[0].map((h, i) => String(h ?? "").trim() || `Col ${i + 1}`) as string[]
+      const firstRow = data[0]
+      const headers = (firstRow ?? []).map((h, i) => String(h ?? "").trim() || `Col ${i + 1}`) as string[]
       const rows: Record<string, string>[] = data.slice(1).map((row) => {
         const obj: Record<string, string> = {}
         headers.forEach((h, i) => {

@@ -13,7 +13,7 @@ export function PieChart({ data }: PieChartProps) {
     <ResponsiveContainer width="100%" height={220}>
       <RePieChart>
         <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label>
-          {data.map((entry, idx) => (
+          {data.map((_entry, idx) => (
             <Cell key={`cell-${idx}`} fill={COLORS[idx % COLORS.length]} />
           ))}
         </Pie>

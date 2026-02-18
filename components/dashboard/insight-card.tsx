@@ -13,10 +13,7 @@ interface InsightCardProps {
 
 export function InsightCard({
   text,
-  netWorth = 0,
   cashFlow = 0,
-  monthExpense = 0,
-  monthIncome = 0,
 }: InsightCardProps) {
   const generateInsight = (): string => {
     if (text) return text

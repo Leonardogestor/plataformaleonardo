@@ -183,6 +183,7 @@ export default function DocumentsPage() {
         <CardContent>
           {documents.length === 0 ? (
             <EmptyState
+              icon={FileText}
               title="Nenhum documento"
               description="Envie seu primeiro PDF ou planilha acima."
             />

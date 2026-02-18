@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 
-export async function POST(req: Request) {
+export async function POST(_req: Request) {
   const res = await fetch(`${process.env.PLUGGY_BASE_URL}/connect_token`, {
     method: "POST",
     headers: {

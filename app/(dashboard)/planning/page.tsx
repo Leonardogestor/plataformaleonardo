@@ -30,8 +30,8 @@ const MONTH_LABELS: Record<string, string> = {
 }
 
 function formatMonth(ym: string) {
-  const [, m] = ym.split("-")
-  return `${MONTH_LABELS[m] || m}`
+  const m = ym.split("-")[1] ?? ""
+  return MONTH_LABELS[m] ?? m
 }
 
 export default function PlanningPage() {
@@ -46,7 +46,9 @@ export default function PlanningPage() {
   const fetchPlanning = useCallback(async () => {
     setLoading(true)
     const n = parseInt(period, 10) || 6
-    const [y, m] = currentMonth.split("-").map(Number)
+    const parts = currentMonth.split("-").map(Number)
+    const y = parts[0] ?? new Date().getFullYear()
+    const m = parts[1] ?? new Date().getMonth() + 1
     const start = new Date(y, m - 1, 1)
     start.setMonth(start.getMonth() - (n - 1))
     const startMonth = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}`

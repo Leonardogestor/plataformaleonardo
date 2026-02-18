@@ -58,7 +58,7 @@ export function DashboardStats({ netWorth, monthIncome, monthExpense, cashFlow }
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      {cards.map(({ label, value, icon: Icon, barColor, barPercent, change, changeUp }) => (
+      {cards.map(({ label, value, barColor, barPercent, change, changeUp }) => (
         <div
           key={label}
           className="rounded-lg border border-border/60 bg-card p-5 transition-colors hover:border-border"

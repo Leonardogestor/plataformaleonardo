@@ -15,13 +15,14 @@ export function parseOfx(content: string): OfxTransaction[] {
   let block: RegExpExecArray | null
   while ((block = blockRegex.exec(content)) !== null) {
     const inner = block[1]
+    if (!inner) continue
     const dateMatch = inner.match(/<DTPOSTED>(\d{8})/i)
     const amountMatch = inner.match(/<TRNAMT>([-\d,.]+)/i)
     const memoMatch = inner.match(/<(?:MEMO|NAME)>([^<]*)/i)
 
-    const dateStr = dateMatch ? dateMatch[1] : ""
-    const amountStr = amountMatch ? amountMatch[1].replace(",", ".") : "0"
-    const description = (memoMatch ? memoMatch[1].trim() : "").slice(0, 255) || "Sem descrição"
+    const dateStr = dateMatch?.[1] ?? ""
+    const amountStr = amountMatch?.[1]?.replace(",", ".") ?? "0"
+    const description = (memoMatch?.[1]?.trim() ?? "").slice(0, 255) || "Sem descrição"
 
     if (!dateStr) continue
 

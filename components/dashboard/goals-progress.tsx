@@ -21,7 +21,7 @@ export function GoalsProgress({ goals }: GoalsProgressProps) {
     { id: "3", name: "Investimentos", targetAmount: 20000, currentAmount: 16000 },
   ]
 
-  const displayGoals = (goals?.length ?? 0) > 0 ? goals : defaultGoals
+  const displayGoals: Goal[] = (goals?.length ?? 0) > 0 ? goals! : defaultGoals
 
   const getProgressColor = (percentage: number) => {
     if (percentage >= 80) return "bg-primary"

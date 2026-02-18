@@ -1,4 +1,5 @@
 "use client"
+
 import { useEffect, useState } from "react"
 import { InvestmentDrilldown } from "@/components/investments/investment-drilldown"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
@@ -48,7 +49,7 @@ export function InvestmentDrilldownDialog({
               profitability: investment.profitability ? parseFloat(investment.profitability) : 0,
               profit: parseFloat(investment.currentValue) - parseFloat(investment.amount),
               history: (movements || []).map((m: any) => ({
-                date: m.date.split("T")[0],
+                date: m.date?.split("T")[0] ?? "",
                 value: m.amount,
                 aportes: m.type === "APORTE" ? m.amount : undefined,
                 retiradas: m.type === "RETIRADA" ? Math.abs(m.amount) : undefined,

@@ -8,7 +8,7 @@ interface CardData {
   id: string
   name: string
   limit: number
-  currentBalance: number
+  currentBalance?: number
 }
 
 interface CardsSummaryProps {
@@ -21,7 +21,7 @@ export function CardsSummary({ cards }: CardsSummaryProps) {
     { id: "2", name: "Inter", limit: 3000, currentBalance: 800 },
   ]
 
-  const displayCards = (cards?.length ?? 0) > 0 ? cards : defaultCards
+  const displayCards: CardData[] = (cards?.length ?? 0) > 0 ? cards! : defaultCards
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -47,7 +47,8 @@ export function CardsSummary({ cards }: CardsSummaryProps) {
       </CardHeader>
       <CardContent className="space-y-4">
         {displayCards.slice(0, 2).map((card) => {
-          const percentage = Math.round((card.currentBalance / card.limit) * 100)
+          const balance = card.currentBalance ?? 0
+          const percentage = Math.round((balance / card.limit) * 100)
           const cardColor = getCardColor(card.name)
 
           return (
@@ -67,7 +68,7 @@ export function CardsSummary({ cards }: CardsSummaryProps) {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-white/70">Fatura</span>
                   <span className="text-white font-medium">
-                    {formatCurrency(card.currentBalance)}
+                    {formatCurrency(card.currentBalance ?? 0)}
                   </span>
                 </div>
               </div>
