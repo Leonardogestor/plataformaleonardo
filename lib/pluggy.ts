@@ -95,6 +95,30 @@ export async function getPluggyTransactions(
   return res.data.results ?? []
 }
 
+/**
+ * Fetches one page of transactions from Pluggy API.
+ * Used by sync logic to support pagination (Pluggy may return totalPages > 1).
+ */
+export async function getPluggyTransactionsPage(
+  accountId: string,
+  from?: string,
+  to?: string,
+  page: number = 1
+): Promise<{ results: any[]; totalPages: number; page: number }> {
+  const token = await getPluggyToken()
+  const params: Record<string, string | number> = { accountId, pageSize: 500, page }
+  if (from) params.from = from
+  if (to) params.to = to
+  const res = await getAxios().get("/transactions", {
+    headers: { Authorization: `Bearer ${token}` },
+    params,
+  })
+  const results = res.data.results ?? []
+  const totalPages = res.data.totalPages ?? 1
+  const currentPage = res.data.page ?? page
+  return { results, totalPages, page: currentPage }
+}
+
 export async function getPluggyItemStatus(itemId: string): Promise<any> {
   const token = await getPluggyToken()
   const res = await getAxios().get(`/items/${itemId}`, {

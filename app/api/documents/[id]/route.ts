@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/db"
-import { readFile, unlink } from "fs/promises"
-import path from "path"
+import { deleteDocumentBlob } from "@/lib/blob"
 import { z } from "zod"
 
 const updateDocumentSchema = z.object({
@@ -11,6 +10,9 @@ const updateDocumentSchema = z.object({
   vencimentoAt: z.string().nullable().optional(),
 })
 
+/**
+ * GET – Return document metadata. For file download use GET /api/documents/[id]/download to get secure redirect to blob URL.
+ */
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -30,18 +32,10 @@ export async function GET(
       return NextResponse.json({ error: "Documento não encontrado" }, { status: 404 })
     }
 
-    const fullPath = path.join(process.cwd(), doc.filePath)
-    const buffer = await readFile(fullPath)
-
-    return new NextResponse(buffer, {
-      headers: {
-        "Content-Type": doc.mimeType,
-        "Content-Disposition": `attachment; filename="${encodeURIComponent(doc.fileName)}"`,
-      },
-    })
+    return NextResponse.json(doc)
   } catch (error) {
-    console.error("Erro ao baixar documento:", error)
-    return NextResponse.json({ error: "Erro ao baixar documento" }, { status: 500 })
+    console.error("Erro ao obter documento:", error)
+    return NextResponse.json({ error: "Erro ao obter documento" }, { status: 500 })
   }
 }
 
@@ -86,6 +80,9 @@ export async function PATCH(
   }
 }
 
+/**
+ * DELETE – Delete document record and blob (by fileUrl or fileKey). Safe if blob already removed.
+ */
 export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -105,11 +102,13 @@ export async function DELETE(
       return NextResponse.json({ error: "Documento não encontrado" }, { status: 404 })
     }
 
-    const fullPath = path.join(process.cwd(), doc.filePath)
-    try {
-      await unlink(fullPath)
-    } catch {
-      // arquivo já removido
+    const toDelete = doc.fileUrl ?? doc.fileKey
+    if (toDelete) {
+      try {
+        await deleteDocumentBlob(toDelete)
+      } catch {
+        // Blob may already be deleted
+      }
     }
 
     await prisma.document.delete({

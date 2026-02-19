@@ -27,7 +27,10 @@ interface Document {
   name: string
   fileName: string
   mimeType: string
-  size: number | null
+  size?: number | null
+  fileSize?: number | null
+  status?: "PROCESSING" | "COMPLETED" | "FAILED"
+  errorMessage?: string | null
   vencimentoAt: string | null
   extractedText: string | null
   createdAt: string
@@ -306,7 +309,7 @@ export default function DocumentsPage() {
                       <span className="flex shrink-0 items-center gap-2">
                         <span className="text-destructive">{formatDate(d.vencimentoAt)}</span>
                         <Button variant="ghost" size="sm" className="h-7 px-2" asChild>
-                          <a href={`/api/documents/${d.id}`} download={d.fileName}>Baixar</a>
+                          <a href={`/api/documents/${d.id}/download`} download={d.fileName} target="_blank" rel="noopener noreferrer">Baixar</a>
                         </Button>
                       </span>
                     </li>
@@ -324,7 +327,7 @@ export default function DocumentsPage() {
                       <span className="flex shrink-0 items-center gap-2">
                         <span>{formatDate(d.vencimentoAt)}</span>
                         <Button variant="ghost" size="sm" className="h-7 px-2" asChild>
-                          <a href={`/api/documents/${d.id}`} download={d.fileName}>Baixar</a>
+                          <a href={`/api/documents/${d.id}/download`} download={d.fileName} target="_blank" rel="noopener noreferrer">Baixar</a>
                         </Button>
                       </span>
                     </li>
@@ -414,7 +417,7 @@ export default function DocumentsPage() {
               <Input
                 id="file"
                 type="file"
-                accept=".pdf,.xlsx,.xls,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,image/jpeg,image/png"
+                accept=".pdf,application/pdf"
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
               />
             </div>
@@ -447,7 +450,12 @@ export default function DocumentsPage() {
                     <div>
                       <p className="font-medium">{doc.name}</p>
                       <p className="text-sm text-muted-foreground">
-                        {doc.fileName} · {formatSize(doc.size)} · {formatDate(doc.createdAt)}
+                        {doc.fileName} · {formatSize(doc.fileSize ?? doc.size ?? null)} · {formatDate(doc.createdAt)}
+                        {doc.status != null && (
+                          <span className={doc.status === "FAILED" ? "text-destructive" : doc.status === "PROCESSING" ? "text-muted-foreground" : ""}>
+                            · {doc.status === "PROCESSING" ? "Processando..." : doc.status === "FAILED" ? "Falhou" : "Concluído"}
+                          </span>
+                        )}
                         {doc.vencimentoAt && (
                           <span className="ml-2">Venc.: {formatDate(doc.vencimentoAt)}</span>
                         )}
@@ -474,7 +482,7 @@ export default function DocumentsPage() {
                       Vencimento
                     </Button>
                     <Button variant="outline" size="sm" asChild>
-                      <a href={`/api/documents/${doc.id}`} download={doc.fileName}><Download className="h-4 w-4" /></a>
+                      <a href={`/api/documents/${doc.id}/download`} download={doc.fileName} target="_blank" rel="noopener noreferrer"><Download className="h-4 w-4" /></a>
                     </Button>
                     <Button variant="outline" size="sm" onClick={() => handleDelete(doc.id)} className="text-destructive hover:text-destructive">
                       <Trash2 className="h-4 w-4" />

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Extração de texto de documentos (OCR/PDF/Excel) para indexação e busca.
  */

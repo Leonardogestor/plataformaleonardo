@@ -1,8 +1,16 @@
 "use client"
-import { InvestmentDrilldownDialog } from "@/components/investments/investment-drilldown-dialog"
-import { AportRetiradaDialog } from "@/components/investments/aport-retirada-dialog"
 
 import { useEffect, useState, useCallback } from "react"
+import { InvestmentDrilldownDialog } from "@/components/investments/investment-drilldown-dialog"
+import { AportRetiradaForm } from "@/components/investments/aport-retirada-dialog"
+import { InvestmentKpiCards } from "@/components/investments/investment-kpi-cards"
+import { PortfolioEvolutionChart } from "@/components/investments/portfolio-evolution-chart"
+import { PortfolioAllocationChart } from "@/components/investments/portfolio-allocation-chart"
+import { TopAssetsChart } from "@/components/investments/top-assets-chart"
+import { InvestmentsInsights } from "@/components/investments/investments-insights"
+import { InvestmentsTableEnhanced } from "@/components/investments/investments-table-enhanced"
+import type { InvestmentRow } from "@/components/investments/investments-table-enhanced"
+
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -26,11 +34,6 @@ import { formatCurrency } from "@/lib/utils"
 import {
   Plus,
   TrendingUp,
-  Edit,
-  Trash2,
-  ArrowUpRight,
-  ArrowDownRight,
-  DollarSign,
   Shield,
   BarChart3,
   PieChart,
@@ -40,7 +43,6 @@ import {
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { Badge } from "@/components/ui/badge"
 
 const investmentSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
@@ -238,29 +240,41 @@ export default function InvestmentsPage() {
     }
   }
 
-  const calculateReturn = (amount: string, currentValue: string) => {
-    const invested = parseFloat(amount)
-    const current = parseFloat(currentValue)
-    const returnValue = current - invested
-    const returnPercent = ((returnValue / invested) * 100).toFixed(2)
-    return {
-      returnValue,
-      returnPercent: parseFloat(returnPercent),
-      isPositive: returnValue >= 0,
-    }
-  }
-
-  const totalInvested = investments.reduce((s, i) => s + parseFloat(i.amount), 0)
   const totalCurrent = investments.reduce((s, i) => s + parseFloat(i.currentValue), 0)
-  const totalReturn = totalCurrent - totalInvested
-  const totalReturnPercent = totalInvested > 0 ? ((totalReturn / totalInvested) * 100).toFixed(2) : "0"
+  const [evolutionMonths, setEvolutionMonths] = useState(12)
+  const [aportInvestment, setAportInvestment] = useState<Investment | null>(null)
+
+  const handleAportRetiradaFromTable = useCallback((inv: InvestmentRow) => {
+    setAportInvestment(inv)
+  }, [])
+
+  const handleAportRetiradaSubmit = useCallback(
+    async (amount: number, type: "APORTE" | "RETIRADA") => {
+      if (!aportInvestment) return
+      try {
+        const response = await fetch(`/api/investments/${aportInvestment.id}/movements`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ amount, type }),
+        })
+        if (response.ok) {
+          toast({ title: type === "APORTE" ? "Aporte registrado" : "Retirada registrada" })
+          setAportInvestment(null)
+          fetchInvestments()
+        }
+      } catch {
+        toast({ title: "Erro ao registrar", variant: "destructive" })
+      }
+    },
+    [aportInvestment, fetchInvestments, toast]
+  )
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Investimentos</h2>
-          <p className="text-muted-foreground">Cadastre e acompanhe seus investimentos</p>
+          <p className="text-muted-foreground">Visão estratégica e analítica do seu portfólio</p>
         </div>
         <Dialog
           open={isOpen}
@@ -338,49 +352,31 @@ export default function InvestmentsPage() {
         </Dialog>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Investido</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalInvested)}</div>
-          </CardContent>
-        </Card>
+      <InvestmentKpiCards investments={investments} />
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Valor Atual</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalCurrent)}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Retorno Total</CardTitle>
-            {totalReturn >= 0 ? (
-              <ArrowUpRight className="h-4 w-4 text-green-600" />
-            ) : (
-              <ArrowDownRight className="h-4 w-4 text-red-600" />
-            )}
-          </CardHeader>
-          <CardContent>
-            <div
-              className={`text-2xl font-bold ${totalReturn >= 0 ? "text-green-600" : "text-red-600"}`}
+      {investments.length > 0 && (
+        <>
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-lg font-semibold">Evolução do portfólio</h3>
+            <select
+              value={evolutionMonths}
+              onChange={(e) => setEvolutionMonths(Number(e.target.value))}
+              className="rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
-              {formatCurrency(totalReturn)}
-            </div>
-            <p className={`text-xs ${totalReturn >= 0 ? "text-green-600" : "text-red-600"}`}>
-              {totalReturn >= 0 ? "+" : ""}
-              {totalReturnPercent}%
-            </p>
-          </CardContent>
-        </Card>
+              <option value={6}>Últimos 6 meses</option>
+              <option value={12}>Últimos 12 meses</option>
+            </select>
+          </div>
+          <PortfolioEvolutionChart investments={investments} months={evolutionMonths} />
+        </>
+      )}
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <PortfolioAllocationChart investments={investments} />
+        <TopAssetsChart investments={investments} topN={5} />
       </div>
+
+      <InvestmentsInsights investments={investments} />
 
       {analytics && investments.length > 0 && (
         <>
@@ -500,129 +496,33 @@ export default function InvestmentsPage() {
         </>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {investments.map((investment) => {
-          const { returnValue, returnPercent, isPositive } = calculateReturn(
-            investment.amount,
-            investment.currentValue
-          )
-          const typeInfo = investmentTypes[investment.type as keyof typeof investmentTypes]
+      <InvestmentDrilldownDialog
+        open={drilldownOpen}
+        onOpenChange={setDrilldownOpen}
+        investmentId={drilldownInvestment?.id ?? null}
+      />
 
-          // Função para registrar aporte/retirada
-          const handleAportRetirada = async (amount: number, type: "APORTE" | "RETIRADA") => {
-            try {
-              const response = await fetch("/api/investments/api/aport-retirada", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  investmentId: investment.id,
-                  amount,
-                  type,
-                }),
-              })
-              if (response.ok) {
-                fetchInvestments()
-              }
-            } catch (e) {}
-          }
+      {aportInvestment && (
+        <Dialog open={!!aportInvestment} onOpenChange={(open) => !open && setAportInvestment(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Aport / Retirada · {aportInvestment.name}</DialogTitle>
+            </DialogHeader>
+            <AportRetiradaForm onSubmit={handleAportRetiradaSubmit} onClose={() => setAportInvestment(null)} />
+          </DialogContent>
+        </Dialog>
+      )}
 
-          return (
-            <Card
-              key={investment.id}
-              onClick={() => handleOpenDrilldown(investment)}
-              style={{ cursor: "pointer" }}
-            >
-              <InvestmentDrilldownDialog
-                open={drilldownOpen}
-                onOpenChange={setDrilldownOpen}
-                investmentId={drilldownInvestment?.id ?? null}
-              />
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <CardTitle className="text-base">{investment.name}</CardTitle>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs">
-                        {typeInfo?.icon} {typeInfo?.label}
-                      </Badge>
-                      {investment.ticker && (
-                        <Badge variant="secondary" className="text-xs">
-                          {investment.ticker}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Investido</span>
-                    <span className="font-medium">
-                      {formatCurrency(parseFloat(investment.amount))}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Atual</span>
-                    <span className="font-medium">
-                      {formatCurrency(parseFloat(investment.currentValue))}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Retorno</span>
-                    <span
-                      className={`font-medium ${isPositive ? "text-green-600" : "text-red-600"}`}
-                    >
-                      {formatCurrency(returnValue)} ({isPositive ? "+" : ""}
-                      {returnPercent}%)
-                    </span>
-                  </div>
-                </div>
-
-                {investment.quantity && (
-                  <div className="text-xs text-muted-foreground">
-                    Quantidade: {parseFloat(investment.quantity).toFixed(6)}
-                  </div>
-                )}
-
-                <div className="text-xs text-muted-foreground">{investment.institution}</div>
-
-                {investment.profitability && (
-                  <div className="text-xs">
-                    <span className="text-muted-foreground">Rentabilidade: </span>
-                    <span className="font-medium">
-                      {parseFloat(investment.profitability).toFixed(2)}% a.a.
-                    </span>
-                  </div>
-                )}
-
-                <div className="flex gap-2 pt-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleEdit(investment)}
-                    className="flex-1"
-                  >
-                    <Edit className="h-3 w-3 mr-1" />
-                    Editar
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDelete(investment.id)}
-                    className="flex-1"
-                  >
-                    <Trash2 className="h-3 w-3 mr-1" />
-                    Excluir
-                  </Button>
-                  <AportRetiradaDialog onSubmit={handleAportRetirada} />
-                </div>
-              </CardContent>
-            </Card>
-          )
-        })}
-      </div>
+      {investments.length > 0 && (
+        <InvestmentsTableEnhanced
+          investments={investments}
+          totalPortfolioValue={totalCurrent}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          onAportRetiradaClick={handleAportRetiradaFromTable}
+          onOpenDrilldown={handleOpenDrilldown}
+        />
+      )}
 
       {investments.length === 0 && (
         <Card>

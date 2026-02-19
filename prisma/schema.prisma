@@ -87,24 +87,54 @@ model User {
   @@map("users")
 }
 
+enum DocumentStatus {
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
 model Document {
-  id            String    @id @default(cuid())
+  id            String         @id @default(cuid())
   userId        String
   name          String
   fileName      String
   mimeType      String
-  size          Int?
-  filePath      String
+  fileSize      Int?           // bytes, from blob metadata
+  fileUrl       String?        // Vercel Blob URL (private; use signed URL for access)
+  fileKey       String?        // Blob path: documents/{userId}/{uuid}.pdf
+  filePath      String?        // deprecated; kept for migration from local storage
+  status        DocumentStatus @default(PROCESSING)
+  errorMessage  String?        // set when status = FAILED
+  extractedText  String?        @db.Text
   vencimentoAt  DateTime?
-  extractedText String?   @db.Text
-  createdAt     DateTime  @default(now())
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 
   user              User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
   governanceItems   GovernanceChecklistItem[]
 
   @@index([userId])
   @@index([userId, vencimentoAt])
+  @@index([userId, status])
   @@map("documents")
+}
+
+model SyncLog {
+  id                    String    @id @default(cuid())
+  itemId                String?   // Pluggy item id when logging Pluggy sync
+  documentId            String?   // our Document id when logging PDF processing
+  startedAt             DateTime
+  finishedAt            DateTime?
+  durationMs            Int?
+  transactionsProcessed Int?
+  status                String    // e.g. "COMPLETED", "FAILED"
+  error                 String?
+  createdAt             DateTime  @default(now())
+
+  @@index([itemId])
+  @@index([documentId])
+  @@index([createdAt])
+  @@map("sync_logs")
 }
 
 model GovernanceChecklistItem {
@@ -140,6 +170,7 @@ model BankConnection {
   error            String?
   consentExpiresAt DateTime?
   lastSyncAt       DateTime?
+  isSyncing        Boolean         @default(false) // prevents concurrent sync for same item
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
@@ -148,6 +179,7 @@ model BankConnection {
 
   @@index([userId])
   @@index([itemId])
+  @@index([itemId, isSyncing])
   @@map("bank_connections")
 }
 

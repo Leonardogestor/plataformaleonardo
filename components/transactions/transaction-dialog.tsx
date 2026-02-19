@@ -150,6 +150,7 @@ export function TransactionDialog({
       return () => clearTimeout(timer)
     }
     return undefined
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- watch() used inside; adding it would re-run on every form change
   }, [description, transaction, selectedCategory, setValue])
 
   const fetchAccounts = async () => {
