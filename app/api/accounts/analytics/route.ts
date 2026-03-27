@@ -42,9 +42,9 @@ export async function GET() {
     })
   } catch (error) {
     console.error("Erro ao calcular analytics de contas:", error)
-    return NextResponse.json(
-      { error: "Erro ao calcular analytics das contas" },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: "Erro ao calcular analytics das contas" }, { status: 500 })
   }
 }
+
+// Force dynamic rendering for this route
+export const dynamic = "force-dynamic"

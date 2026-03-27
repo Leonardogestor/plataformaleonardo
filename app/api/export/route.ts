@@ -42,7 +42,7 @@ async function exportTransactionsCSV(
   const where: any = {
     userId,
   }
-  
+
   if (filters.startDate) where.date = { ...where.date, gte: filters.startDate }
   if (filters.endDate) where.date = { ...where.date, lte: filters.endDate }
   if (filters.type) where.type = filters.type
@@ -81,11 +81,7 @@ interface ExportParams {
   year: number
 }
 
-async function exportReportExcel(
-  userId: string,
-  type: "monthly" | "annual",
-  params: ExportParams
-) {
+async function exportReportExcel(userId: string, type: "monthly" | "annual", params: ExportParams) {
   const report =
     type === "monthly"
       ? await generateMonthlyReport(userId, params.month!, params.year)
@@ -108,12 +104,14 @@ async function exportReportExcel(
       [""],
       ["BENCHMARKING COMPARATIVO"],
       ["Métrica", "Seu valor", "Referência", "Status"],
-      ...(monthlyReport.benchmarking_comparativo || []).map((b: { metrica: string; seuValor: string; referencia: string; status: string }) => [
-        b.metrica,
-        b.seuValor,
-        b.referencia,
-        b.status === "acima" ? "Acima" : b.status === "no_alvo" ? "No alvo" : "Abaixo",
-      ]),
+      ...(monthlyReport.benchmarking_comparativo || []).map(
+        (b: { metrica: string; seuValor: string; referencia: string; status: string }) => [
+          b.metrica,
+          b.seuValor,
+          b.referencia,
+          b.status === "acima" ? "Acima" : b.status === "no_alvo" ? "No alvo" : "Abaixo",
+        ]
+      ),
     ]
     const structuredSheet = XLSX.utils.aoa_to_sheet(structuredData)
     XLSX.utils.book_append_sheet(workbook, structuredSheet, "Relatório")
@@ -136,12 +134,14 @@ async function exportReportExcel(
     // Aba: Top Categorias
     const categoriesData = [
       ["Categoria", "Valor", "Percentual", "Transações"],
-      ...monthlyReport.topCategories.map((c: { category: string; amount: number; percentage: number; count: number }) => [
-        c.category,
-        c.amount,
-        `${c.percentage.toFixed(2)}%`,
-        c.count,
-      ]),
+      ...monthlyReport.topCategories.map(
+        (c: { category: string; amount: number; percentage: number; count: number }) => [
+          c.category,
+          c.amount,
+          `${c.percentage.toFixed(2)}%`,
+          c.count,
+        ]
+      ),
     ]
     const categoriesSheet = XLSX.utils.aoa_to_sheet(categoriesData)
     XLSX.utils.book_append_sheet(workbook, categoriesSheet, "Categorias")
@@ -160,12 +160,14 @@ async function exportReportExcel(
       [""],
       ["BENCHMARKING COMPARATIVO"],
       ["Métrica", "Seu valor", "Referência", "Status"],
-      ...(annualReport.benchmarking_comparativo || []).map((b: { metrica: string; seuValor: string; referencia: string; status: string }) => [
-        b.metrica,
-        b.seuValor,
-        b.referencia,
-        b.status === "acima" ? "Acima" : b.status === "no_alvo" ? "No alvo" : "Abaixo",
-      ]),
+      ...(annualReport.benchmarking_comparativo || []).map(
+        (b: { metrica: string; seuValor: string; referencia: string; status: string }) => [
+          b.metrica,
+          b.seuValor,
+          b.referencia,
+          b.status === "acima" ? "Acima" : b.status === "no_alvo" ? "No alvo" : "Abaixo",
+        ]
+      ),
     ]
     const structuredSheet = XLSX.utils.aoa_to_sheet(structuredData)
     XLSX.utils.book_append_sheet(workbook, structuredSheet, "Relatório")
@@ -194,13 +196,15 @@ async function exportReportExcel(
     // Aba: Comparação Mensal
     const monthlyData = [
       ["Mês", "Receita", "Despesa", "Fluxo de Caixa", "Taxa de Poupança"],
-      ...annualReport.monthlyComparison.map((m: { month: string; income: number; expense: number; cashFlow: number; savingsRate: number }) => [
-        m.month,
-        m.income,
-        m.expense,
-        m.cashFlow,
-        `${m.savingsRate.toFixed(2)}%`,
-      ]),
+      ...annualReport.monthlyComparison.map(
+        (m: {
+          month: string
+          income: number
+          expense: number
+          cashFlow: number
+          savingsRate: number
+        }) => [m.month, m.income, m.expense, m.cashFlow, `${m.savingsRate.toFixed(2)}%`]
+      ),
     ]
     const monthlySheet = XLSX.utils.aoa_to_sheet(monthlyData)
     XLSX.utils.book_append_sheet(workbook, monthlySheet, "Mês a Mês")
@@ -208,11 +212,13 @@ async function exportReportExcel(
     // Aba: Top Categorias
     const categoriesData = [
       ["Categoria", "Valor Total", "Percentual"],
-      ...annualReport.topCategories.map((c: { category: string; amount: number; percentage: number }) => [
-        c.category,
-        c.amount,
-        `${c.percentage.toFixed(2)}%`,
-      ]),
+      ...annualReport.topCategories.map(
+        (c: { category: string; amount: number; percentage: number }) => [
+          c.category,
+          c.amount,
+          `${c.percentage.toFixed(2)}%`,
+        ]
+      ),
     ]
     const categoriesSheet = XLSX.utils.aoa_to_sheet(categoriesData)
     XLSX.utils.book_append_sheet(workbook, categoriesSheet, "Categorias")
@@ -221,13 +227,15 @@ async function exportReportExcel(
     if (annualReport.goalsProgress.length > 0) {
       const goalsData = [
         ["Meta", "Valor Alvo", "Valor Atual", "Progresso", "Status"],
-        ...annualReport.goalsProgress.map((g: { name: string; targetAmount: number; currentAmount: number; progress: number; status: string }) => [
-          g.name,
-          g.targetAmount,
-          g.currentAmount,
-          `${g.progress.toFixed(2)}%`,
-          g.status,
-        ]),
+        ...annualReport.goalsProgress.map(
+          (g: {
+            name: string
+            targetAmount: number
+            currentAmount: number
+            progress: number
+            status: string
+          }) => [g.name, g.targetAmount, g.currentAmount, `${g.progress.toFixed(2)}%`, g.status]
+        ),
       ]
       const goalsSheet = XLSX.utils.aoa_to_sheet(goalsData)
       XLSX.utils.book_append_sheet(workbook, goalsSheet, "Metas")
@@ -263,14 +271,23 @@ async function exportReportPDF(
   doc.setTextColor(255, 255, 255)
   doc.setFontSize(22)
   doc.setFont("helvetica", "bold")
-  doc.text(type === "monthly" ? "Relatório Financeiro Mensal" : "Relatório Financeiro Anual", margin, 22)
+  doc.text(
+    type === "monthly" ? "Relatório Financeiro Mensal" : "Relatório Financeiro Anual",
+    margin,
+    22
+  )
   doc.setFontSize(11)
   doc.setFont("helvetica", "normal")
-  const periodLabel = type === "monthly"
-    ? `${(report as any).period.month} de ${(report as any).period.year}`
-    : `Ano ${(report as any).period.year}`
+  const periodLabel =
+    type === "monthly"
+      ? `${(report as any).period.month} de ${(report as any).period.year}`
+      : `Ano ${(report as any).period.year}`
   doc.text(periodLabel, margin, 32)
-  doc.text(`Gerado em ${new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}`, margin, 38)
+  doc.text(
+    `Gerado em ${new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}`,
+    margin,
+    38
+  )
   doc.setTextColor(...textColor)
   y = 50
 
@@ -294,7 +311,10 @@ async function exportReportPDF(
       doc.setFont("helvetica", "normal")
       doc.setTextColor(...textColor)
       const diagLines = doc.splitTextToSize(r.diagnostico, pageW - 2 * margin)
-      diagLines.forEach((line: string) => { doc.text(line, margin, y); y += 5 })
+      diagLines.forEach((line: string) => {
+        doc.text(line, margin, y)
+        y += 5
+      })
       y += 4
     }
     if (r.principal_risco) {
@@ -305,7 +325,10 @@ async function exportReportPDF(
       doc.setFont("helvetica", "normal")
       doc.setTextColor(...textColor)
       const riskLines = doc.splitTextToSize(r.principal_risco, pageW - 2 * margin)
-      riskLines.forEach((line: string) => { doc.text(line, margin, y); y += 5 })
+      riskLines.forEach((line: string) => {
+        doc.text(line, margin, y)
+        y += 5
+      })
       y += 4
     }
     if (r.principal_oportunidade) {
@@ -316,7 +339,10 @@ async function exportReportPDF(
       doc.setFont("helvetica", "normal")
       doc.setTextColor(...textColor)
       const oppLines = doc.splitTextToSize(r.principal_oportunidade, pageW - 2 * margin)
-      oppLines.forEach((line: string) => { doc.text(line, margin, y); y += 5 })
+      oppLines.forEach((line: string) => {
+        doc.text(line, margin, y)
+        y += 5
+      })
       y += 4
     }
     if (r.decisao_recomendada) {
@@ -327,25 +353,33 @@ async function exportReportPDF(
       doc.setFont("helvetica", "normal")
       doc.setTextColor(...textColor)
       const decLines = doc.splitTextToSize(r.decisao_recomendada, pageW - 2 * margin)
-      decLines.forEach((line: string) => { doc.text(line, margin, y); y += 5 })
+      decLines.forEach((line: string) => {
+        doc.text(line, margin, y)
+        y += 5
+      })
       y += 6
     }
   }
 
   // --- Benchmarking ---
   if (r.benchmarking_comparativo && r.benchmarking_comparativo.length > 0) {
-    if (y > 240) { doc.addPage(); y = margin }
+    if (y > 240) {
+      doc.addPage()
+      y = margin
+    }
     doc.setFontSize(12)
     doc.setFont("helvetica", "bold")
     doc.setTextColor(...primaryColor)
     doc.text("Benchmarking comparativo", margin, y)
     y += 8
-    const benchBody = r.benchmarking_comparativo.map((b: { metrica: string; seuValor: string; referencia: string; status: string }) => [
-      b.metrica,
-      b.seuValor,
-      b.referencia,
-      b.status === "acima" ? "Acima" : b.status === "no_alvo" ? "No alvo" : "Abaixo",
-    ])
+    const benchBody = r.benchmarking_comparativo.map(
+      (b: { metrica: string; seuValor: string; referencia: string; status: string }) => [
+        b.metrica,
+        b.seuValor,
+        b.referencia,
+        b.status === "acima" ? "Acima" : b.status === "no_alvo" ? "No alvo" : "Abaixo",
+      ]
+    )
     autoTable(doc, {
       startY: y,
       head: [["Métrica", "Seu valor", "Referência", "Status"]],
@@ -358,31 +392,35 @@ async function exportReportPDF(
   }
 
   // --- Resumo financeiro ---
-  if (y > 220) { doc.addPage(); y = margin }
+  if (y > 220) {
+    doc.addPage()
+    y = margin
+  }
   doc.setFontSize(12)
   doc.setFont("helvetica", "bold")
   doc.setTextColor(...primaryColor)
   doc.text(type === "monthly" ? "Resumo financeiro" : "Resumo anual", margin, y)
   y += 8
 
-  const summaryData = type === "monthly"
-    ? [
-        ["Receita total", formatCurrency(r.summary.totalIncome)],
-        ["Despesa total", formatCurrency(r.summary.totalExpense)],
-        ["Fluxo de caixa", formatCurrency(r.summary.cashFlow)],
-        ["Taxa de poupança", `${r.summary.savingsRate.toFixed(2)}%`],
-        ["Patrimônio líquido", formatCurrency(r.summary.netWorth)],
-      ]
-    : [
-        ["Receita total", formatCurrency(r.summary.totalIncome)],
-        ["Despesa total", formatCurrency(r.summary.totalExpense)],
-        ["Fluxo de caixa total", formatCurrency(r.summary.totalCashFlow)],
-        ["Receita média mensal", formatCurrency(r.summary.averageMonthlyIncome)],
-        ["Despesa média mensal", formatCurrency(r.summary.averageMonthlyExpense)],
-        ["Taxa de poupança anual", `${r.summary.annualSavingsRate.toFixed(2)}%`],
-        ["Crescimento patrimonial", formatCurrency(r.summary.netWorthGrowth)],
-        ["Crescimento patrimonial (%)", `${r.summary.netWorthGrowthPercentage.toFixed(2)}%`],
-      ]
+  const summaryData =
+    type === "monthly"
+      ? [
+          ["Receita total", formatCurrency(r.summary.totalIncome)],
+          ["Despesa total", formatCurrency(r.summary.totalExpense)],
+          ["Fluxo de caixa", formatCurrency(r.summary.cashFlow)],
+          ["Taxa de poupança", `${r.summary.savingsRate.toFixed(2)}%`],
+          ["Patrimônio líquido", formatCurrency(r.summary.netWorth)],
+        ]
+      : [
+          ["Receita total", formatCurrency(r.summary.totalIncome)],
+          ["Despesa total", formatCurrency(r.summary.totalExpense)],
+          ["Fluxo de caixa total", formatCurrency(r.summary.totalCashFlow)],
+          ["Receita média mensal", formatCurrency(r.summary.averageMonthlyIncome)],
+          ["Despesa média mensal", formatCurrency(r.summary.averageMonthlyExpense)],
+          ["Taxa de poupança anual", `${r.summary.annualSavingsRate.toFixed(2)}%`],
+          ["Crescimento patrimonial", formatCurrency(r.summary.netWorthGrowth)],
+          ["Crescimento patrimonial (%)", `${r.summary.netWorthGrowthPercentage.toFixed(2)}%`],
+        ]
 
   autoTable(doc, {
     startY: y,
@@ -396,18 +434,23 @@ async function exportReportPDF(
 
   if (type === "monthly") {
     if (r.topCategories?.length > 0) {
-      if (y > 230) { doc.addPage(); y = margin }
+      if (y > 230) {
+        doc.addPage()
+        y = margin
+      }
       doc.setFontSize(12)
       doc.setFont("helvetica", "bold")
       doc.setTextColor(...primaryColor)
       doc.text("Top 5 categorias de despesa", margin, y)
       y += 8
-      const catData = r.topCategories.map((c: { category: string; amount: number; percentage: number; count: number }) => [
-        c.category,
-        formatCurrency(c.amount),
-        `${c.percentage.toFixed(1)}%`,
-        c.count.toString(),
-      ])
+      const catData = r.topCategories.map(
+        (c: { category: string; amount: number; percentage: number; count: number }) => [
+          c.category,
+          formatCurrency(c.amount),
+          `${c.percentage.toFixed(1)}%`,
+          c.count.toString(),
+        ]
+      )
       autoTable(doc, {
         startY: y,
         head: [["Categoria", "Valor", "%", "Transações"]],
@@ -433,7 +476,10 @@ async function exportReportPDF(
       })
     }
   } else {
-    if (y > 200) { doc.addPage(); y = margin }
+    if (y > 200) {
+      doc.addPage()
+      y = margin
+    }
     doc.setFontSize(12)
     doc.setFont("helvetica", "bold")
     doc.setTextColor(...primaryColor)
@@ -458,11 +504,13 @@ async function exportReportPDF(
       doc.setTextColor(...primaryColor)
       doc.text("Top 5 categorias do ano", margin, y)
       y += 8
-      const catData = r.topCategories.map((c: { category: string; amount: number; percentage: number }) => [
-        c.category,
-        formatCurrency(c.amount),
-        `${c.percentage.toFixed(1)}%`,
-      ])
+      const catData = r.topCategories.map(
+        (c: { category: string; amount: number; percentage: number }) => [
+          c.category,
+          formatCurrency(c.amount),
+          `${c.percentage.toFixed(1)}%`,
+        ]
+      )
       autoTable(doc, {
         startY: y,
         head: [["Categoria", "Valor total", "%"]],
@@ -493,7 +541,7 @@ async function exportReportPDF(
 // API Route Handler
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session: any = await getServerSession(authOptions)
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
@@ -528,19 +576,22 @@ export async function GET(request: NextRequest) {
     } else if (type === "report") {
       const exportData = {
         reportType: (searchParams.get("reportType") || "monthly") as "monthly" | "annual",
-        month: searchParams.get("month") ? parseInt(searchParams.get("month")!) : new Date().getMonth() + 1,
-        year: searchParams.get("year") ? parseInt(searchParams.get("year")!) : new Date().getFullYear(),
+        month: searchParams.get("month")
+          ? parseInt(searchParams.get("month")!)
+          : new Date().getMonth() + 1,
+        year: searchParams.get("year")
+          ? parseInt(searchParams.get("year")!)
+          : new Date().getFullYear(),
         format: format as "excel" | "pdf",
       }
 
       const validated = reportExportSchema.parse(exportData)
 
       if (validated.format === "excel") {
-        const buffer = await exportReportExcel(
-          session.user.id,
-          validated.reportType,
-          { month: validated.month, year: validated.year }
-        )
+        const buffer = await exportReportExcel(session.user.id, validated.reportType, {
+          month: validated.month,
+          year: validated.year,
+        })
 
         const filename =
           validated.reportType === "monthly"
@@ -554,11 +605,10 @@ export async function GET(request: NextRequest) {
           },
         })
       } else if (validated.format === "pdf") {
-        const buffer = await exportReportPDF(
-          session.user.id,
-          validated.reportType,
-          { month: validated.month, year: validated.year }
-        )
+        const buffer = await exportReportPDF(session.user.id, validated.reportType, {
+          month: validated.month,
+          year: validated.year,
+        })
 
         const filename =
           validated.reportType === "monthly"
@@ -583,3 +633,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Erro interno" }, { status: 500 })
   }
 }
+
+// Force dynamic rendering for this route
+export const dynamic = "force-dynamic"

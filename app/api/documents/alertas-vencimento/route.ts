@@ -41,9 +41,9 @@ export async function GET() {
     })
   } catch (error) {
     console.error("Erro ao buscar alertas de vencimento:", error)
-    return NextResponse.json(
-      { error: "Erro ao buscar alertas" },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: "Erro ao buscar alertas" }, { status: 500 })
   }
 }
+
+// Force dynamic rendering for this route
+export const dynamic = "force-dynamic"

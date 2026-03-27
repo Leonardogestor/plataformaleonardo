@@ -50,3 +50,6 @@ export async function GET() {
     )
   }
 }
+
+// Force dynamic rendering for this route
+export const dynamic = "force-dynamic"

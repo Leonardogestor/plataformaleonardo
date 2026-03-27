@@ -22,7 +22,11 @@ interface MonthlyData {
   netWorth: number
 }
 
-export async function getDashboardMetrics(userId: string): Promise<DashboardMetrics> {
+export async function getDashboardMetrics(
+  userId: string,
+  month: number,
+  year: number
+): Promise<DashboardMetrics> {
   const [accounts, transactions] = await Promise.all([
     prisma.account.findMany({
       where: { userId, isActive: true },
@@ -40,22 +44,26 @@ export async function getDashboardMetrics(userId: string): Promise<DashboardMetr
   ])
 
   const netWorth = accounts.reduce((sum: number, acc: any) => sum + Number(acc.balance), 0)
-  
+
   const monthIncome = transactions
     .filter((t: any) => t.type === "INCOME")
     .reduce((sum: number, t: any) => sum + Number(t.amount), 0)
-  
+
   const monthExpense = transactions
     .filter((t: any) => t.type === "EXPENSE")
     .reduce((sum: number, t: any) => sum + Number(t.amount), 0)
-  
+
   const cashFlow = monthIncome - monthExpense
   const savingsRate = monthIncome > 0 ? (cashFlow / monthIncome) * 100 : 0
 
   return { netWorth, monthIncome, monthExpense, cashFlow, savingsRate }
 }
 
-export async function getCategoryBreakdown(userId: string): Promise<CategoryData[]> {
+export async function getCategoryBreakdown(
+  userId: string,
+  month: number,
+  year: number
+): Promise<CategoryData[]> {
   const transactions = await prisma.transaction.findMany({
     where: {
       userId,
@@ -90,7 +98,11 @@ export async function getCategoryBreakdown(userId: string): Promise<CategoryData
     .sort((a, b) => b.total - a.total)
 }
 
-export async function getMonthlyEvolution(userId: string): Promise<MonthlyData[]> {
+export async function getMonthlyEvolution(
+  userId: string,
+  month?: number,
+  year?: number
+): Promise<MonthlyData[]> {
   const sixMonthsAgo = new Date()
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
 
@@ -134,7 +146,12 @@ export async function getMonthlyEvolution(userId: string): Promise<MonthlyData[]
   })
 }
 
-export async function getRecentTransactions(userId: string, limit = 10) {
+export async function getRecentTransactions(
+  userId: string,
+  limit = 10,
+  month?: number,
+  year?: number
+) {
   return prisma.transaction.findMany({
     where: { userId },
     orderBy: { date: "desc" },
@@ -146,10 +163,10 @@ export async function getRecentTransactions(userId: string, limit = 10) {
   })
 }
 
-export async function getInsights(userId: string) {
+export async function getInsights(userId: string, month: number, year: number) {
   const [metrics, categories, monthlyData] = await Promise.all([
-    getDashboardMetrics(userId),
-    getCategoryBreakdown(userId),
+    getDashboardMetrics(userId, month, year),
+    getCategoryBreakdown(userId, month, year),
     getMonthlyEvolution(userId),
   ])
 
@@ -203,7 +220,7 @@ export async function getInsights(userId: string) {
   if (monthlyData.length >= 2) {
     const currentMonth = monthlyData[monthlyData.length - 1]
     const previousMonth = monthlyData[monthlyData.length - 2]
-    
+
     if (currentMonth && previousMonth && previousMonth.expense > 0) {
       const expenseChange =
         ((currentMonth.expense - previousMonth.expense) / previousMonth.expense) * 100
@@ -231,9 +248,9 @@ export async function getInsights(userId: string) {
   // Insight 4: Evolução patrimonial (3 meses)
   if (monthlyData.length >= 3) {
     const lastThreeMonths = monthlyData.slice(-3)
-    const allPositive = lastThreeMonths.every(m => (m.income - m.expense) > 0)
-    const allNegative = lastThreeMonths.every(m => (m.income - m.expense) < 0)
-    
+    const allPositive = lastThreeMonths.every((m) => m.income - m.expense > 0)
+    const allNegative = lastThreeMonths.every((m) => m.income - m.expense < 0)
+
     if (allPositive) {
       insights.push(
         `🚀 Tendência excelente! Fluxo de caixa positivo nos últimos 3 meses consecutivos.`
@@ -277,15 +294,13 @@ export async function getInsights(userId: string) {
       `🎯 Despesas concentradas em ${categories.length} categorias. Considere diversificar gastos.`
     )
   } else if (categories.length >= 7) {
-    insights.push(
-      `📊 Gastos distribuídos em ${categories.length} categorias - boa diversificação.`
-    )
+    insights.push(`📊 Gastos distribuídos em ${categories.length} categorias - boa diversificação.`)
   }
 
   // Insight 7: Receita vs Despesa (intensidade)
   if (metrics.monthIncome > 0 && metrics.monthExpense > 0) {
     const expenseRatio = (metrics.monthExpense / metrics.monthIncome) * 100
-    
+
     if (expenseRatio > 100) {
       insights.push(
         `🚨 Gastando ${expenseRatio.toFixed(0)}% da receita! Corte imediato necessário.`
@@ -307,19 +322,29 @@ export async function getInsights(userId: string) {
 export type RiscoConsolidado = "baixo" | "moderado" | "alto"
 export type TendenciaPatrimonial = "ascendente" | "estável" | "descendente"
 
-export async function getRiscoConsolidado(userId: string): Promise<RiscoConsolidado> {
-  const metrics = await getDashboardMetrics(userId)
-  const expenseRatio = metrics.monthIncome > 0
-    ? (metrics.monthExpense / metrics.monthIncome) * 100
-    : 100
+export async function getRiscoConsolidado(
+  userId: string,
+  month: number,
+  year: number
+): Promise<RiscoConsolidado> {
+  const metrics = await getDashboardMetrics(userId, month, year)
+  const expenseRatio =
+    metrics.monthIncome > 0 ? (metrics.monthExpense / metrics.monthIncome) * 100 : 100
 
   if (metrics.netWorth < 0 || expenseRatio > 100 || metrics.savingsRate < 0) return "alto"
   if (expenseRatio > 85 || metrics.savingsRate < 10) return "moderado"
   return "baixo"
 }
 
-export async function getTendenciaPatrimonial(userId: string): Promise<TendenciaPatrimonial> {
-  const monthlyData = await getMonthlyEvolution(userId)
+export async function getTendenciaPatrimonial(
+  userId: string,
+  month: number,
+  year: number
+): Promise<TendenciaPatrimonial> {
+  const [monthlyData, metrics] = await Promise.all([
+    getMonthlyEvolution(userId),
+    getDashboardMetrics(userId, month, year),
+  ])
   if (monthlyData.length < 2) return "estável"
 
   const last = monthlyData[monthlyData.length - 1]!.netWorth
@@ -332,21 +357,24 @@ export async function getTendenciaPatrimonial(userId: string): Promise<Tendencia
   return "estável"
 }
 
-export async function getInsightsEstrategicos(userId: string): Promise<{
+export async function getInsightsEstrategicos(
+  userId: string,
+  month: number,
+  year: number
+): Promise<{
   impacto_longo_prazo: string | null
   decisao_recomendada: string | null
 }> {
   const [metrics, monthlyData] = await Promise.all([
-    getDashboardMetrics(userId),
+    getDashboardMetrics(userId, month, year),
     getMonthlyEvolution(userId),
   ])
 
   let impacto_longo_prazo: string | null = null
   let decisao_recomendada: string | null = null
 
-  const expenseRatio = metrics.monthIncome > 0
-    ? (metrics.monthExpense / metrics.monthIncome) * 100
-    : 0
+  const expenseRatio =
+    metrics.monthIncome > 0 ? (metrics.monthExpense / metrics.monthIncome) * 100 : 0
   const monthsReserve = metrics.monthExpense > 0 ? metrics.netWorth / metrics.monthExpense : 0
 
   if (metrics.savingsRate >= 20 && metrics.netWorth > 0) {
@@ -364,17 +392,23 @@ export async function getInsightsEstrategicos(userId: string): Promise<{
   }
 
   if (expenseRatio > 100) {
-    decisao_recomendada = "Priorize cortar despesas ou aumentar receita para eliminar o déficit antes de novos compromissos."
+    decisao_recomendada =
+      "Priorize cortar despesas ou aumentar receita para eliminar o déficit antes de novos compromissos."
   } else if (expenseRatio > 90) {
-    decisao_recomendada = "Recomendado: revisar gastos não essenciais para abrir margem de segurança e poupança."
+    decisao_recomendada =
+      "Recomendado: revisar gastos não essenciais para abrir margem de segurança e poupança."
   } else if (monthsReserve < 3 && metrics.monthExpense > 0) {
-    decisao_recomendada = "Foque em formar reserva de emergência de pelo menos 3 a 6 meses de despesas."
+    decisao_recomendada =
+      "Foque em formar reserva de emergência de pelo menos 3 a 6 meses de despesas."
   } else if (metrics.savingsRate >= 20) {
-    decisao_recomendada = "Manter disciplina de gastos e considerar aumentar aportes em investimentos ou metas."
+    decisao_recomendada =
+      "Manter disciplina de gastos e considerar aumentar aportes em investimentos ou metas."
   } else if (metrics.netWorth < 0) {
-    decisao_recomendada = "Reduzir dívidas deve vir antes de novos investimentos; evite novos parcelamentos."
+    decisao_recomendada =
+      "Reduzir dívidas deve vir antes de novos investimentos; evite novos parcelamentos."
   } else {
-    decisao_recomendada = "Manter controle de gastos e, se possível, elevar gradualmente a taxa de poupança."
+    decisao_recomendada =
+      "Manter controle de gastos e, se possível, elevar gradualmente a taxa de poupança."
   }
 
   return { impacto_longo_prazo, decisao_recomendada }
@@ -390,19 +424,26 @@ export interface IndependenciaFinanceira {
 
 const FATOR_INDEPENDENCIA = 25 // regra dos 4% (patrimônio = despesa_anual * 25)
 
-export async function getIndependenciaFinanceira(userId: string): Promise<IndependenciaFinanceira> {
-  const metrics = await getDashboardMetrics(userId)
+export async function getIndependenciaFinanceira(
+  userId: string,
+  month: number,
+  year: number
+): Promise<IndependenciaFinanceira> {
+  const metrics = await getDashboardMetrics(userId, month, year)
   const patrimonioAtual = metrics.netWorth
   const despesaAnual = metrics.monthExpense * 12
   const patrimonioNecessario = despesaAnual * FATOR_INDEPENDENCIA
   const percentual =
     patrimonioNecessario > 0 ? Math.min(100, (patrimonioAtual / patrimonioNecessario) * 100) : 0
 
-  let mensagem = "Com seu nível de despesas, o patrimônio sugerido para independência financeira (regra dos 4%) é "
+  let mensagem =
+    "Com seu nível de despesas, o patrimônio sugerido para independência financeira (regra dos 4%) é "
   if (patrimonioNecessario <= 0) {
-    mensagem = "Cadastre despesas para estimar o patrimônio necessário para independência financeira."
+    mensagem =
+      "Cadastre despesas para estimar o patrimônio necessário para independência financeira."
   } else if (percentual >= 100) {
-    mensagem = "Parabéns! Seu patrimônio já atinge o valor sugerido para independência financeira (regra dos 4%)."
+    mensagem =
+      "Parabéns! Seu patrimônio já atinge o valor sugerido para independência financeira (regra dos 4%)."
   } else {
     mensagem = `Você está em ${percentual.toFixed(0)}% do patrimônio sugerido para independência (regra dos 4%).`
   }

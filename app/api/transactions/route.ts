@@ -35,6 +35,8 @@ export async function GET(request: Request) {
     const type = searchParams.get("type") ?? ""
     const startDate = searchParams.get("startDate") ?? ""
     const endDate = searchParams.get("endDate") ?? ""
+    const month = searchParams.get("month")
+    const year = searchParams.get("year")
 
     const where: {
       userId: string
@@ -46,6 +48,20 @@ export async function GET(request: Request) {
       date?: { gte?: Date; lte?: Date }
     } = {
       userId: session.user.id,
+    }
+
+    // Filter by month/year if provided
+    if (month && year) {
+      const monthNum = parseInt(month)
+      const yearNum = parseInt(year)
+      if (!isNaN(monthNum) && !isNaN(yearNum) && monthNum >= 1 && monthNum <= 12) {
+        const startDateObj = new Date(yearNum, monthNum - 1, 1)
+        const endDateObj = new Date(yearNum, monthNum, 0, 23, 59, 59)
+        where.date = {
+          gte: startDateObj,
+          lte: endDateObj,
+        }
+      }
     }
 
     if (search) {
@@ -64,7 +80,7 @@ export async function GET(request: Request) {
       where.type = type
     }
     if (startDate || endDate) {
-      where.date = {}
+      where.date = where.date || {}
       if (startDate) where.date.gte = new Date(startDate)
       if (endDate) where.date.lte = new Date(endDate)
     }
@@ -85,15 +101,46 @@ export async function GET(request: Request) {
       prisma.transaction.count({ where }),
     ])
 
-    return NextResponse.json({
-      transactions,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
+    // Add status classification (Farol Strategy) based on savings rate
+    const transactionsWithStatus = transactions.map((transaction) => {
+      let status: "green" | "yellow" | "red" = "green"
+
+      // Map old types to new strict financial system
+      let newType: "income" | "expense" | "investment" | "investment_withdraw" = "expense"
+      let amount = Number(transaction.amount)
+
+      if (transaction.type === "INCOME") {
+        newType = "income"
+        // Income is always positive
+        amount = Math.abs(amount)
+      } else if (transaction.type === "EXPENSE") {
+        newType = "expense"
+        // Expenses are always negative in database
+        amount = -Math.abs(amount)
+        // Farol classification for expenses
+        if (Math.abs(amount) > 5000) {
+          status = "red"
+        } else if (Math.abs(amount) > 2000) {
+          status = "yellow"
+        }
+      } else if (transaction.type === "TRANSFER") {
+        // Treat transfers as expenses for now (can be enhanced)
+        newType = "expense"
+        amount = -Math.abs(amount)
+        if (Math.abs(amount) > 3000) {
+          status = "yellow"
+        }
+      }
+
+      return {
+        ...transaction,
+        type: newType,
+        amount,
+        status,
+      }
     })
+
+    return NextResponse.json(transactionsWithStatus)
   } catch (error) {
     console.error("Error fetching transactions:", error)
     return NextResponse.json({ error: "Erro ao buscar transações" }, { status: 500 })

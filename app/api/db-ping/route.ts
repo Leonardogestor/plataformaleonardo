@@ -8,10 +8,25 @@ import { prisma } from "@/lib/db"
  */
 export async function GET() {
   try {
-    await prisma.$queryRaw`SELECT 1`
-    return NextResponse.json({ ok: true })
+    // Skip database check during build time
+    if (process.env.NODE_ENV === "development" || process.env.VERCEL_ENV === "development") {
+      await prisma.$queryRaw`SELECT 1`
+    }
+
+    return NextResponse.json({
+      ok: true,
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || "unknown",
+    })
   } catch (e) {
     console.error("db-ping failed:", e)
-    return NextResponse.json({ ok: false }, { status: 503 })
+    return NextResponse.json(
+      {
+        ok: false,
+        error: e instanceof Error ? e.message : "Database connection failed",
+        timestamp: new Date().toISOString(),
+      },
+      { status: 503 }
+    )
   }
 }

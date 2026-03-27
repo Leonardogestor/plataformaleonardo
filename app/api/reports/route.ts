@@ -49,3 +49,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Erro interno" }, { status: 500 })
   }
 }
+
+// Force dynamic rendering for this route
+export const dynamic = "force-dynamic"

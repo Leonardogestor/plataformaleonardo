@@ -38,11 +38,21 @@ const emptyDashboardData = {
   } | null,
 }
 
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Parse query parameters for month and year
+    const { searchParams } = new URL(request.url)
+    const month = parseInt(searchParams.get("month") || (new Date().getMonth() + 1).toString())
+    const year = parseInt(searchParams.get("year") || new Date().getFullYear().toString())
+
+    // Validate month and year
+    if (isNaN(month) || month < 1 || month > 12 || isNaN(year)) {
+      return NextResponse.json({ error: "Invalid month or year parameters" }, { status: 400 })
     }
 
     const [
@@ -56,15 +66,15 @@ export async function GET(_request: NextRequest) {
       insightsEstrategicos,
       independencia_financeira,
     ] = await Promise.all([
-      getDashboardMetrics(session.user.id),
-      getCategoryBreakdown(session.user.id),
-      getMonthlyEvolution(session.user.id),
-      getRecentTransactions(session.user.id, 10),
-      getInsights(session.user.id),
-      getRiscoConsolidado(session.user.id),
-      getTendenciaPatrimonial(session.user.id),
-      getInsightsEstrategicos(session.user.id),
-      getIndependenciaFinanceira(session.user.id),
+      getDashboardMetrics(session.user.id, month, year),
+      getCategoryBreakdown(session.user.id, month, year),
+      getMonthlyEvolution(session.user.id, month, year),
+      getRecentTransactions(session.user.id, 10, month, year),
+      getInsights(session.user.id, month, year),
+      getRiscoConsolidado(session.user.id, month, year),
+      getTendenciaPatrimonial(session.user.id, month, year),
+      getInsightsEstrategicos(session.user.id, month, year),
+      getIndependenciaFinanceira(session.user.id, month, year),
     ])
 
     return NextResponse.json({
@@ -78,6 +88,8 @@ export async function GET(_request: NextRequest) {
       impacto_longo_prazo: insightsEstrategicos.impacto_longo_prazo,
       decisao_recomendada: insightsEstrategicos.decisao_recomendada,
       independencia_financeira,
+      month, // Include month/year in response for debugging
+      year,
     })
   } catch (error) {
     console.error("Dashboard API Error:", error)
@@ -90,9 +102,6 @@ export async function GET(_request: NextRequest) {
     if (isDbError) {
       return NextResponse.json(emptyDashboardData)
     }
-    return NextResponse.json(
-      { error: "Erro ao carregar dashboard" },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: "Erro ao carregar dashboard" }, { status: 500 })
   }
 }

@@ -47,9 +47,9 @@ export async function GET() {
     return NextResponse.json(result)
   } catch (error) {
     console.error("Error fetching cards analytics:", error)
-    return NextResponse.json(
-      { error: "Erro ao calcular analytics dos cartões" },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: "Erro ao calcular analytics dos cartões" }, { status: 500 })
   }
 }
+
+// Force dynamic rendering for this route
+export const dynamic = "force-dynamic"

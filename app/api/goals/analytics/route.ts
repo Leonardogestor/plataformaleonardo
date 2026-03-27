@@ -17,16 +17,19 @@ export async function GET() {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
+    const now = new Date()
+    const currentMonth = now.getMonth() + 1
+    const currentYear = now.getFullYear()
+
     const userId = session.user.id
     const [goalsRaw, metrics] = await Promise.all([
       prisma.goal.findMany({
         where: { userId },
         orderBy: { deadline: "asc" },
       }),
-      getDashboardMetrics(userId),
+      getDashboardMetrics(userId, currentMonth, currentYear),
     ])
 
-    const now = new Date()
     const goals: GoalRow[] = goalsRaw.map((g) => {
       const target = Number(g.targetAmount)
       const current = Number(g.currentAmount)
@@ -75,9 +78,6 @@ export async function GET() {
     })
   } catch (error) {
     console.error("Erro ao buscar analytics de metas:", error)
-    return NextResponse.json(
-      { error: "Erro ao calcular analytics das metas" },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: "Erro ao calcular analytics das metas" }, { status: 500 })
   }
 }
