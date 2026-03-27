@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
+    "build:debug": "node scripts/debug-build.js",
     "start": "next start",
     "lint": "next lint",
     "test": "vitest",
@@ -21,6 +22,7 @@
     "db:reset": "prisma migrate reset --force",
     "setup": "npm install && prisma generate && prisma migrate dev && npm run db:seed",
     "vercel-build": "prisma generate && next build",
+    "postinstall": "echo 'Skipping postinstall'",
     "ngrok:kill": "node ./scripts/ngrok-kill.js",
     "ngrok:start": "ngrok http 3000",
     "ngrok:clip": "node ./scripts/ngrok-clipboard.js",
