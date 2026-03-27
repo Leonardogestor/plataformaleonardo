@@ -21,7 +21,7 @@
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset --force",
     "setup": "npm install && prisma generate && prisma migrate dev && npm run db:seed",
-    "vercel-build": "prisma generate && next build",
+    "vercel-build": "next build",
     "ngrok:kill": "node ./scripts/ngrok-kill.js",
     "ngrok:start": "ngrok http 3000",
     "ngrok:clip": "node ./scripts/ngrok-clipboard.js",
