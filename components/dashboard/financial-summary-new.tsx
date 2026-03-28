@@ -11,7 +11,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { useFinancialData } from "@/hooks/use-financial-data-react-query"
+import { useFinancialDataSafe } from "@/hooks/use-financial-data-safe"
 import {
   TrendingUp,
   TrendingDown,
@@ -26,7 +26,7 @@ import { useState } from "react"
 
 export function FinancialSummaryNew() {
   const { calculations, previousCalculations, finalBalance, previousBalance, isLoading } =
-    useFinancialData()
+    useFinancialDataSafe()
   const [investmentDialogOpen, setInvestmentDialogOpen] = useState(false)
 
   const formatCurrency = (value: number) => {

@@ -14,12 +14,12 @@ import {
   Target,
   ArrowRight,
 } from "lucide-react"
-import { useFinancialData } from "@/hooks/use-financial-data-react-query"
+import { useFinancialDataSafe } from "@/hooks/use-financial-data-safe"
 import { useStrategy } from "@/hooks/use-strategy"
 import Link from "next/link"
 
 export function StrategicDashboard() {
-  const { calculations, finalBalance, isLoading } = useFinancialData()
+  const { calculations, finalBalance, isLoading } = useFinancialDataSafe()
   const strategy = useStrategy()
 
   const formatCurrency = (value: number) => {

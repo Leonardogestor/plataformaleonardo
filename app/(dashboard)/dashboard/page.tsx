@@ -18,7 +18,7 @@ import {
   TrendingUp,
 } from "lucide-react"
 import { useGlobalDate } from "@/contexts/global-date-context"
-import { useFinancialData } from "@/hooks/use-financial-data-react-query"
+import { useFinancialDataSafe } from "@/hooks/use-financial-data-safe"
 import dynamic from "next/dynamic"
 
 const DocumentUploadDialog = dynamic(
@@ -39,7 +39,7 @@ const BalanceSummary = dynamic(
 
 export default function DashboardPage() {
   const { formatDateShort } = useGlobalDate()
-  const { isLoading, error } = useFinancialData()
+  const { isLoading, error } = useFinancialDataSafe()
 
   if (isLoading) {
     return (

@@ -13,14 +13,14 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { TrendingUp, TrendingDown, DollarSign, PiggyBank, Download, Edit } from "lucide-react"
-import { useFinancialData } from "@/hooks/use-financial-data-react-query"
+import { useFinancialDataSafe } from "@/hooks/use-financial-data-safe"
 import { useDashboard } from "@/contexts/dashboard-context"
 import { TransactionEditDialog } from "@/components/transactions/transaction-edit-dialog"
 
 export function FinancialTabs() {
   const { month, year } = useDashboard()
   const { transactions, calculations, previousCalculations, isLoading, refetch } =
-    useFinancialData()
+    useFinancialDataSafe()
   const [statusFilter, setStatusFilter] = useState<"all" | "green" | "yellow" | "red">("all")
   const [editingTransaction, setEditingTransaction] = useState<any>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)

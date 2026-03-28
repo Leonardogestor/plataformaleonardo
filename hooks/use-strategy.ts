@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo } from "react"
-import { useFinancialData } from "./use-financial-data-react-query"
+import { useFinancialDataSafe } from "./use-financial-data-safe"
 import { useGlobalDate } from "@/contexts/global-date-context"
 
 interface StrategyData {
@@ -39,7 +39,7 @@ interface StrategyData {
 }
 
 export function useStrategy(): StrategyData | null {
-  const { calculations, finalBalance, isLoading } = useFinancialData()
+  const { calculations, finalBalance, isLoading } = useFinancialDataSafe()
   const { month, year } = useGlobalDate()
 
   return useMemo(() => {
