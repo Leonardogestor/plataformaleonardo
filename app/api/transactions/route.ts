@@ -140,7 +140,15 @@ export async function GET(request: Request) {
       }
     })
 
-    return NextResponse.json(transactionsWithStatus)
+    const totalPages = Math.ceil(total / limit)
+
+    return NextResponse.json({
+      transactions: transactionsWithStatus,
+      total,
+      totalPages,
+      page,
+      limit,
+    })
   } catch (error) {
     console.error("Error fetching transactions:", error)
     return NextResponse.json({ error: "Erro ao buscar transações" }, { status: 500 })

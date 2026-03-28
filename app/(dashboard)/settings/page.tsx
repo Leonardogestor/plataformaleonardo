@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/hooks/use-toast"
-import { User, Lock, Trash2, Download, AlertTriangle, Mail, Calendar } from "lucide-react"
+import { User, Lock, Trash2, Download, AlertTriangle, Mail, Calendar, FileText } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 const profileSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
@@ -52,6 +53,9 @@ export default function SettingsPage() {
   const [isLoadingPassword, setIsLoadingPassword] = useState(false)
   const [isLoadingDelete, setIsLoadingDelete] = useState(false)
   const [userInfo, setUserInfo] = useState<any>(null)
+  const [selectedMonth, setSelectedMonth] = useState<string>((new Date().getMonth() + 1).toString())
+  const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString())
+  const [isExporting, setIsExporting] = useState(false)
 
   const profileForm = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -183,36 +187,55 @@ export default function SettingsPage() {
     }
   }
 
-  const handleExportData = async () => {
+  const handleExportData = async (reportType: "monthly" | "annual") => {
+    setIsExporting(true)
     try {
       toast({
-        title: "Exportando dados...",
-        description: "Preparando seus dados para download",
+        title: "Gerando PDF...",
+        description: "Preparando seu relatório para download",
       })
 
-      const response = await fetch("/api/export")
+      const params = new URLSearchParams({
+        type: "report",
+        reportType,
+        format: "pdf",
+        year: selectedYear,
+      })
+
+      if (reportType === "monthly") {
+        params.append("month", selectedMonth)
+      }
+
+      const response = await fetch(`/api/export?${params.toString()}`)
       if (response.ok) {
         const blob = await response.blob()
         const url = window.URL.createObjectURL(blob)
         const a = document.createElement("a")
         a.href = url
-        a.download = `lmg-platform-data-${new Date().toISOString().split("T")[0]}.json`
+        const filename = reportType === "monthly" 
+          ? `relatorio_mensal_${selectedMonth}_${selectedYear}.pdf`
+          : `relatorio_anual_${selectedYear}.pdf`
+        a.download = filename
         document.body.appendChild(a)
         a.click()
         window.URL.revokeObjectURL(url)
         document.body.removeChild(a)
 
         toast({
-          title: "Dados exportados!",
-          description: "O arquivo foi baixado com sucesso",
+          title: "Relatório gerado!",
+          description: "O arquivo PDF foi baixado com sucesso",
         })
+      } else {
+        throw new Error('Erro ao gerar relatório')
       }
     } catch (error) {
       toast({
         title: "Erro",
-        description: "Não foi possível exportar os dados",
+        description: "Não foi possível gerar o relatório PDF",
         variant: "destructive",
       })
+    } finally {
+      setIsExporting(false)
     }
   }
 
@@ -423,24 +446,105 @@ export default function SettingsPage() {
         <TabsContent value="data" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Exportar Dados</CardTitle>
+              <CardTitle>Exportar Relatórios</CardTitle>
               <CardDescription>
-                Baixe uma cópia de todos os seus dados em formato JSON
+                Baixe seus dados financeiros em formato PDF para análise completa
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-start justify-between p-4 border rounded-lg">
-                <div className="space-y-1">
-                  <h4 className="font-medium">Baixar Dados</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Exportar todas as suas transações, contas, investimentos e outras informações em
-                    um arquivo JSON.
-                  </p>
+            <CardContent className="space-y-6">
+              {/* Período Selection */}
+              <div className="space-y-4">
+                <h4 className="font-medium">Selecionar Período</h4>
+                <div className="flex gap-4 items-end">
+                  <div className="space-y-2">
+                    <Label htmlFor="month">Mês</Label>
+                    <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                      <SelectTrigger id="month" className="w-32">
+                        <SelectValue placeholder="Mês" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">Janeiro</SelectItem>
+                        <SelectItem value="2">Fevereiro</SelectItem>
+                        <SelectItem value="3">Março</SelectItem>
+                        <SelectItem value="4">Abril</SelectItem>
+                        <SelectItem value="5">Maio</SelectItem>
+                        <SelectItem value="6">Junho</SelectItem>
+                        <SelectItem value="7">Julho</SelectItem>
+                        <SelectItem value="8">Agosto</SelectItem>
+                        <SelectItem value="9">Setembro</SelectItem>
+                        <SelectItem value="10">Outubro</SelectItem>
+                        <SelectItem value="11">Novembro</SelectItem>
+                        <SelectItem value="12">Dezembro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="year">Ano</Label>
+                    <Select value={selectedYear} onValueChange={setSelectedYear}>
+                      <SelectTrigger id="year" className="w-32">
+                        <SelectValue placeholder="Ano" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 5 }, (_, i) => {
+                          const year = new Date().getFullYear() - i
+                          return (
+                            <SelectItem key={year} value={year.toString()}>
+                              {year}
+                            </SelectItem>
+                          )
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <Button onClick={handleExportData}>
-                  <Download className="h-4 w-4 mr-2" />
-                  Exportar
-                </Button>
+              </div>
+
+              <Separator />
+
+              {/* Export Options */}
+              <div className="space-y-4">
+                <h4 className="font-medium">Tipo de Relatório</h4>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="flex items-start justify-between p-4 border rounded-lg">
+                    <div className="space-y-1">
+                      <h5 className="font-medium flex items-center gap-2">
+                        <FileText className="h-4 w-4" />
+                        Relatório Mensal
+                      </h5>
+                      <p className="text-sm text-muted-foreground">
+                        Análise detalhada das finanças do mês selecionado com insights e recomendações.
+                      </p>
+                    </div>
+                    <Button 
+                      onClick={() => handleExportData("monthly")}
+                      disabled={isExporting}
+                      className="shrink-0"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      {isExporting ? "Gerando..." : "Exportar PDF"}
+                    </Button>
+                  </div>
+
+                  <div className="flex items-start justify-between p-4 border rounded-lg">
+                    <div className="space-y-1">
+                      <h5 className="font-medium flex items-center gap-2">
+                        <FileText className="h-4 w-4" />
+                        Relatório Anual
+                      </h5>
+                      <p className="text-sm text-muted-foreground">
+                        Visão completa do ano selecionado com comparações mensais e tendências.
+                      </p>
+                    </div>
+                    <Button 
+                      onClick={() => handleExportData("annual")}
+                      disabled={isExporting}
+                      className="shrink-0"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      {isExporting ? "Gerando..." : "Exportar PDF"}
+                    </Button>
+                  </div>
+                </div>
               </div>
 
               <Separator />
@@ -448,20 +552,20 @@ export default function SettingsPage() {
               <div className="space-y-2">
                 <h4 className="font-medium">O que está incluído?</h4>
                 <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                  <li>Informações do perfil</li>
-                  <li>Todas as transações</li>
-                  <li>Contas bancárias</li>
-                  <li>Cartões de crédito</li>
-                  <li>Investimentos</li>
-                  <li>Metas financeiras</li>
-                  <li>Regras de categorização</li>
+                  <li>Resumo financeiro completo</li>
+                  <li>Análise de categorias</li>
+                  <li>Insights personalizados</li>
+                  <li>Benchmarking comparativo</li>
+                  <li>Recomendações estratégicas</li>
+                  <li>Gráficos e visualizações</li>
                 </ul>
               </div>
 
               <div className="p-4 bg-muted rounded-lg">
                 <p className="text-sm text-muted-foreground">
-                  💡 <strong>Dica:</strong> Use este recurso para fazer backup regular dos seus
-                  dados ou para migrar para outra plataforma.
+                  💡 <strong>Dica:</strong> Os relatórios em PDF são ideais para compartilhar com 
+                  consultores financeiros ou para arquivo pessoal. Selecione o período desejado 
+                  para obter análises específicas.
                 </p>
               </div>
             </CardContent>

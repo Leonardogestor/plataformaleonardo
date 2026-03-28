@@ -6,12 +6,16 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
   }).format(value)
 }
 
 export function formatDate(date: Date | string): string {
-  return new Date(date).toLocaleDateString('pt-BR')
+  return new Date(date).toLocaleDateString("pt-BR")
+}
+
+export function formatPercent(value: number): string {
+  return `${(value * 100).toFixed(1)}%`
 }

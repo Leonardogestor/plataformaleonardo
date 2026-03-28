@@ -24,22 +24,26 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
   // Load from localStorage on mount
   useEffect(() => {
-    const saved = localStorage.getItem("dashboard-date")
-    if (saved) {
-      try {
-        const { month: savedMonth, year: savedYear, tab: savedTab } = JSON.parse(saved)
-        setMonthState(savedMonth)
-        setYearState(savedYear)
-        setActiveTabState(savedTab || "presente")
-      } catch (e) {
-        // Use current date as fallback
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("dashboard-date")
+      if (saved) {
+        try {
+          const { month: savedMonth, year: savedYear, tab: savedTab } = JSON.parse(saved)
+          setMonthState(savedMonth)
+          setYearState(savedYear)
+          setActiveTabState(savedTab || "presente")
+        } catch (e) {
+          // Use current date as fallback
+        }
       }
     }
   }, [])
 
   // Save to localStorage on change
   useEffect(() => {
-    localStorage.setItem("dashboard-date", JSON.stringify({ month, year, tab: activeTab }))
+    if (typeof window !== "undefined") {
+      localStorage.setItem("dashboard-date", JSON.stringify({ month, year, tab: activeTab }))
+    }
   }, [month, year, activeTab])
 
   const setMonth = (newMonth: number) => {

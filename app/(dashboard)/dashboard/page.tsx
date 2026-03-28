@@ -2,19 +2,29 @@
 
 import { PeriodHeader } from "@/components/global/period-header"
 import { StrategicDashboard } from "@/components/dashboard/strategic-dashboard"
+import { FinancialSummaryNew } from "@/components/dashboard/financial-summary-new"
 import { FinancialTabs } from "@/components/dashboard/financial-tabs"
+import { ProjectionsManager } from "@/components/dashboard/projections-manager"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Building2, FileText, ChevronRight, Loader2, AlertCircle, Brain } from "lucide-react"
+import {
+  Building2,
+  FileText,
+  ChevronRight,
+  Loader2,
+  AlertCircle,
+  Brain,
+  TrendingUp,
+} from "lucide-react"
 import { useGlobalDate } from "@/contexts/global-date-context"
 import { useFinancialData } from "@/hooks/use-financial-data-react-query"
 import dynamic from "next/dynamic"
 
-const ConnectBankDialog = dynamic(
+const DocumentUploadDialog = dynamic(
   () =>
-    import("@/components/accounts/connect-bank-dialog").then((mod) => ({
-      default: mod.ConnectBankDialog,
+    import("@/components/documents/document-upload-dialog").then((mod) => ({
+      default: mod.DocumentUploadDialog,
     })),
   { ssr: false }
 )
@@ -101,39 +111,30 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <PeriodHeader />
 
+      {/* New Financial Summary */}
+      <FinancialSummaryNew />
+
       {/* Strategic Dashboard - Main Focus */}
       <StrategicDashboard />
 
-      {/* Detailed Financial Analysis */}
-      <div className="grid gap-6 md:grid-cols-2">
-        <BalanceSummary />
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Brain className="h-4 w-4" />
-              Análise Estratégica
-            </CardTitle>
-            <CardDescription>Recomendações baseadas nos seus dados financeiros</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Nossa análise identificou oportunidades de otimização na sua gestão financeira.
-                Verifique o plano estratégico completo para ações recomendadas.
-              </p>
-              <Button variant="outline" size="sm" asChild>
-                <div className="inline-flex items-center gap-2">
-                  <Brain className="h-4 w-4" />
-                  Ver Estratégia Completa
-                </div>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
       {/* Detailed Financial Tabs */}
-      <FinancialTabs />
+      <Tabs defaultValue="atual" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="atual">Dados Atuais</TabsTrigger>
+          <TabsTrigger value="projections" className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4" />
+            Projeções
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="atual">
+          <FinancialTabs />
+        </TabsContent>
+
+        <TabsContent value="projections">
+          <ProjectionsManager />
+        </TabsContent>
+      </Tabs>
 
       {/* Connected Data - Maintained */}
       <Card className="border-border/60 bg-muted/20">
@@ -143,17 +144,11 @@ export default function DashboardPage() {
             Dados conectados
           </CardTitle>
           <CardDescription>
-            Conecte suas contas bancárias e envie PDFs para uma visão completa das suas finanças.
+            Envie PDFs ou planilhas Excel para uma visão completa das suas finanças.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3">
-          <ConnectBankDialog />
-          <Button variant="outline" size="sm" asChild>
-            <div className="inline-flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Enviar PDF
-            </div>
-          </Button>
+          <DocumentUploadDialog />
         </CardContent>
       </Card>
     </div>

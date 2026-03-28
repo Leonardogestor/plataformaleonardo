@@ -5,10 +5,16 @@ import { prisma } from "@/lib/db"
 import type { Prisma } from "@prisma/client"
 import { uploadDocumentBlob, MAX_DOCUMENT_SIZE_BYTES } from "@/lib/blob"
 import { processDocumentPdf } from "@/lib/pdf-processing"
+import { processDocumentExcel } from "@/lib/excel-processing"
 import { checkDocumentsLimit } from "@/lib/rate-limit"
 import { randomUUID } from "crypto"
 
-const ALLOWED_MIME = "application/pdf"
+const ALLOWED_MIME_TYPES = [
+  "application/pdf",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "text/csv",
+]
 
 /**
  * GET – List user documents (access control by userId).
@@ -80,38 +86,46 @@ export async function POST(request: NextRequest) {
     }
 
     if (file.size > MAX_DOCUMENT_SIZE_BYTES) {
-      return NextResponse.json(
-        { error: "Arquivo muito grande. Máximo 10MB." },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: "Arquivo muito grande. Máximo 10MB." }, { status: 400 })
     }
 
     const mimeType = file.type?.toLowerCase() ?? ""
-    const isPdf =
-      mimeType === ALLOWED_MIME ||
-      file.name.toLowerCase().endsWith(".pdf")
-    if (!isPdf) {
+    const fileName = file.name.toLowerCase()
+
+    const isAllowed =
+      ALLOWED_MIME_TYPES.includes(mimeType) ||
+      fileName.endsWith(".pdf") ||
+      fileName.endsWith(".xlsx") ||
+      fileName.endsWith(".xls") ||
+      fileName.endsWith(".csv")
+
+    if (!isAllowed) {
       return NextResponse.json(
-        { error: "Apenas PDF é permitido." },
+        { error: "Apenas PDF, Excel (XLS, XLSX) e CSV são permitidos." },
         { status: 400 }
       )
     }
 
     const buffer = Buffer.from(await file.arrayBuffer())
-    const pathnameSuffix = `${randomUUID()}.pdf`
-    const blobResult = await uploadDocumentBlob(
-      session.user.id,
-      pathnameSuffix,
-      buffer,
-      { contentType: ALLOWED_MIME }
-    )
+    const fileExtension = fileName.endsWith(".pdf")
+      ? "pdf"
+      : fileName.endsWith(".xlsx")
+        ? "xlsx"
+        : fileName.endsWith(".xls")
+          ? "xls"
+          : "csv"
+
+    const pathnameSuffix = `${randomUUID()}.${fileExtension}`
+    const blobResult = await uploadDocumentBlob(session.user.id, pathnameSuffix, buffer, {
+      contentType: mimeType || ALLOWED_MIME_TYPES[0],
+    })
 
     const doc = await prisma.document.create({
       data: {
         userId: session.user.id,
         name: name.trim() || file.name,
         fileName: file.name,
-        mimeType: ALLOWED_MIME,
+        mimeType: mimeType || (ALLOWED_MIME_TYPES[0] as string),
         fileSize: file.size,
         fileUrl: blobResult.url,
         fileKey: blobResult.pathname,
@@ -119,12 +133,19 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Feature flag: desativa pipeline pesado sem derrubar a plataforma (documento fica PROCESSING até watchdog ou reprocessar).
-    const pdfProcessingEnabled = process.env.PDF_PROCESSING_ENABLED !== "false"
-    if (pdfProcessingEnabled) {
-      processDocumentPdf(doc.id).catch((e) => {
-        console.error("Background PDF processing failed for document", doc.id, e)
-      })
+    // Processar arquivos PDF e Excel/CSV
+    const processingEnabled = process.env.DOCUMENT_PROCESSING_ENABLED !== "false"
+    if (processingEnabled) {
+      if (fileExtension === "pdf") {
+        processDocumentPdf(doc.id).catch((e) => {
+          console.error("Background PDF processing failed for document", doc.id, e)
+        })
+      } else {
+        // Excel, XLS, CSV
+        processDocumentExcel(doc.id).catch((e) => {
+          console.error("Background Excel processing failed for document", doc.id, e)
+        })
+      }
     }
 
     return NextResponse.json(doc, { status: 201 })

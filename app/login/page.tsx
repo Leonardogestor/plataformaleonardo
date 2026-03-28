@@ -24,6 +24,7 @@ type LoginFormData = z.infer<typeof loginSchema>
 export default function LoginPage() {
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
+  const [logoError, setLogoError] = useState(false)
 
   const {
     register,
@@ -35,6 +36,8 @@ export default function LoginPage() {
 
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true)
+    console.log("🔐 [LOGIN FRONTEND] Iniciando login com:", data.email)
+
     try {
       const result = await signIn("credentials", {
         email: data.email,
@@ -42,7 +45,10 @@ export default function LoginPage() {
         redirect: false,
       })
 
+      console.log("🔐 [LOGIN FRONTEND] Resultado do signIn:", result)
+
       if (result?.error) {
+        console.log("❌ [LOGIN FRONTEND] Erro no login:", result.error)
         const isCredentialsError = result.error === "CredentialsSignin"
         const hint =
           typeof window !== "undefined" && window.location.port !== "3000"
@@ -60,9 +66,11 @@ export default function LoginPage() {
         return
       }
 
+      console.log("✅ [LOGIN FRONTEND] Login bem-sucedido, redirecionando...")
       // Sucesso: forçar navegação com reload para o cookie de sessão ser enviado
       window.location.href = "/dashboard"
     } catch (error) {
+      console.log("❌ [LOGIN FRONTEND] Erro exceção:", error)
       toast({
         title: "Erro",
         description: "Ocorreu um erro ao fazer login",
@@ -90,13 +98,18 @@ export default function LoginPage() {
       >
         <CardHeader className="space-y-1">
           <div className="flex items-center justify-center mb-5">
-            <Image
-              src="/logo.png"
-              alt="LMG Assessoria Financeira"
-              width={158}
-              height={158}
-              className="rounded-lg object-contain"
-            />
+            {!logoError ? (
+              <Image
+                src="/logo.png"
+                alt="LMG Finance"
+                width={158}
+                height={40}
+                className="object-contain"
+                onError={() => setLogoError(true)}
+              />
+            ) : (
+              <div className="text-2xl font-bold text-blue-500">LMG Finance</div>
+            )}
           </div>
           <CardDescription className="text-center text-gray-300 text-base mb-5">
             Entre com suas credenciais para acessar

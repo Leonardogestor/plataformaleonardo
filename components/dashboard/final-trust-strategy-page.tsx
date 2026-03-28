@@ -6,11 +6,10 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  AlertTriangle, 
-  CheckCircle, 
+import {
+  TrendingUp,
+  TrendingDown,
+  AlertTriangle,
   Target,
   Brain,
   Calendar,
@@ -20,7 +19,7 @@ import {
   Shield,
   Info,
   Lightbulb,
-  Calculator
+  Calculator,
 } from "lucide-react"
 import { useConfidenceAdaptedStrategy } from "@/hooks/use-confidence-adapted-strategy"
 import { useAutosaveEditableData } from "@/hooks/use-autosave-editable-data"
@@ -34,6 +33,8 @@ import { CalculationExplanation } from "@/components/dashboard/calculation-expla
 import { adaptText } from "@/hooks/use-tone-adaptation"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+import { useState } from "react"
+import { CheckCircle, X } from "lucide-react"
 
 export default function FinalTrustStrategyPage() {
   const { formatDateShort } = useGlobalDate()
@@ -41,6 +42,27 @@ export default function FinalTrustStrategyPage() {
   const { trustMetrics, pendingChanges, lastSaveTime, isSaving } = useAutosaveEditableData()
   const profileData = useRobustProfileDetection()
   const tone = useToneAdaptation()
+  const [editingValue, setEditingValue] = useState<number | null>(null)
+  const [tempValue, setTempValue] = useState("")
+
+  const startEditingValue = (index: number, currentValue: number) => {
+    setEditingValue(index)
+    setTempValue(currentValue.toString())
+  }
+
+  const saveValueEdit = (index: number) => {
+    const value = parseFloat(tempValue)
+    if (!isNaN(value) && value >= 0) {
+      console.log(`Valor editado para ação ${index}: R$ ${value}`)
+    }
+    setEditingValue(null)
+    setTempValue("")
+  }
+
+  const cancelValueEdit = () => {
+    setEditingValue(null)
+    setTempValue("")
+  }
 
   if (!adaptedStrategy || !profileData) {
     return (
@@ -80,29 +102,42 @@ export default function FinalTrustStrategyPage() {
 
   const getHealthColor = (health: string) => {
     switch (health) {
-      case "excellent": return "text-green-600 bg-green-100"
-      case "good": return "text-blue-600 bg-blue-100"
-      case "warning": return "text-yellow-600 bg-yellow-100"
-      case "critical": return "text-red-600 bg-red-100"
-      default: return "text-gray-600 bg-gray-100"
+      case "excellent":
+        return "text-green-600 bg-green-100"
+      case "good":
+        return "text-blue-600 bg-blue-100"
+      case "warning":
+        return "text-yellow-600 bg-yellow-100"
+      case "critical":
+        return "text-red-600 bg-red-100"
+      default:
+        return "text-gray-600 bg-gray-100"
     }
   }
 
   const getAggressivenessColor = (aggressiveness: string) => {
     switch (aggressiveness) {
-      case "aggressive": return "bg-red-100 text-red-800"
-      case "moderate": return "bg-yellow-100 text-yellow-800"
-      case "conservative": return "bg-green-100 text-green-800"
-      default: return "bg-gray-100 text-gray-800"
+      case "aggressive":
+        return "bg-red-100 text-red-800"
+      case "moderate":
+        return "bg-yellow-100 text-yellow-800"
+      case "conservative":
+        return "bg-green-100 text-green-800"
+      default:
+        return "bg-gray-100 text-gray-800"
     }
   }
 
   const getAggressivenessLabel = (aggressiveness: string) => {
     switch (aggressiveness) {
-      case "aggressive": return "Agressiva"
-      case "moderate": return "Moderada"
-      case "conservative": return "Conservadora"
-      default: return "Padrão"
+      case "aggressive":
+        return "Agressiva"
+      case "moderate":
+        return "Moderada"
+      case "conservative":
+        return "Conservadora"
+      default:
+        return "Padrão"
     }
   }
 
@@ -115,7 +150,7 @@ export default function FinalTrustStrategyPage() {
         <ExplainableConfidence
           trustMetrics={{
             ...trustMetrics,
-            factors: profileData.confidence.factors
+            factors: profileData.confidence.factors,
           }}
           incomeAnalysis={profileData.incomeAnalysis}
           profile={profileData.profile}
@@ -124,22 +159,29 @@ export default function FinalTrustStrategyPage() {
 
       {/* Confidence Adaptation Notice */}
       {(confidenceLevel !== "high" || adaptationReasons.length > 0) && (
-        <Alert className={cn(
-          "border-l-4",
-          confidenceLevel === "low" && "border-l-red-500 bg-red-50/50",
-          confidenceLevel === "medium" && "border-l-yellow-500 bg-yellow-50/50"
-        )}>
+        <Alert
+          className={cn(
+            "border-l-4",
+            confidenceLevel === "low" && "border-l-red-500 bg-red-50/50",
+            confidenceLevel === "medium" && "border-l-yellow-500 bg-yellow-50/50"
+          )}
+        >
           <Info className="h-4 w-4" />
           <AlertTitle>Estratégia Adaptada à Confiança</AlertTitle>
           <AlertDescription>
             <div className="space-y-2">
               <p>
-                {confidenceLevel === "low" 
-                  ? adaptText("Devido à baixa confiança nos dados, as recomendações foram ajustadas para serem mais conservadoras.", tone)
+                {confidenceLevel === "low"
+                  ? adaptText(
+                      "Devido à baixa confiança nos dados, as recomendações foram ajustadas para serem mais conservadoras.",
+                      tone
+                    )
                   : confidenceLevel === "medium"
-                  ? adaptText("As recomendações foram moderadas baseadas no nível médio de confiança dos dados.", tone)
-                  : adaptText("Análise com alta precisão baseada em dados consistentes.", tone)
-                }
+                    ? adaptText(
+                        "As recomendações foram moderadas baseadas no nível médio de confiança dos dados.",
+                        tone
+                      )
+                    : adaptText("Análise com alta precisão baseada em dados consistentes.", tone)}
               </p>
               {adaptationReasons.length > 0 && (
                 <div className="mt-2">
@@ -168,7 +210,7 @@ export default function FinalTrustStrategyPage() {
           </h2>
           <TrustBadge confidenceLevel={confidenceLevel} showIcon={true} showText={true} />
         </div>
-        
+
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
           <Card>
             <CardContent className="p-6">
@@ -176,7 +218,9 @@ export default function FinalTrustStrategyPage() {
                 <p className="text-sm font-medium text-muted-foreground">Taxa de Poupança</p>
                 <PiggyBank className="h-4 w-4 text-blue-600" />
               </div>
-              <div className="text-2xl font-bold">{formatPercent(strategy.diagnosis.savingsRate)}</div>
+              <div className="text-2xl font-bold">
+                {formatPercent(strategy.diagnosis.savingsRate)}
+              </div>
               <div className="text-xs text-muted-foreground mt-1">
                 Ideal: {formatPercent(strategy.diagnosis.idealSavingsRate)}
               </div>
@@ -192,9 +236,13 @@ export default function FinalTrustStrategyPage() {
               </div>
               <div className="space-y-2">
                 <Badge className={getHealthColor(strategy.diagnosis.financialHealth)}>
-                  {strategy.diagnosis.financialHealth === "excellent" ? "Excelente" :
-                   strategy.diagnosis.financialHealth === "good" ? "Boa" :
-                   strategy.diagnosis.financialHealth === "warning" ? "Atenção" : "Crítica"}
+                  {strategy.diagnosis.financialHealth === "excellent"
+                    ? "Excelente"
+                    : strategy.diagnosis.financialHealth === "good"
+                      ? "Boa"
+                      : strategy.diagnosis.financialHealth === "warning"
+                        ? "Atenção"
+                        : "Crítica"}
                 </Badge>
                 {strategy.diagnosis.confidenceAdjusted && (
                   <p className="text-xs text-muted-foreground">Avaliação conservada</p>
@@ -209,9 +257,11 @@ export default function FinalTrustStrategyPage() {
                 <p className="text-sm font-medium text-muted-foreground">Resultado Mensal</p>
                 <DollarSign className="h-4 w-4" />
               </div>
-              <div className={`text-2xl font-bold ${
-                strategy.diagnosis.monthlyResult >= 0 ? "text-green-600" : "text-red-600"
-              }`}>
+              <div
+                className={`text-2xl font-bold ${
+                  strategy.diagnosis.monthlyResult >= 0 ? "text-green-600" : "text-red-600"
+                }`}
+              >
                 {formatCurrency(strategy.diagnosis.monthlyResult)}
               </div>
             </CardContent>
@@ -262,8 +312,12 @@ export default function FinalTrustStrategyPage() {
           <AlertDescription className="mt-2">
             <div className="flex items-center gap-4">
               <Badge variant="outline">
-                Severidade: {strategy.mainProblem.severity === "high" ? "Alta" : 
-                           strategy.mainProblem.severity === "medium" ? "Média" : "Baixa"}
+                Severidade:{" "}
+                {strategy.mainProblem.severity === "high"
+                  ? "Alta"
+                  : strategy.mainProblem.severity === "medium"
+                    ? "Média"
+                    : "Baixa"}
               </Badge>
               {strategy.mainProblem.impact > 0 && (
                 <span className="text-sm">
@@ -302,18 +356,46 @@ export default function FinalTrustStrategyPage() {
                     </div>
                     <p className="text-sm text-muted-foreground">{action.impact}</p>
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      {action.category && (
-                        <span>Categoria: {action.category}</span>
-                      )}
-                      <span>Valor: {formatCurrency(action.value)}</span>
+                      {action.category && <span>Categoria: {action.category}</span>}
+                      <span>
+                        Valor:{" "}
+                        {editingValue === index ? `R$ ${tempValue}` : formatCurrency(action.value)}
+                      </span>
                       <span>Prazo: {action.timeframe}</span>
                       <span>Prioridade: {action.priority}</span>
                     </div>
                   </div>
-                  <Button variant="outline" size="sm">
-                    {confidenceLevel === "high" ? "Implementar" : 
-                     confidenceLevel === "medium" ? "Considerar" : "Avaliar"}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {editingValue === index ? (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          value={tempValue}
+                          onChange={(e) => setTempValue(e.target.value)}
+                          className="w-24 px-2 py-1 text-sm border rounded"
+                          autoFocus
+                        />
+                        <Button size="sm" onClick={() => saveValueEdit(index)}>
+                          <CheckCircle className="h-3 w-3" />
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={cancelValueEdit}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => startEditingValue(index, action.value)}
+                      >
+                        {confidenceLevel === "high"
+                          ? "Implementar"
+                          : confidenceLevel === "medium"
+                            ? "Considerar"
+                            : "Avaliar"}
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -367,7 +449,8 @@ export default function FinalTrustStrategyPage() {
         <CardContent className="p-6">
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
-              Estratégia adaptada ao seu nível de confiança de dados para maior precisão nas recomendações.
+              Estratégia adaptada ao seu nível de confiança de dados para maior precisão nas
+              recomendações.
             </p>
             <Button variant="outline" size="sm" asChild>
               <Link href="/dashboard">

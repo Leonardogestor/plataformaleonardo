@@ -9,6 +9,7 @@ import { Plus, Upload, Receipt } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { TransactionsSkeleton } from "@/components/ui/loading-skeletons"
 import { EmptyState } from "@/components/ui/empty-state"
+import { ErrorBoundary } from "@/components/ui/error-boundary"
 import dynamic from "next/dynamic"
 
 // Lazy load do TransactionDialog para melhorar performance
@@ -92,7 +93,7 @@ export default function TransactionsPage() {
           totalPages: data.totalPages,
         }))
       } else {
-        throw new Error()
+        throw new Error("Failed to fetch transactions")
       }
     } catch (error) {
       toast({
@@ -141,58 +142,62 @@ export default function TransactionsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Transações</h2>
-          <p className="text-muted-foreground">Gerencie todas as suas movimentações financeiras</p>
+    <ErrorBoundary>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">Transações</h2>
+            <p className="text-muted-foreground">
+              Gerencie todas as suas movimentações financeiras
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => router.push("/transactions/import")}>
+              <Upload className="mr-2 h-4 w-4" />
+              Importar CSV
+            </Button>
+            <Button onClick={() => setIsDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Nova Transação
+            </Button>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => router.push("/transactions/import")}>
-            <Upload className="mr-2 h-4 w-4" />
-            Importar CSV
-          </Button>
-          <Button onClick={() => setIsDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nova Transação
-          </Button>
-        </div>
-      </div>
 
-      <TransactionFilters filters={filters} onFiltersChange={setFilters} />
+        <TransactionFilters filters={filters} onFiltersChange={setFilters} />
 
-      {isLoading ? (
-        <TransactionsSkeleton />
-      ) : transactions.length === 0 ? (
-        <EmptyState
-          icon={Receipt}
-          title="Nenhuma transação encontrada"
-          description="Comece registrando suas primeiras movimentações financeiras ou importe um arquivo CSV com suas transações."
-          action={{
-            label: "Nova Transação",
-            onClick: () => setIsDialogOpen(true),
+        {isLoading ? (
+          <TransactionsSkeleton />
+        ) : transactions.length === 0 ? (
+          <EmptyState
+            icon={Receipt}
+            title="Nenhuma transação encontrada"
+            description="Comece registrando suas primeiras movimentações financeiras ou importe um arquivo CSV com suas transações."
+            action={{
+              label: "Nova Transação",
+              onClick: () => setIsDialogOpen(true),
+            }}
+          />
+        ) : (
+          <TransactionsTable
+            transactions={transactions}
+            isLoading={false}
+            pagination={pagination}
+            onPageChange={(page) => setPagination({ ...pagination, page })}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+          />
+        )}
+
+        <TransactionDialog
+          open={isDialogOpen}
+          onOpenChange={(open) => {
+            setIsDialogOpen(open)
+            if (!open) setEditingTransaction(null)
           }}
+          transaction={editingTransaction}
+          onSuccess={handleSuccess}
         />
-      ) : (
-        <TransactionsTable
-          transactions={transactions}
-          isLoading={false}
-          pagination={pagination}
-          onPageChange={(page) => setPagination({ ...pagination, page })}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-        />
-      )}
-
-      <TransactionDialog
-        open={isDialogOpen}
-        onOpenChange={(open) => {
-          setIsDialogOpen(open)
-          if (!open) setEditingTransaction(null)
-        }}
-        transaction={editingTransaction}
-        onSuccess={handleSuccess}
-      />
-    </div>
+      </div>
+    </ErrorBoundary>
   )
 }

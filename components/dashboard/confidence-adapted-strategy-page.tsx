@@ -10,7 +10,6 @@ import {
   TrendingUp,
   TrendingDown,
   AlertTriangle,
-  CheckCircle,
   Target,
   Brain,
   Calendar,
@@ -27,11 +26,36 @@ import { useGlobalDate } from "@/contexts/global-date-context"
 import { TrustIndicator } from "@/components/dashboard/trust-indicator"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+import { useState } from "react"
+import { CheckCircle, X } from "lucide-react"
 
 export default function ConfidenceAdaptedStrategyPage() {
   const { formatDateShort } = useGlobalDate()
   const adaptedStrategy = useConfidenceAdaptedStrategy()
   const { trustMetrics, pendingChanges, lastSaveTime, isSaving } = useAutosaveEditableData()
+  const [editingValue, setEditingValue] = useState<number | null>(null)
+  const [tempValue, setTempValue] = useState("")
+
+  const startEditingValue = (index: number, currentValue: number) => {
+    setEditingValue(index)
+    setTempValue(currentValue.toString())
+  }
+
+  const saveValueEdit = (index: number) => {
+    const value = parseFloat(tempValue)
+    if (!isNaN(value) && value >= 0) {
+      // Aqui você pode implementar a lógica para salvar o valor editado
+      console.log(`Valor editado para ação ${index}: R$ ${value}`)
+      // Implementar a lógica de atualização da estratégia
+    }
+    setEditingValue(null)
+    setTempValue("")
+  }
+
+  const cancelValueEdit = () => {
+    setEditingValue(null)
+    setTempValue("")
+  }
 
   if (!adaptedStrategy) {
     return (
@@ -324,14 +348,41 @@ export default function ConfidenceAdaptedStrategyPage() {
                     <p className="text-sm text-muted-foreground">{action.impact}</p>
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
                       {action.category && <span>Categoria: {action.category}</span>}
-                      <span>Valor: {formatCurrency(action.value)}</span>
+                      <span>
+                        Valor:{" "}
+                        {editingValue === index ? `R$ ${tempValue}` : formatCurrency(action.value)}
+                      </span>
                       <span>Prazo: {action.timeframe}</span>
                       <span>Prioridade: {action.priority}</span>
                     </div>
                   </div>
-                  <Button variant="outline" size="sm">
-                    Implementar
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {editingValue === index ? (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          value={tempValue}
+                          onChange={(e) => setTempValue(e.target.value)}
+                          className="w-24 px-2 py-1 text-sm border rounded"
+                          autoFocus
+                        />
+                        <Button size="sm" onClick={() => saveValueEdit(index)}>
+                          <CheckCircle className="h-3 w-3" />
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={cancelValueEdit}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => startEditingValue(index, action.value)}
+                      >
+                        Implementar
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>

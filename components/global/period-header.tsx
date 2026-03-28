@@ -2,11 +2,29 @@
 
 import { useGlobalDate } from "@/contexts/global-date-context"
 import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { ChevronLeft, ChevronRight, Calendar } from "lucide-react"
 
 export function PeriodHeader() {
-  const { month, year, setMonth, setYear, nextMonth, prevMonth, goToToday, formatDateShort } = useGlobalDate()
+  const {
+    month,
+    year,
+    day,
+    setMonth,
+    setYear,
+    setDay,
+    nextMonth,
+    prevMonth,
+    goToToday,
+    formatDateShort,
+    showDaysSelector,
+  } = useGlobalDate()
 
   const months = [
     { value: 1, label: "Jan" },
@@ -24,36 +42,31 @@ export function PeriodHeader() {
   ]
 
   const currentYear = new Date().getFullYear()
-  const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i)
+  const years = Array.from({ length: 7 }, (_, i) => currentYear - 2 + i)
+
+  // Get days in current month
+  const getDaysInMonth = (month: number, year: number) => {
+    return new Date(year, month, 0).getDate()
+  }
+
+  const days = Array.from({ length: getDaysInMonth(month, year) }, (_, i) => i + 1)
 
   return (
-    <div className="flex items-center justify-between mb-6">
-      <div>
+    <div className="flex flex-col items-center mb-6">
+      <div className="text-center mb-4">
         <h1 className="text-2xl font-bold tracking-tight">
           Dados referentes a: {formatDateShort()}
         </h1>
-        <p className="text-muted-foreground">
-          Visão completa das finanças do período selecionado
-        </p>
+        <p className="text-muted-foreground">Visão completa das finanças do período selecionado</p>
       </div>
 
       <div className="flex items-center gap-2 bg-muted/80 rounded-lg p-1">
         {/* Navigation */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={prevMonth}
-          className="h-8 w-8 p-0"
-        >
+        <Button variant="ghost" size="sm" onClick={prevMonth} className="h-8 w-8 p-0">
           <ChevronLeft className="h-4 w-4" />
         </Button>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={nextMonth}
-          className="h-8 w-8 p-0"
-        >
+        <Button variant="ghost" size="sm" onClick={nextMonth} className="h-8 w-8 p-0">
           <ChevronRight className="h-4 w-4" />
         </Button>
 
@@ -86,15 +99,26 @@ export function PeriodHeader() {
         </Select>
 
         {/* Today Button */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={goToToday}
-          className="h-8 px-2"
-        >
+        <Button variant="ghost" size="sm" onClick={goToToday} className="h-8 px-2">
           <Calendar className="h-4 w-4 mr-1" />
           Hoje
         </Button>
+
+        {/* Days Selector - Only show when today is clicked */}
+        {showDaysSelector && (
+          <Select value={day.toString()} onValueChange={(value) => setDay(parseInt(value))}>
+            <SelectTrigger className="w-16 h-8 border-0 bg-transparent">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {days.map((d) => (
+                <SelectItem key={d} value={d.toString()}>
+                  {d}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
     </div>
   )

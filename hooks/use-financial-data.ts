@@ -22,6 +22,7 @@ interface Transaction {
   type: "income" | "expense" | "investment" | "investment_withdraw"
   amount: number
   status: "green" | "yellow" | "red"
+  budget?: number
 }
 
 interface Investment {

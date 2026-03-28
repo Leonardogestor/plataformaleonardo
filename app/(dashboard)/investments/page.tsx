@@ -3,13 +3,33 @@
 import { useEffect, useState, useCallback } from "react"
 import { InvestmentDrilldownDialog } from "@/components/investments/investment-drilldown-dialog"
 import { AportRetiradaForm } from "@/components/investments/aport-retirada-dialog"
+import { InvestmentDocumentUpload } from "@/components/investments/investment-document-upload"
 import { InvestmentKpiCards } from "@/components/investments/investment-kpi-cards"
 import { PortfolioEvolutionChart } from "@/components/investments/portfolio-evolution-chart"
 import { PortfolioAllocationChart } from "@/components/investments/portfolio-allocation-chart"
 import { TopAssetsChart } from "@/components/investments/top-assets-chart"
 import { InvestmentsInsights } from "@/components/investments/investments-insights"
 import { InvestmentsTableEnhanced } from "@/components/investments/investments-table-enhanced"
+import { PortfolioScoreCard } from "@/components/investments/portfolio-score-card"
+import { BenchmarkComparisonCard } from "@/components/investments/benchmark-comparison-card"
+import { RiskMetricsCard } from "@/components/investments/risk-metrics-card"
+import { IntelligentRecommendations } from "@/components/investments/intelligent-recommendations"
+import { PortfolioSimulation } from "@/components/investments/portfolio-simulation"
+import { PortfolioNarrative } from "@/components/investments/portfolio-narrative"
 import type { InvestmentRow } from "@/components/investments/investments-table-enhanced"
+
+// Serviços de análise
+import {
+  calculateAdvancedMetrics,
+  calculatePortfolioScore,
+  Investment as PortfolioInvestment,
+} from "@/services/portfolioAnalytics"
+import {
+  generateRecommendations,
+  simulatePortfolioFuture,
+  SimulationInputs,
+} from "@/services/portfolioSimulation"
+import { generateInsights, generatePortfolioNarrative } from "@/services/insightsEngine"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -31,15 +51,7 @@ import {
 } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
 import { formatCurrency } from "@/lib/utils"
-import {
-  Plus,
-  TrendingUp,
-  Shield,
-  BarChart3,
-  PieChart,
-  Target,
-  AlertTriangle,
-} from "lucide-react"
+import { Plus, TrendingUp, Shield, BarChart3, PieChart, Target, AlertTriangle } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -271,85 +283,118 @@ export default function InvestmentsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Investimentos</h2>
           <p className="text-muted-foreground">Visão estratégica e analítica do seu portfólio</p>
         </div>
-        <Dialog
-          open={isOpen}
-          onOpenChange={(open) => {
-            setIsOpen(open)
-            if (!open) {
-              reset()
-              setEditingInvestment(null)
-            }
-          }}
-        >
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Investimento
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>{editingInvestment ? "Editar Investimento" : "Novo Investimento"}</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Nome</Label>
-                <Input id="name" {...register("name")} placeholder="Ex: Tesouro Direto" />
-                {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
-              </div>
-              <div className="space-y-2">
-                <Label>Tipo</Label>
-                <Select
-                  value={selectedType}
-                  onValueChange={(v) => setValue("type", v as InvestmentFormData["type"])}
-                >
-                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(investmentTypes).map(([k, v]) => (
-                      <SelectItem key={k} value={k}>{v.icon} {v.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="amount">Valor investido</Label>
-                  <Input id="amount" type="number" step="0.01" {...register("amount")} placeholder="0.00" />
-                  {errors.amount && <p className="text-sm text-destructive">{errors.amount.message}</p>}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="currentValue">Valor atual</Label>
-                  <Input id="currentValue" type="number" step="0.01" {...register("currentValue")} placeholder="0.00" />
-                  {errors.currentValue && <p className="text-sm text-destructive">{errors.currentValue.message}</p>}
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="institution">Instituição</Label>
-                <Input id="institution" {...register("institution")} placeholder="Ex: XP, Nu Invest" />
-                {errors.institution && <p className="text-sm text-destructive">{errors.institution.message}</p>}
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="acquiredAt">Data aquisição</Label>
-                  <Input id="acquiredAt" type="date" {...register("acquiredAt")} />
-                  {errors.acquiredAt && <p className="text-sm text-destructive">{errors.acquiredAt.message}</p>}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="ticker">Ticker (opcional)</Label>
-                  <Input id="ticker" {...register("ticker")} placeholder="Ex: BOVA11" />
-                </div>
-              </div>
-              <Button type="submit" className="w-full">
-                {editingInvestment ? "Atualizar" : "Criar"} Investimento
+        <div className="flex gap-2">
+          <InvestmentDocumentUpload />
+          <Dialog
+            open={isOpen}
+            onOpenChange={(open) => {
+              setIsOpen(open)
+              if (!open) {
+                reset()
+                setEditingInvestment(null)
+              }
+            }}
+          >
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Novo Investimento
               </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle>
+                  {editingInvestment ? "Editar Investimento" : "Novo Investimento"}
+                </DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Nome</Label>
+                  <Input id="name" {...register("name")} placeholder="Ex: Tesouro Direto" />
+                  {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label>Tipo</Label>
+                  <Select
+                    value={selectedType}
+                    onValueChange={(v) => setValue("type", v as InvestmentFormData["type"])}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(investmentTypes).map(([k, v]) => (
+                        <SelectItem key={k} value={k}>
+                          {v.icon} {v.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="amount">Valor investido</Label>
+                    <Input
+                      id="amount"
+                      type="number"
+                      step="0.01"
+                      {...register("amount")}
+                      placeholder="0.00"
+                    />
+                    {errors.amount && (
+                      <p className="text-sm text-destructive">{errors.amount.message}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="currentValue">Valor atual</Label>
+                    <Input
+                      id="currentValue"
+                      type="number"
+                      step="0.01"
+                      {...register("currentValue")}
+                      placeholder="0.00"
+                    />
+                    {errors.currentValue && (
+                      <p className="text-sm text-destructive">{errors.currentValue.message}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="institution">Instituição</Label>
+                  <Input
+                    id="institution"
+                    {...register("institution")}
+                    placeholder="Ex: XP, Nu Invest"
+                  />
+                  {errors.institution && (
+                    <p className="text-sm text-destructive">{errors.institution.message}</p>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="acquiredAt">Data aquisição</Label>
+                    <Input id="acquiredAt" type="date" {...register("acquiredAt")} />
+                    {errors.acquiredAt && (
+                      <p className="text-sm text-destructive">{errors.acquiredAt.message}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="ticker">Ticker (opcional)</Label>
+                    <Input id="ticker" {...register("ticker")} placeholder="Ex: BOVA11" />
+                  </div>
+                </div>
+                <Button type="submit" className="w-full">
+                  {editingInvestment ? "Atualizar" : "Criar"} Investimento
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <InvestmentKpiCards investments={investments} />
@@ -390,9 +435,7 @@ export default function InvestmentsPage() {
                 <div className="text-2xl font-bold capitalize">
                   {analytics.risco_consolidado_portfolio}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Consolidado por tipo de ativo
-                </p>
+                <p className="text-xs text-muted-foreground mt-1">Consolidado por tipo de ativo</p>
               </CardContent>
             </Card>
             <Card>
@@ -402,9 +445,7 @@ export default function InvestmentsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {analytics.indice_sharpe != null
-                    ? analytics.indice_sharpe.toFixed(2)
-                    : "—"}
+                  {analytics.indice_sharpe != null ? analytics.indice_sharpe.toFixed(2) : "—"}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   Retorno ajustado ao risco (simplificado)
@@ -508,7 +549,10 @@ export default function InvestmentsPage() {
             <DialogHeader>
               <DialogTitle>Aport / Retirada · {aportInvestment.name}</DialogTitle>
             </DialogHeader>
-            <AportRetiradaForm onSubmit={handleAportRetiradaSubmit} onClose={() => setAportInvestment(null)} />
+            <AportRetiradaForm
+              onSubmit={handleAportRetiradaSubmit}
+              onClose={() => setAportInvestment(null)}
+            />
           </DialogContent>
         </Dialog>
       )}

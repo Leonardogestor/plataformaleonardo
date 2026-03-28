@@ -43,13 +43,13 @@ export async function getDashboardMetrics(
     }),
   ])
 
-  const netWorth = accounts.reduce((sum: number, acc: any) => sum + Number(acc.balance), 0)
+  const netWorth = (accounts || []).reduce((sum: number, acc: any) => sum + Number(acc.balance), 0)
 
-  const monthIncome = transactions
+  const monthIncome = (transactions || [])
     .filter((t: any) => t.type === "INCOME")
     .reduce((sum: number, t: any) => sum + Number(t.amount), 0)
 
-  const monthExpense = transactions
+  const monthExpense = (transactions || [])
     .filter((t: any) => t.type === "EXPENSE")
     .reduce((sum: number, t: any) => sum + Number(t.amount), 0)
 
@@ -78,7 +78,7 @@ export async function getCategoryBreakdown(
   const categoryMap = new Map<string, { total: number; count: number }>()
   let totalExpenses = 0
 
-  transactions.forEach((t: any) => {
+  ;(transactions || []).forEach((t: any) => {
     const amount = Number(t.amount)
     totalExpenses += amount
     const current = categoryMap.get(t.category) || { total: 0, count: 0 }
@@ -117,7 +117,7 @@ export async function getMonthlyEvolution(
 
   const monthlyMap = new Map<string, { income: number; expense: number }>()
 
-  transactions.forEach((t: any) => {
+  ;(transactions || []).forEach((t: any) => {
     const month = new Date(t.date).toLocaleDateString("pt-BR", {
       year: "numeric",
       month: "short",

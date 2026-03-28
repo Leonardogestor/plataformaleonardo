@@ -4,14 +4,10 @@ import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { CurrencyInput } from "@/components/ui/currency-input"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -25,7 +21,7 @@ import { useToast } from "@/hooks/use-toast"
 const transactionSchema = z.object({
   type: z.enum(["INCOME", "EXPENSE", "TRANSFER"]),
   category: z.string().min(1, "Categoria é obrigatória"),
-  amount: z.string().min(1, "Valor é obrigatório"),
+  amount: z.string().min(1, "Valor deve ser maior que zero"),
   description: z.string().min(1, "Descrição é obrigatória"),
   date: z.string().min(1, "Data é obrigatória"),
   accountId: z.string().optional(),
@@ -104,7 +100,7 @@ export function TransactionDialog({
       if (transaction) {
         const date = new Date(transaction.date)
         const formattedDate = date.toISOString().split("T")[0]
-        
+
         setValue("type", transaction.type as TransactionFormData["type"])
         setValue("category", transaction.category)
         setValue("amount", transaction.amount)
@@ -126,7 +122,10 @@ export function TransactionDialog({
         try {
           const type = watch("type")
           const amountStr = watch("amount")
-          const amount = parseFloat(amountStr?.replace(",", ".") || "0") || 0
+          const amount =
+            typeof amountStr === "number"
+              ? amountStr
+              : parseFloat(amountStr?.replace(",", ".") || "0") || 0
           const response = await fetch("/api/categorization/suggest", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -168,15 +167,13 @@ export function TransactionDialog({
   const onSubmit = async (data: TransactionFormData) => {
     setIsLoading(true)
     try {
-      const url = transaction
-        ? `/api/transactions/${transaction.id}`
-        : "/api/transactions"
+      const url = transaction ? `/api/transactions/${transaction.id}` : "/api/transactions"
       const method = transaction ? "PATCH" : "POST"
 
       const payload = {
         type: data.type,
         category: data.category,
-        amount: parseFloat(data.amount),
+        amount: data.amount,
         description: data.description,
         date: new Date(data.date).toISOString(),
         accountId: data.accountId || null,
@@ -204,10 +201,22 @@ export function TransactionDialog({
           title: transaction ? "Transação atualizada!" : "Transação criada!",
           description: "Operação realizada com sucesso",
         })
-        
-        // Disparar evento para atualizar o dashboard
-        window.dispatchEvent(new CustomEvent('transaction-updated'))
-        
+
+        // Disparar evento para atualizar o dashboard (mais robusto)
+        try {
+          const event = new CustomEvent("transaction-updated", {
+            bubbles: true,
+            cancelable: true,
+          })
+          window.dispatchEvent(event)
+        } catch (error) {
+          console.error("Erro ao disparar evento:", error)
+          // Fallback: recarregar página após pequeno delay
+          setTimeout(() => {
+            window.location.reload()
+          }, 1000)
+        }
+
         onSuccess()
       } else {
         const error = await response.json()
@@ -232,9 +241,7 @@ export function TransactionDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>
-            {transaction ? "Editar Transação" : "Nova Transação"}
-          </DialogTitle>
+          <DialogTitle>{transaction ? "Editar Transação" : "Nova Transação"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -253,27 +260,19 @@ export function TransactionDialog({
                   <SelectItem value="TRANSFER">Transferência</SelectItem>
                 </SelectContent>
               </Select>
-              {errors.type && (
-                <p className="text-sm text-destructive">{errors.type.message}</p>
-              )}
+              {errors.type && <p className="text-sm text-destructive">{errors.type.message}</p>}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="date">Data</Label>
               <Input id="date" type="date" {...register("date")} />
-              {errors.date && (
-                <p className="text-sm text-destructive">{errors.date.message}</p>
-              )}
+              {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
             </div>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="description">Descrição</Label>
-            <Input
-              id="description"
-              placeholder="Ex: Supermercado"
-              {...register("description")}
-            />
+            <Input id="description" placeholder="Ex: Supermercado" {...register("description")} />
             {errors.description && (
               <p className="text-sm text-destructive">{errors.description.message}</p>
             )}
@@ -282,16 +281,13 @@ export function TransactionDialog({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="amount">Valor</Label>
-              <Input
+              <CurrencyInput
                 id="amount"
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-                {...register("amount")}
+                value={Number(watch("amount")) || 0}
+                onChange={(value) => setValue("amount", String(value))}
+                placeholder="0,00"
               />
-              {errors.amount && (
-                <p className="text-sm text-destructive">{errors.amount.message}</p>
-              )}
+              {errors.amount && <p className="text-sm text-destructive">{errors.amount.message}</p>}
             </div>
 
             <div className="space-y-2">

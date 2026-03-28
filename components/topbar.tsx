@@ -12,9 +12,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { useState, useEffect } from "react"
 
 export function Topbar() {
   const { data: session } = useSession()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   const firstName = session?.user?.name?.split(" ")[0] ?? "Usuário"
 
   const getInitials = (name: string) =>
@@ -25,11 +32,20 @@ export function Topbar() {
       .toUpperCase()
       .slice(0, 2)
 
+  if (!mounted) {
+    return (
+      <header className="flex h-14 items-center justify-between border-b border-border/60 bg-card px-6">
+        <h1 className="text-base font-semibold text-foreground">Relatório Geral · Carregando...</h1>
+        <div className="flex items-center gap-2">
+          <div className="h-9 w-9 rounded-full bg-muted animate-pulse"></div>
+        </div>
+      </header>
+    )
+  }
+
   return (
     <header className="flex h-14 items-center justify-between border-b border-border/60 bg-card px-6">
-      <h1 className="text-base font-semibold text-foreground">
-        Relatório Geral · {firstName}
-      </h1>
+      <h1 className="text-base font-semibold text-foreground">Relatório Geral · {firstName}</h1>
       <div className="flex items-center gap-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

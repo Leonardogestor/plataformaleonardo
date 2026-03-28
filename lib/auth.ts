@@ -12,41 +12,45 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        console.log('🔐 [AUTH] Tentativa de login:', credentials?.email)
-        
+        console.log("🔐 [AUTH] Tentativa de login:", credentials?.email)
+        console.log("🔐 [AUTH] NEXTAUTH_URL:", process.env.NEXTAUTH_URL)
+        console.log("🔐 [AUTH] NODE_ENV:", process.env.NODE_ENV)
+
         if (!credentials?.email || !credentials?.password) {
-          console.log('❌ [AUTH] Credenciais faltando')
+          console.log("❌ [AUTH] Credenciais faltando")
           throw new Error("Email e senha são obrigatórios")
         }
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
-        })
+        try {
+          const user = await prisma.user.findUnique({
+            where: { email: credentials.email },
+          })
 
-        if (!user) {
-          console.log('❌ [AUTH] Usuário não encontrado:', credentials.email)
-          throw new Error("Credenciais inválidas")
-        }
+          if (!user) {
+            console.log("❌ [AUTH] Usuário não encontrado:", credentials.email)
+            throw new Error("Credenciais inválidas")
+          }
 
-        console.log('✅ [AUTH] Usuário encontrado:', user.email)
+          console.log("✅ [AUTH] Usuário encontrado:", user.email)
 
-        const isPasswordValid = await bcrypt.compare(
-          credentials.password,
-          user.password
-        )
+          const isPasswordValid = await bcrypt.compare(credentials.password, user.password)
 
-        if (!isPasswordValid) {
-          console.log('❌ [AUTH] Senha incorreta para:', credentials.email)
-          throw new Error("Credenciais inválidas")
-        }
+          if (!isPasswordValid) {
+            console.log("❌ [AUTH] Senha incorreta para:", credentials.email)
+            throw new Error("Credenciais inválidas")
+          }
 
-        console.log('✅ [AUTH] Login bem-sucedido:', user.email)
+          console.log("✅ [AUTH] Login bem-sucedido:", user.email)
 
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+          }
+        } catch (error) {
+          console.log("❌ [AUTH] Erro durante autenticação:", error)
+          throw error
         }
       },
     }),

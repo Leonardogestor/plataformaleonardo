@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { CurrencyInput } from "@/components/ui/currency-input"
 
 export default function CardForm({
   onClose,
@@ -13,7 +14,7 @@ export default function CardForm({
   const [form, setForm] = useState({
     name: "",
     institution: "",
-    limit: "",
+    limit: 0,
     closeDay: "",
     dueDay: "",
     points: "",
@@ -46,12 +47,10 @@ export default function CardForm({
           </div>
           <div>
             <label className="block font-medium">Limite total*</label>
-            <input
-              className="input"
-              type="number"
+            <CurrencyInput
               value={form.limit}
-              onChange={(e) => setForm((f) => ({ ...f, limit: e.target.value }))}
-              required
+              onChange={(value) => setForm((f) => ({ ...f, limit: value }))}
+              placeholder="0,00"
             />
           </div>
           <div className="flex gap-2">

@@ -6,6 +6,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { CurrencyInput } from "@/components/ui/currency-input"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
 
@@ -41,14 +42,11 @@ export function AportRetiradaForm({
       </div>
       <div className="space-y-2">
         <label className="text-sm font-medium">Valor (R$)</label>
-        <Input
-          type="number"
-          min={0}
-          step={0.01}
-          value={amount || ""}
-          onChange={(e) => setAmount(Number(e.target.value) || 0)}
-          placeholder="0,00"
-        />
+        <CurrencyInput value={amount} onChange={setAmount} placeholder="0,00" />
+        <p className="text-xs text-muted-foreground">
+          Digite o valor diretamente (ex: 1222000 para R$ 12.220,00) ou use formatação brasileira
+          (ex: 5.000,00)
+        </p>
       </div>
       <div className="flex gap-2">
         <Button onClick={handleSubmit} disabled={amount <= 0}>
