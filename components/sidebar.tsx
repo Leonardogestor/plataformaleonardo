@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import Image from "next/image"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { useTooltipContext } from "@/components/tooltip-context"
@@ -46,26 +45,11 @@ const navigation = [
 export function Sidebar() {
   const pathname = usePathname()
   const { enabled, setEnabled, reset } = useTooltipContext()
-  const [logoError, setLogoError] = useState(false)
 
   return (
     <aside className="flex h-full w-56 flex-col border-r border-border/60 bg-card">
       <div className="flex h-14 items-center border-b border-border/60 px-4">
         <Link href="/dashboard" className="flex items-center gap-2 min-w-0">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg">
-            {!logoError ? (
-              <Image
-                src="/logo.svg"
-                alt="LMG Finance"
-                width={32}
-                height={32}
-                className="h-8 w-8 object-contain"
-                onError={() => setLogoError(true)}
-              />
-            ) : (
-              <span className="text-sm font-bold text-primary">LMG</span>
-            )}
-          </div>
           <span className="text-base font-semibold text-foreground truncate">LMG Finance</span>
         </Link>
       </div>

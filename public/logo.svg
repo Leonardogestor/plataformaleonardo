@@ -1,10 +1,4 @@
 <svg width="200" height="40" viewBox="0 0 200 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Blue square with rounded corners -->
-  <rect width="40" height="40" rx="6" fill="#2563EB"/>
-  
-  <!-- LMG text in white, bold, centered in square -->
-  <text x="20" y="26" font-family="Arial, sans-serif" font-size="14" font-weight="bold" text-anchor="middle" fill="white">LMG</text>
-  
-  <!-- LMG Finance text in white, positioned to the right of square -->
-  <text x="48" y="26" font-family="Arial, sans-serif" font-size="16" font-weight="600" fill="white">LMG Finance</text>
+  <!-- LMG Finance text in white, positioned at the start -->
+  <text x="0" y="26" font-family="Arial, sans-serif" font-size="16" font-weight="600" fill="#2563EB">LMG Finance</text>
 </svg>
