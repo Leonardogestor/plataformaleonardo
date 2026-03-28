@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { signIn } from "next-auth/react"
 import Link from "next/link"
+import Image from "next/image"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -23,6 +24,7 @@ type LoginFormData = z.infer<typeof loginSchema>
 export default function LoginPage() {
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
+  const [logoError, setLogoError] = useState(false)
 
   const {
     register,
@@ -96,7 +98,18 @@ export default function LoginPage() {
       >
         <CardHeader className="space-y-1">
           <div className="flex items-center justify-center mb-5">
-            <span className="text-2xl font-bold text-primary">LMG Finance</span>
+            {!logoError ? (
+              <Image
+                src="/logo.svg"
+                alt="LMG Finance"
+                width={158}
+                height={40}
+                className="object-contain"
+                onError={() => setLogoError(true)}
+              />
+            ) : (
+              <div className="text-2xl font-bold text-blue-500">LMG Finance</div>
+            )}
           </div>
           <CardDescription className="text-center text-gray-300 text-base mb-5">
             Entre com suas credenciais para acessar
