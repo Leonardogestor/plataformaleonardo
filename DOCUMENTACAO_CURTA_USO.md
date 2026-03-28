@@ -1,8 +1,8 @@
-# 📖 DOCUMENTAÇÃO CURTA DE USO — LMG PLATFORM
+# 📖 DOCUMENTAÇÃO CURTA DE USO — LMG PLATAFORMA FINANCEIRA
 
 ## Visão Geral
 
-A LMG Platform integra diagnóstico financeiro, acompanhamento, metas e projeções em um só lugar. Permite entender o passado, agir no presente e simular o futuro, facilitando decisões e acompanhamento consultivo.
+A LMG PLATAFORMA FINANCEIRA integra diagnóstico financeiro, acompanhamento, metas e projeções em um só lugar. Permite entender o passado, agir no presente e simular o futuro, facilitando decisões e acompanhamento consultivo.
 
 ---
 

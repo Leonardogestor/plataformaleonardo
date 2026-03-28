@@ -16,11 +16,12 @@ interface Transaction {
   type: string
   category: string
   subcategory?: string
-  amount: string
+  amount: number
   description: string
   date: string
   isPending?: boolean
-  account: { name: string } | null
+  status?: "green" | "yellow" | "red"
+  account: { id: string; name: string } | null
   card?: { name: string; brand: string } | null
 }
 
@@ -79,7 +80,24 @@ function TransactionsTable({
                 <TableCell>{t.date}</TableCell>
                 <TableCell>{t.type}</TableCell>
                 <TableCell>{t.category}</TableCell>
-                <TableCell>{t.amount}</TableCell>
+                <TableCell className="text-right font-mono">
+                  {new Intl.NumberFormat("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  }).format(t.amount)}
+                  {t.status && (
+                    <div
+                      className={`ml-2 inline-block w-2 h-2 rounded-full ${
+                        t.status === "red"
+                          ? "bg-red-500"
+                          : t.status === "yellow"
+                            ? "bg-yellow-500"
+                            : "bg-green-500"
+                      }`}
+                      title={`Status: ${t.status}`}
+                    />
+                  )}
+                </TableCell>
                 <TableCell>{t.description}</TableCell>
                 <TableCell>
                   {onEdit && (

@@ -50,7 +50,7 @@ export function Sidebar() {
     <aside className="flex h-full w-56 flex-col border-r border-border/60 bg-card">
       <div className="flex h-14 items-center border-b border-border/60 px-4">
         <Link href="/dashboard" className="flex items-center gap-2 min-w-0">
-          <span className="text-base font-semibold text-foreground truncate">LMG Finance</span>
+          <span className="text-base font-semibold text-white truncate">LMG FINANCE</span>
         </Link>
       </div>
       <nav className="flex-1 space-y-0.5 p-3">

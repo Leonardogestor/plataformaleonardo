@@ -104,17 +104,13 @@ export async function GET(request: Request) {
     // Add status classification (Farol Strategy) based on savings rate
     const transactionsWithStatus = transactions.map((transaction) => {
       let status: "green" | "yellow" | "red" = "green"
-
-      // Map old types to new strict financial system
-      let newType: "income" | "expense" | "investment" | "investment_withdraw" = "expense"
       let amount = Number(transaction.amount)
 
+      // Keep original types for consistency
       if (transaction.type === "INCOME") {
-        newType = "income"
         // Income is always positive
         amount = Math.abs(amount)
       } else if (transaction.type === "EXPENSE") {
-        newType = "expense"
         // Expenses are always negative in database
         amount = -Math.abs(amount)
         // Farol classification for expenses
@@ -124,9 +120,8 @@ export async function GET(request: Request) {
           status = "yellow"
         }
       } else if (transaction.type === "TRANSFER") {
-        // Treat transfers as expenses for now (can be enhanced)
-        newType = "expense"
-        amount = -Math.abs(amount)
+        // Treat transfers as neutral for now
+        amount = Math.abs(amount)
         if (Math.abs(amount) > 3000) {
           status = "yellow"
         }
@@ -134,7 +129,6 @@ export async function GET(request: Request) {
 
       return {
         ...transaction,
-        type: newType,
         amount,
         status,
       }

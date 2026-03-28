@@ -49,7 +49,7 @@
 **`lib/pluggy.ts`**
 - Cliente Pluggy singleton
 - Funções helper para todas as operações
-- Mapeamento de tipos Pluggy → LMG Platform
+- Mapeamento de tipos Pluggy → LMG PLATAFORMA FINANCEIRA
 - Validação de webhook signature
 
 ---

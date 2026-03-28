@@ -4,7 +4,7 @@
 
 # Plataforma de Gestão Financeira
 
-# 💰 LMG Platform - Gestão Financeira e Patrimonial
+# 💰 LMG PLATAFORMA FINANCEIRA - Gestão Financeira e Patrimonial
 
 Plataforma completa de gestão financeira pessoal com dashboard interativo, gráficos em tempo real e controle total sobre suas finanças.
 
@@ -309,7 +309,7 @@ Este projeto é privado e proprietário.
 
 ## 👨‍💻 Autor
 
-**LMG Platform Team**
+**LMG PLATAFORMA FINANCEIRA Team**
 
 ---
 

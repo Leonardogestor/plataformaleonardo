@@ -1,7 +1,7 @@
 {
   "name": "lmg-platform",
   "version": "1.0.0",
-  "description": "LMG Platform - Gestão Financeira e Patrimonial",
+  "description": "LMG PLATAFORMA FINANCEIRA - Gestão Financeira e Patrimonial",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -51,6 +51,8 @@
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.36.2",
     "@vercel/blob": "^0.24.0",
+    "ai": "^3.0.0",
+    "@ai-sdk/openai": "^0.0.9",
     "axios": "^1.13.4",
     "bcryptjs": "^2.4.3",
     "chart.js": "^4.5.1",
@@ -60,6 +62,7 @@
     "date-fns": "^3.6.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.7",
+    "jwt-decode": "^4.0.0",
     "lucide-react": "^0.323.0",
     "next": "^14.2.35",
     "next-auth": "^4.24.5",

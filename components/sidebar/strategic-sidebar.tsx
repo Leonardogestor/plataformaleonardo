@@ -21,46 +21,46 @@ const navigation = [
     icon: LayoutDashboard,
   },
   {
-    name: "Strategy",
+    name: "Estratégia",
     href: "/strategy",
     icon: Brain,
     current: false,
   },
   {
-    name: "Projections",
+    name: "Projeções",
     href: "/projections",
     icon: TrendingUp,
   },
   {
-    name: "Goals",
+    name: "Metas",
     href: "/goals",
     icon: Target,
   },
   {
-    name: "Financial",
+    name: "Financeiro",
     href: "/accounts",
     icon: CreditCard,
     subitems: [
-      { name: "Accounts", href: "/accounts" },
-      { name: "Cards", href: "/cards" },
+      { name: "Contas", href: "/accounts" },
+      { name: "Cartões", href: "/cards" },
     ],
   },
   {
-    name: "Movements",
+    name: "Movimentações",
     href: "/transactions",
     icon: ArrowRightLeft,
     subitems: [
-      { name: "Transactions", href: "/transactions" },
-      { name: "Documents", href: "/documents" },
+      { name: "Transações", href: "/transactions" },
+      { name: "Documentos", href: "/documents" },
     ],
   },
   {
-    name: "Investments",
+    name: "Investimentos",
     href: "/investments",
     icon: PieChart,
   },
   {
-    name: "Settings",
+    name: "Configurações",
     href: "/settings",
     icon: Settings,
   },
@@ -73,7 +73,7 @@ export function StrategicSidebar() {
     <div className="flex h-full w-64 flex-col bg-card">
       <div className="flex h-16 shrink-0 items-center px-6">
         <Link href="/dashboard" className="flex items-center gap-2">
-          <span className="font-semibold text-lg text-primary">LMG Finance</span>
+          <span className="font-semibold text-lg text-white">LMG FINANCE</span>
         </Link>
       </div>
 
@@ -95,9 +95,9 @@ export function StrategicSidebar() {
               >
                 <item.icon className="h-4 w-4" />
                 {item.name}
-                {item.name === "Strategy" && (
+                {item.name === "Estratégia" && (
                   <span className="ml-auto rounded-full bg-blue-500 text-white text-xs px-2 py-0.5">
-                    NEW
+                    NOVO
                   </span>
                 )}
               </Link>

@@ -1,4 +1,4 @@
-# 🚀 Comandos Rápidos - LMG Platform
+# 🚀 Comandos Rápidos - LMG PLATAFORMA FINANCEIRA
 
 ## Setup Inicial (Uma Vez)
 
@@ -79,7 +79,7 @@ rm -rf .next
 # Setup inicial
 git init
 git add .
-git commit -m "feat: initial commit - LMG Platform MVP"
+git commit -m "feat: initial commit - LMG PLATAFORMA FINANCEIRA MVP"
 
 # Workflow
 git add .

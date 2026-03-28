@@ -114,11 +114,13 @@ export function CsvMapping({ headers, data, onMapping, onBack }: CsvMappingProps
                   <SelectValue placeholder="Selecione uma coluna" />
                 </SelectTrigger>
                 <SelectContent>
-                  {headers.map((header) => (
-                    <SelectItem key={String(header)} value={String(header)}>
-                      {String(header)} (ex: {data[0]?.[header]})
-                    </SelectItem>
-                  ))}
+                  {headers
+                    .filter((header) => header && header.trim() !== "")
+                    .map((header) => (
+                      <SelectItem key={String(header)} value={String(header)}>
+                        {String(header)} (ex: {data[0]?.[header]})
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
@@ -145,11 +147,13 @@ export function CsvMapping({ headers, data, onMapping, onBack }: CsvMappingProps
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Nenhuma</SelectItem>
-                  {headers.map((header) => (
-                    <SelectItem key={String(header)} value={String(header)}>
-                      {String(header)} (ex: {data[0]?.[header]})
-                    </SelectItem>
-                  ))}
+                  {headers
+                    .filter((header) => header && header.trim() !== "")
+                    .map((header) => (
+                      <SelectItem key={String(header)} value={String(header)}>
+                        {String(header)} (ex: {data[0]?.[header]})
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>

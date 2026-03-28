@@ -10,7 +10,10 @@ const importSchema = z.object({
       type: z.enum(["INCOME", "EXPENSE", "TRANSFER"]),
       category: z.string().min(1),
       subcategory: z.string().optional(),
-      amount: z.number().positive(),
+      amount: z
+        .number()
+        .positive()
+        .transform((val) => Math.round(val * 100) / 100),
       description: z.string().min(1),
       date: z.string(),
       accountId: z.string().optional(),
@@ -32,16 +35,63 @@ export async function POST(request: NextRequest) {
       success: 0,
       failed: 0,
       errors: [] as string[],
+      duplicates: 0,
     }
+
+    // Get existing transactions to check for duplicates
+    const existingTransactions = await prisma.transaction.findMany({
+      where: { userId: session.user.id },
+      select: { description: true, amount: true, date: true, type: true },
+    })
+
+    const createKey = (t: any) => `${t.description}-${t.amount}-${t.date}-${t.type}`
+    const existingKeys = new Set(existingTransactions.map(createKey))
 
     for (const transaction of transactions) {
       try {
+        // Check for duplicate
+        const transactionKey = createKey(transaction)
+        if (existingKeys.has(transactionKey)) {
+          results.duplicates++
+          results.errors.push(`Transação duplicada ignorada: ${transaction.description}`)
+          continue
+        }
+
         await prisma.$transaction(async (tx) => {
+          // Auto-categorize if no category provided
+          let category = transaction.category
+          if (!category || category.trim() === "") {
+            // Try to auto-categorize using existing rules
+            const categorizationResponse = await fetch(
+              `${process.env.NEXTAUTH_URL}/api/categorization/suggest`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  description: transaction.description,
+                  type: transaction.type,
+                  amount: transaction.amount,
+                }),
+              }
+            )
+
+            if (categorizationResponse.ok) {
+              const categorizationData = await categorizationResponse.json()
+              if (categorizationData.category) {
+                category = categorizationData.category
+              } else {
+                category = "Outros" // Default category
+              }
+            } else {
+              category = "Outros" // Default category
+            }
+          }
+
           await tx.transaction.create({
             data: {
               userId: session.user.id,
               type: transaction.type,
-              category: transaction.category,
+              category,
               subcategory: transaction.subcategory || null,
               amount: transaction.amount,
               description: transaction.description,
@@ -52,7 +102,8 @@ export async function POST(request: NextRequest) {
           })
 
           if (transaction.accountId) {
-            const increment = transaction.type === "INCOME" ? transaction.amount : -transaction.amount
+            const increment =
+              transaction.type === "INCOME" ? transaction.amount : -transaction.amount
             await tx.account.update({
               where: { id: transaction.accountId },
               data: { balance: { increment } },
@@ -60,6 +111,7 @@ export async function POST(request: NextRequest) {
           }
         })
         results.success++
+        existingKeys.add(transactionKey) // Add to avoid duplicates within same import
       } catch (error) {
         results.failed++
         results.errors.push(`Erro na linha ${transaction.description}: ${error}`)

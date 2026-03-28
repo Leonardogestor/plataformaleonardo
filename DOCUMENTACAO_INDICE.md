@@ -1,4 +1,4 @@
-# 📚 ÍNDICE DE DOCUMENTAÇÃO - LMG Platform
+# 📚 ÍNDICE DE DOCUMENTAÇÃO - LMG PLATAFORMA FINANCEIRA
 
 **Última atualização:** 24 de janeiro de 2026
 
@@ -371,6 +371,6 @@ plataformaleo/
 
 **Última atualização:** 24 de janeiro de 2026
 
-Criado para facilitar o entendimento da arquitetura, funcionalidades e processo de deploy da LMG Platform v1.
+Criado para facilitar o entendimento da arquitetura, funcionalidades e processo de deploy da LMG PLATAFORMA FINANCEIRA v1.
 
 🎉 **Boa sorte com seu projeto!**

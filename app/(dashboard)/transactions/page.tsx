@@ -25,11 +25,11 @@ interface Transaction {
   id: string
   type: string
   category: string
-  amount: string
+  amount: number
   description: string
   date: string
   isPending?: boolean
-  account: { name: string } | null
+  account: { id: string; name: string } | null
   card?: { name: string; brand: string } | null
 }
 

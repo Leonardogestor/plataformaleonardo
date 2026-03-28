@@ -24,7 +24,6 @@ type LoginFormData = z.infer<typeof loginSchema>
 export default function LoginPage() {
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
-  const [logoError, setLogoError] = useState(false)
 
   const {
     register,
@@ -98,18 +97,7 @@ export default function LoginPage() {
       >
         <CardHeader className="space-y-1">
           <div className="flex items-center justify-center mb-5">
-            {!logoError ? (
-              <Image
-                src="/logo.svg"
-                alt="LMG Finance"
-                width={158}
-                height={40}
-                className="object-contain"
-                onError={() => setLogoError(true)}
-              />
-            ) : (
-              <div className="text-2xl font-bold text-blue-500">LMG Finance</div>
-            )}
+            <Image src="/logo.png" alt="Logo" width={158} height={40} className="object-contain" />
           </div>
           <CardDescription className="text-center text-gray-300 text-base mb-5">
             Entre com suas credenciais para acessar

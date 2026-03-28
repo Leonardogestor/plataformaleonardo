@@ -9,6 +9,7 @@ import {
   importTransactionsFromPdfWithDedup,
   type NormalizedTransaction,
 } from "@/lib/transaction-import"
+import { hybridParseTransactions, refineTransactionsWithAI } from "@/lib/ai-transaction-parser"
 import * as XLSX from "xlsx"
 
 const DEFAULT_CATEGORY = "Outros"
@@ -127,8 +128,82 @@ export async function processDocumentExcel(documentId: string): Promise<void> {
       )
     }
 
-    const capped = rows.slice(0, MAX_TRANSACTIONS_PER_DOCUMENT)
-    const transactions = capped.map(toNormalizedTransaction)
+    // Try traditional parsing first
+    let transactions: NormalizedTransaction[] = []
+    let parsingMethod = "traditional"
+
+    try {
+      const capped = rows.slice(0, MAX_TRANSACTIONS_PER_DOCUMENT)
+      transactions = capped.map(toNormalizedTransaction)
+
+      // If traditional parsing failed or returned too few transactions, try AI
+      if (transactions.length === 0) {
+        console.info(
+          `Traditional Excel parsing returned ${transactions.length} transactions, trying AI fallback`
+        )
+        const aiResult = await hybridParseTransactions(
+          JSON.stringify(jsonData, null, 2),
+          () => [], // Empty traditional result to force AI
+          {
+            sourceType: "excel",
+            minConfidence: 0.8,
+            enableOCRCorrection: true,
+            enablePreprocessing: true,
+          }
+        )
+
+        if (aiResult.transactions.length > 0) {
+          transactions = aiResult.transactions.map((t) => ({
+            type: t.type,
+            category: t.category,
+            amount: t.amount,
+            description: t.description,
+            date: t.date,
+          }))
+          parsingMethod = "ai_fallback"
+          console.info(`AI parsing recovered ${transactions.length} transactions`)
+        }
+      } else {
+        // Refine traditional parsing with AI
+        const refinedResult = await refineTransactionsWithAI(transactions, {
+          improveCategories: true,
+          improveTypes: true, // Excel might have type errors
+          enableOCRCorrection: true,
+        })
+
+        if (refinedResult.summary.confidence > 0.7) {
+          transactions = refinedResult.transactions.map((t) => ({
+            type: t.type,
+            category: t.category,
+            amount: t.amount,
+            description: t.description,
+            date: t.date,
+          }))
+          parsingMethod = "ai_refined"
+        }
+      }
+    } catch (error) {
+      console.warn(`Traditional Excel parsing failed, trying AI parsing:`, error)
+      const aiResult = await hybridParseTransactions(
+        JSON.stringify(jsonData, null, 2),
+        () => [], // Empty traditional result to force AI
+        {
+          sourceType: "excel",
+          minConfidence: 0.8,
+          enableOCRCorrection: true,
+          enablePreprocessing: true,
+        }
+      )
+
+      transactions = aiResult.transactions.map((t) => ({
+        type: t.type,
+        category: t.category,
+        amount: t.amount,
+        description: t.description,
+        date: t.date,
+      }))
+      parsingMethod = "ai_only"
+    }
 
     const result = await importTransactionsFromPdfWithDedup(userId, transactions)
     const transactionsProcessed = result.success

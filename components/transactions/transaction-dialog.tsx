@@ -21,7 +21,7 @@ import { useToast } from "@/hooks/use-toast"
 const transactionSchema = z.object({
   type: z.enum(["INCOME", "EXPENSE", "TRANSFER"]),
   category: z.string().min(1, "Categoria é obrigatória"),
-  amount: z.string().min(1, "Valor deve ser maior que zero"),
+  amount: z.number().positive("Valor deve ser positivo"),
   description: z.string().min(1, "Descrição é obrigatória"),
   date: z.string().min(1, "Data é obrigatória"),
   accountId: z.string().optional(),
@@ -36,7 +36,7 @@ interface Transaction {
   amount: string
   description: string
   date: string
-  account: { name: string } | null
+  account: { id: string; name: string } | null
 }
 
 interface Account {
@@ -106,7 +106,7 @@ export function TransactionDialog({
         setValue("amount", transaction.amount)
         setValue("description", transaction.description)
         setValue("date", formattedDate ?? "")
-        setValue("accountId", transaction.account?.name ?? "")
+        setValue("accountId", transaction.account?.id ? transaction.account.id : "none")
       } else {
         reset({
           type: "EXPENSE",
@@ -176,7 +176,7 @@ export function TransactionDialog({
         amount: data.amount,
         description: data.description,
         date: new Date(data.date).toISOString(),
-        accountId: data.accountId || null,
+        accountId: data.accountId === "none" ? null : data.accountId,
       }
 
       const response = await fetch(url, {
@@ -323,7 +323,7 @@ export function TransactionDialog({
                 <SelectValue placeholder="Selecione uma conta" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Nenhuma</SelectItem>
+                <SelectItem value="none">Nenhuma</SelectItem>
                 {accounts.map((account) => (
                   <SelectItem key={account.id} value={account.id}>
                     {account.name} ({account.institution})

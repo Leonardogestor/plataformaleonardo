@@ -1,4 +1,4 @@
-# ✅ CHECKLIST DE QA / HOMOLOGAÇÃO — LMG PLATFORM
+# ✅ CHECKLIST DE QA / HOMOLOGAÇÃO — LMG PLATAFORMA FINANCEIRA
 
 > Use este documento para validar a consistência, integração e robustez da plataforma antes do deploy. Marque cada item conforme for testado. Pode ser usado por dev, QA ou cliente (Leo).
 

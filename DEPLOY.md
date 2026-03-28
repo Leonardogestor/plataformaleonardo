@@ -1,6 +1,6 @@
-# Guia de Deploy - LMG Platform
+# Guia de Deploy - LMG PLATAFORMA FINANCEIRA
 
-Este guia fornece instruções passo a passo para fazer o deploy da LMG Platform em produção usando Vercel e um banco de dados PostgreSQL (Neon ou Supabase).
+Este guia fornece instruções passo a passo para fazer o deploy da LMG PLATAFORMA FINANCEIRA em produção usando Vercel e um banco de dados PostgreSQL (Neon ou Supabase).
 
 ## Pré-requisitos
 
@@ -62,7 +62,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 1. **Conectar Repositório**
    - Acesse [vercel.com/new](https://vercel.com/new)
    - Importe seu repositório do GitHub/GitLab/Bitbucket
-   - Selecione o projeto LMG Platform
+   - Selecione o projeto LMG PLATAFORMA FINANCEIRA
 
 2. **Configurar Projeto**
    - **Framework Preset**: Next.js
@@ -393,4 +393,4 @@ git push origin main
 # Vercel Dashboard > Deployments > Functions > Logs
 ```
 
-**Pronto! Sua LMG Platform está no ar! 🚀**
+**Pronto! Sua LMG PLATAFORMA FINANCEIRA está no ar! 🚀**

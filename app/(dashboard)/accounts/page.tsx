@@ -26,15 +26,6 @@ import { Badge } from "@/components/ui/badge"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import dynamic from "next/dynamic"
-
-const ConnectBankDialog = dynamic(
-  () =>
-    import("@/components/accounts/connect-bank-dialog").then((mod) => ({
-      default: mod.ConnectBankDialog,
-    })),
-  { ssr: false }
-)
 
 const accountSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
@@ -124,12 +115,6 @@ export default function AccountsPage() {
     fetchAccounts()
   }, [fetchAccounts])
 
-  useEffect(() => {
-    const onConnected = () => fetchAccounts()
-    window.addEventListener("open-finance:connected", onConnected)
-    return () => window.removeEventListener("open-finance:connected", onConnected)
-  }, [fetchAccounts])
-
   const onSubmit = async (data: AccountFormData) => {
     try {
       const url = editingAccount ? `/api/accounts/${editingAccount.id}` : "/api/accounts"
@@ -216,7 +201,6 @@ export default function AccountsPage() {
           <p className="text-muted-foreground">Gerencie suas contas bancárias e carteiras</p>
         </div>
         <div className="flex gap-2">
-          <ConnectBankDialog />
           <Dialog
             open={isOpen}
             onOpenChange={(open) => {
@@ -313,9 +297,12 @@ export default function AccountsPage() {
               <TrendingDown className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold">{formatCurrency(analytics.custo_oportunidade_mensal)}</p>
+              <p className="text-2xl font-bold">
+                {formatCurrency(analytics.custo_oportunidade_mensal)}
+              </p>
               <p className="text-xs text-muted-foreground mt-1">
-                Estimativa do que deixaria de render em conta corrente/dinheiro parado (referência CDI)
+                Estimativa do que deixaria de render em conta corrente/dinheiro parado (referência
+                CDI)
               </p>
             </CardContent>
           </Card>
@@ -325,7 +312,9 @@ export default function AccountsPage() {
               <PieChart className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold">{analytics.percentual_patrimonio_improdutivo.toFixed(1)}%</p>
+              <p className="text-2xl font-bold">
+                {analytics.percentual_patrimonio_improdutivo.toFixed(1)}%
+              </p>
               <p className="text-xs text-muted-foreground mt-1">
                 % do saldo em conta corrente e dinheiro (sem rendimento relevante)
               </p>
@@ -338,37 +327,37 @@ export default function AccountsPage() {
         {accountsSorted.map((account) => {
           const liquidez = liquidezMap?.get(account.id)
           return (
-          <Card key={account.id}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{account.name}</CardTitle>
-              <div className="flex items-center gap-1">
-                {liquidez && (
-                  <Badge variant="outline" className="text-xs">
-                    {liquidezLabels[liquidez] ?? liquidez}
-                  </Badge>
-                )}
-                <Wallet className="h-4 w-4 text-muted-foreground" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {formatCurrency(parseFloat(account.balance))}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {accountTypes[account.type as keyof typeof accountTypes]} • {account.institution}
-              </p>
-              <div className="flex gap-2 mt-4">
-                <Button variant="outline" size="sm" onClick={() => handleEdit(account)}>
-                  <Edit className="h-3 w-3 mr-1" />
-                  Editar
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => handleDelete(account.id)}>
-                  <Trash2 className="h-3 w-3 mr-1" />
-                  Excluir
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+            <Card key={account.id}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">{account.name}</CardTitle>
+                <div className="flex items-center gap-1">
+                  {liquidez && (
+                    <Badge variant="outline" className="text-xs">
+                      {liquidezLabels[liquidez] ?? liquidez}
+                    </Badge>
+                  )}
+                  <Wallet className="h-4 w-4 text-muted-foreground" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {formatCurrency(parseFloat(account.balance))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {accountTypes[account.type as keyof typeof accountTypes]} • {account.institution}
+                </p>
+                <div className="flex gap-2 mt-4">
+                  <Button variant="outline" size="sm" onClick={() => handleEdit(account)}>
+                    <Edit className="h-3 w-3 mr-1" />
+                    Editar
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => handleDelete(account.id)}>
+                    <Trash2 className="h-3 w-3 mr-1" />
+                    Excluir
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           )
         })}
       </div>

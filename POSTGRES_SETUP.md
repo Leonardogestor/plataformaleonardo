@@ -1,4 +1,4 @@
-# LMG Platform - PostgreSQL Setup
+# LMG PLATAFORMA FINANCEIRA - PostgreSQL Setup
 
 ## Iniciar PostgreSQL no Windows
 

@@ -1,4 +1,4 @@
-# 🚀 Guia Rápido de Instalação - LMG Platform
+# 🚀 Guia Rápido de Instalação - LMG PLATAFORMA FINANCEIRA
 
 ## Setup em 5 Minutos
 

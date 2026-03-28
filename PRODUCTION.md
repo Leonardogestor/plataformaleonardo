@@ -1,6 +1,6 @@
 # Variáveis de Ambiente - Produção
 
-Este documento lista todas as variáveis de ambiente necessárias para rodar a LMG Platform em produção.
+Este documento lista todas as variáveis de ambiente necessárias para rodar a LMG PLATAFORMA FINANCEIRA em produção.
 
 ## Variáveis Obrigatórias
 

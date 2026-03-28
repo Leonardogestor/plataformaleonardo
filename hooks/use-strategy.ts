@@ -51,6 +51,40 @@ export function useStrategy(): StrategyData | null {
     const annualSavings = resultado * 12
     const currentWealth = finalBalance || 0
 
+    // Verificar se há dados reais para cálculos
+    const hasRealData =
+      receitas > 0 || despesas !== 0 || investimentos !== 0 || resultado !== 0 || currentWealth > 0
+
+    // Se não houver dados, retornar valores zerados
+    if (!hasRealData) {
+      return {
+        diagnosis: {
+          savingsRate: 0,
+          financialHealth: "critical",
+          monthlyResult: 0,
+          estimatedRetirementAge: 65,
+          currentWealth: 0,
+          idealSavingsRate: 0.25,
+        },
+        mainProblem: {
+          type: "none",
+          description: "Sem dados disponíveis para análise",
+          severity: "low",
+          impact: 0,
+          currentValue: 0,
+          targetValue: 0,
+        },
+        actionPlan: [],
+        futureOutlook: {
+          financialIndependenceAge: 65,
+          projectedWealth: 0,
+          monthlyGrowthRate: 0,
+          yearsToIndependence: 35,
+          requiredWealth: 0,
+        },
+      }
+    }
+
     // REALISTIC GROWTH RATE - 5% annual return
     const annualRate = 0.05
     const monthlyRate = Math.pow(1 + annualRate, 1 / 12) - 1 // ~0.4% per month

@@ -6,8 +6,16 @@
 
 import { prisma } from "@/lib/db"
 import { extractTextFromPdf } from "@/lib/document-extract"
-import { parseStatementByBank, type NormalizedTransactionRow } from "@/lib/bank-parsers"
-import { importTransactionsFromPdfWithDedup, type NormalizedTransaction } from "@/lib/transaction-import"
+import {
+  parseStatementByBank,
+  detectBankFromText,
+  type NormalizedTransactionRow,
+} from "@/lib/bank-parsers"
+import {
+  importTransactionsFromPdfWithDedup,
+  type NormalizedTransaction,
+} from "@/lib/transaction-import"
+import { hybridParseTransactions, refineTransactionsWithAI } from "@/lib/ai-transaction-parser"
 
 const DEFAULT_CATEGORY = "Outros"
 
@@ -41,7 +49,11 @@ export async function processDocumentPdf(documentId: string): Promise<void> {
     if (!doc || !doc.fileUrl) {
       await prisma.document.updateMany({
         where: { id: documentId },
-        data: { status: "FAILED", errorMessage: "Document or file URL not found", updatedAt: new Date() },
+        data: {
+          status: "FAILED",
+          errorMessage: "Document or file URL not found",
+          updatedAt: new Date(),
+        },
       })
       return
     }
@@ -57,7 +69,9 @@ export async function processDocumentPdf(documentId: string): Promise<void> {
     })
     syncLogId = logEntry.id
 
-    const buffer = await fetch(doc.fileUrl).then((r) => r.arrayBuffer()).then((ab) => Buffer.from(ab))
+    const buffer = await fetch(doc.fileUrl)
+      .then((r) => r.arrayBuffer())
+      .then((ab) => Buffer.from(ab))
     const text = await extractTextFromPdf(buffer)
 
     if (!text || text.length < 10) {
@@ -95,20 +109,96 @@ export async function processDocumentPdf(documentId: string): Promise<void> {
       return
     }
 
-    const rows = parseStatementByBank(text)
-    if (rows.length > MAX_TRANSACTIONS_PER_DOCUMENT) {
-      console.info(
-        JSON.stringify({
-          type: "pdf_processing",
-          documentId,
-          message: "Transaction limit exceeded",
-          totalRows: rows.length,
-          limit: MAX_TRANSACTIONS_PER_DOCUMENT,
+    // Try traditional parsing first
+    let transactions: NormalizedTransaction[] = []
+    let parsingMethod = "traditional"
+
+    try {
+      const rows = parseStatementByBank(text)
+      if (rows.length > MAX_TRANSACTIONS_PER_DOCUMENT) {
+        console.info(
+          JSON.stringify({
+            type: "pdf_processing",
+            documentId,
+            message: "Transaction limit exceeded",
+            totalRows: rows.length,
+            limit: MAX_TRANSACTIONS_PER_DOCUMENT,
+          })
+        )
+      }
+      const capped = rows.slice(0, MAX_TRANSACTIONS_PER_DOCUMENT)
+      transactions = capped.map(toNormalized)
+
+      // If traditional parsing failed or returned too few transactions, try AI
+      if (transactions.length === 0) {
+        console.info(
+          `Traditional parsing returned ${transactions.length} transactions, trying AI fallback`
+        )
+        const aiResult = await hybridParseTransactions(
+          text,
+          () => [], // Empty traditional result to force AI
+          {
+            sourceType: "pdf",
+            bankHint: detectBankFromText(text),
+            minConfidence: 0.8,
+            enableOCRCorrection: true,
+            enablePreprocessing: true,
+          }
+        )
+
+        if (aiResult.transactions.length > 0) {
+          transactions = aiResult.transactions.map((t) => ({
+            type: t.type,
+            category: t.category,
+            amount: t.amount,
+            description: t.description,
+            date: t.date,
+          }))
+          parsingMethod = "ai_fallback"
+          console.info(`AI parsing recovered ${transactions.length} transactions`)
+        }
+      } else {
+        // Refine traditional parsing with AI
+        const refinedResult = await refineTransactionsWithAI(transactions, {
+          improveCategories: true,
+          improveTypes: false, // Trust traditional type detection
+          enableOCRCorrection: true,
         })
+
+        if (refinedResult.summary.confidence > 0.7) {
+          transactions = refinedResult.transactions.map((t) => ({
+            type: t.type,
+            category: t.category,
+            amount: t.amount,
+            description: t.description,
+            date: t.date,
+          }))
+          parsingMethod = "ai_refined"
+        }
+      }
+    } catch (error) {
+      console.warn(`Traditional parsing failed, trying AI parsing:`, error)
+      const aiResult = await hybridParseTransactions(
+        text,
+        () => [], // Empty traditional result to force AI
+        {
+          sourceType: "pdf",
+          bankHint: detectBankFromText(text),
+          minConfidence: 0.8,
+          enableOCRCorrection: true,
+          enablePreprocessing: true,
+        }
       )
+
+      transactions = aiResult.transactions.map((t) => ({
+        type: t.type,
+        category: t.category,
+        amount: t.amount,
+        description: t.description,
+        date: t.date,
+      }))
+      parsingMethod = "ai_only"
     }
-    const capped = rows.slice(0, MAX_TRANSACTIONS_PER_DOCUMENT)
-    const transactions = capped.map(toNormalized)
 
     const result = await importTransactionsFromPdfWithDedup(userId, transactions)
     const transactionsProcessed = result.success
@@ -116,8 +206,7 @@ export async function processDocumentPdf(documentId: string): Promise<void> {
     const durationMs = finishedAt.getTime() - startedAt.getTime()
 
     const status = result.failed > 0 && result.success === 0 ? "FAILED" : "COMPLETED"
-    const errorMessage =
-      result.errors.length > 0 ? result.errors.slice(0, 3).join("; ") : null
+    const errorMessage = result.errors.length > 0 ? result.errors.slice(0, 3).join("; ") : null
 
     await prisma.document.update({
       where: { id: documentId },

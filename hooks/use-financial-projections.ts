@@ -56,14 +56,22 @@ export function useFinancialProjections(): UseFinancialProjectionsReturn {
             updatedAt: new Date(),
           }
 
-          // 🧠 APLICAR LÓGICA HÍBRIDA
-          const calculatedProjection = calcularMes(
-            baseProjection,
-            previousProjection || undefined,
-            DEFAULT_PERCENTUAL
-          )
-          newProjections.push(calculatedProjection)
-          previousProjection = calculatedProjection
+          // 🧠 APLICAR LÓGICA HÍBRIDA - apenas se houver dados anteriores
+          if (
+            previousProjection &&
+            (previousProjection.receita.value > 0 || previousProjection.despesas.value > 0)
+          ) {
+            const calculatedProjection = calcularMes(
+              baseProjection,
+              previousProjection,
+              DEFAULT_PERCENTUAL
+            )
+            newProjections.push(calculatedProjection)
+          } else {
+            // Manter valores zerados se não houver dados anteriores
+            newProjections.push(baseProjection)
+          }
+          previousProjection = newProjections[newProjections.length - 1]
         }
 
         setProjections(newProjections)

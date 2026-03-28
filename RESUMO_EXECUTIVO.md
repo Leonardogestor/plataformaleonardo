@@ -1,7 +1,7 @@
 # 📊 RESUMO EXECUTIVO - STATUS DE DEPLOY
 
 **Data:** 24 de janeiro de 2026  
-**Projeto:** LMG Platform v1  
+**Projeto:** LMG PLATAFORMA FINANCEIRA v1  
 **Status Geral:** 🟢 **80% PRONTO PARA PRODUÇÃO**
 
 ---
@@ -20,7 +20,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                  LMG PLATFORM v1                    │
+│                  LMG PLATAFORMA FINANCEIRA v1                    │
 ├─────────────────────────────────────────────────────┤
 │                                                     │
 │  BANCO DE DADOS (Neon)                  ✅ 100%    │

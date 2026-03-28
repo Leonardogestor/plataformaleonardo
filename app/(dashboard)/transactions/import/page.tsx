@@ -85,13 +85,19 @@ export default function ImportTransactionsPage() {
           category: t.category || "Importado",
           amount: String(t.amount),
           description: t.description,
-          date: t.date?.slice(0, 10) ? `${t.date.slice(0, 10)}T12:00:00.000Z` : new Date().toISOString(),
+          date: t.date?.slice(0, 10)
+            ? `${t.date.slice(0, 10)}T12:00:00.000Z`
+            : new Date().toISOString(),
         }))
         setReviewData(withIds)
         setImportSource("ofx")
         setStep("review")
         toast({ title: `${withIds.length} transações extraídas do OFX` })
-      } else if (data.format === "xlsx" && Array.isArray(data.headers) && Array.isArray(data.rows)) {
+      } else if (
+        data.format === "xlsx" &&
+        Array.isArray(data.headers) &&
+        Array.isArray(data.rows)
+      ) {
         setHeaders(data.headers)
         setCsvData(data.rows)
         setImportSource("xlsx")
@@ -133,7 +139,7 @@ export default function ImportTransactionsPage() {
         const result = await response.json()
         toast({
           title: "Importação concluída!",
-          description: `${result.results.success} transações importadas com sucesso. ${result.results.failed} falharam.`,
+          description: `${result.results.success} transações importadas com sucesso. ${result.results.failed} falharam. ${result.results.duplicates || 0} duplicatas ignoradas.`,
         })
         window.dispatchEvent(new CustomEvent("transaction-updated"))
         router.push("/transactions")

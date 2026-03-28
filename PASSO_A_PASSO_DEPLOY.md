@@ -1,4 +1,4 @@
-# 🚀 PASSO A PASSO DE DEPLOY — LMG PLATFORM
+# 🚀 PASSO A PASSO DE DEPLOY — LMG PLATAFORMA FINANCEIRA
 
 Siga este roteiro para garantir um deploy seguro, rastreável e reversível. Use junto ao checklist de produção.
 

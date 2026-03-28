@@ -1,4 +1,4 @@
-# 🪟 Setup no Windows - LMG Platform
+# 🪟 Setup no Windows - LMG PLATAFORMA FINANCEIRA
 
 ## Pré-requisitos
 

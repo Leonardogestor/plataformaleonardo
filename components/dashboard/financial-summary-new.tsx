@@ -94,7 +94,7 @@ export function FinancialSummaryNew() {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between space-y-0 pb-2">
-              <p className="text-sm font-medium text-muted-foreground">📈 RECEITAS</p>
+              <p className="text-sm font-medium text-muted-foreground">RECEITAS</p>
               <TrendingUp className="h-4 w-4 text-green-600" />
             </div>
             <div className="space-y-2">
@@ -119,7 +119,7 @@ export function FinancialSummaryNew() {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between space-y-0 pb-2">
-              <p className="text-sm font-medium text-muted-foreground">📉 DESPESAS</p>
+              <p className="text-sm font-medium text-muted-foreground">DESPESAS</p>
               <TrendingDown className="h-4 w-4 text-red-600" />
             </div>
             <div className="space-y-2">
@@ -144,7 +144,7 @@ export function FinancialSummaryNew() {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between space-y-0 pb-2">
-              <p className="text-sm font-medium text-muted-foreground">💸 APLICAÇÕES/RESGATES</p>
+              <p className="text-sm font-medium text-muted-foreground">APLICAÇÕES/RESGATES</p>
               <ArrowUpDown className="h-4 w-4 text-blue-600" />
             </div>
             <div className="space-y-2">
@@ -168,7 +168,7 @@ export function FinancialSummaryNew() {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between space-y-0 pb-2">
-              <p className="text-sm font-medium text-muted-foreground">📊 RESULTADO DO MÊS</p>
+              <p className="text-sm font-medium text-muted-foreground">RESULTADO DO MÊS</p>
               <Calculator className="h-4 w-4" />
             </div>
             <div className="space-y-2">
@@ -187,38 +187,37 @@ export function FinancialSummaryNew() {
         </Card>
 
         {/* 5. INVESTIMENTOS */}
-        <Dialog open={investmentDialogOpen} onOpenChange={setInvestmentDialogOpen}>
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between space-y-0 pb-2">
-                <p className="text-sm font-medium text-muted-foreground">💰 INVESTIMENTOS</p>
-                <Briefcase className="h-4 w-4 text-purple-600" />
-              </div>
-              <div className="space-y-2">
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm" className="w-full">
-                    <Upload className="h-4 w-4 mr-2" />
-                    Exportar PDF
-                  </Button>
-                </DialogTrigger>
-                <div className="text-xs text-muted-foreground text-center">
-                  Importe extratos para análise
+        <div className="space-y-2">
+          <Dialog open={investmentDialogOpen} onOpenChange={setInvestmentDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="w-full">
+                <Upload className="h-4 w-4 mr-2" />
+                Exportar PDF
+              </Button>
+            </DialogTrigger>
+          </Dialog>
+          <Dialog open={investmentDialogOpen} onOpenChange={setInvestmentDialogOpen}>
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between space-y-0 pb-2">
+                  <p className="text-sm font-medium text-muted-foreground">INVESTIMENTOS</p>
+                  <Briefcase className="h-4 w-4 text-purple-600" />
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Importar Extrato de Investimentos</DialogTitle>
-              <DialogDescription>
-                Envie seu extrato de investimentos em PDF ou Excel para análise automática. O
-                sistema irá classificar: Tipo de ativo, Valor investido, Data, Instituição e
-                Rentabilidade.
-              </DialogDescription>
-            </DialogHeader>
-            <DocumentUpload onUpload={handleInvestmentUpload} />
-          </DialogContent>
-        </Dialog>
+              </CardContent>
+            </Card>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Importar Extrato de Investimentos</DialogTitle>
+                <DialogDescription>
+                  Envie seu extrato de investimentos em PDF ou Excel para análise automática. O
+                  sistema irá classificar: Tipo de ativo, Valor investido, Data, Instituição e
+                  Rentabilidade.
+                </DialogDescription>
+              </DialogHeader>
+              <DocumentUpload onUpload={handleInvestmentUpload} />
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Detailed Balance Summary */}

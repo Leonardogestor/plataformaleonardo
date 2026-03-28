@@ -1,7 +1,7 @@
-# 🗺️ MAPA MENTAL - DEPLOY LMG PLATFORM
+# 🗺️ MAPA MENTAL - DEPLOY LMG PLATAFORMA FINANCEIRA
 
 ```
-                            🚀 DEPLOY LMG PLATFORM
+                            🚀 DEPLOY LMG PLATAFORMA FINANCEIRA
                                      │
                   ┌──────────────────┼──────────────────┐
                   │                  │                  │

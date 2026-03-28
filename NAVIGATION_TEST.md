@@ -1,4 +1,4 @@
-# Teste de Navegação - LMG Platform
+# Teste de Navegação - LMG PLATAFORMA FINANCEIRA
 
 ## Status: ✅ TODAS AS ROTAS CONFIGURADAS E FUNCIONAIS
 
@@ -44,7 +44,7 @@
 ## Botões e Ações de Navegação
 
 ### Página de Dashboard
-- ✅ Logo "LMG Platform" → `/dashboard` (volta ao início)
+- ✅ Logo "LMG PLATAFORMA FINANCEIRA" → `/dashboard` (volta ao início)
 - ✅ Links do sidebar → Páginas correspondentes
 - ✅ Botão "Tentar Novamente" (em caso de erro) → Recarrega dados
 

@@ -1,4 +1,4 @@
-# 🚀 CHECKLIST DE DEPLOY (PRODUÇÃO) — LMG PLATFORM
+# 🚀 CHECKLIST DE DEPLOY (PRODUÇÃO) — LMG PLATAFORMA FINANCEIRA
 
 > Use este checklist para garantir uma entrega segura, rastreável e reversível em produção. Marque cada item conforme for validado.
 

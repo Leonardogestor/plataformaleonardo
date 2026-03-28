@@ -7,7 +7,7 @@ import { ReactQueryProvider } from "@/hooks/use-react-query-setup"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata = {
-  title: "LMG Platform",
+  title: "LMG PLATAFORMA FINANCEIRA",
   description: "Plataforma de gestão financeira",
 }
 

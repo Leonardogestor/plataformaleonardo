@@ -1,4 +1,4 @@
-# Otimizações de Performance - LMG Platform
+# Otimizações de Performance - LMG PLATAFORMA FINANCEIRA
 
 ## Problema Identificado
 - **Páginas extremamente lentas para carregar**

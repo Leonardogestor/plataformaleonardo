@@ -6,7 +6,7 @@ export default function OnboardingTour({ onClose }: { onClose?: () => void }) {
   const [step, setStep] = useState(0)
   const steps = [
     {
-      title: "Bem-vindo à Plataforma LMG",
+      title: "Bem-vindo à LMG PLATAFORMA FINANCEIRA",
       description:
         "Aqui você tem uma visão completa do seu dinheiro: passado, presente e futuro. Tudo pensado para facilitar decisões e dar autonomia em poucos minutos.",
       cta: "Próximo",
