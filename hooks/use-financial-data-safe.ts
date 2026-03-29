@@ -1,6 +1,6 @@
 "use client"
 
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useGlobalDate } from "@/contexts/global-date-context"
 import {
   Transaction,
@@ -18,21 +18,21 @@ const fetchTransactions = async (month: number, year: number): Promise<Transacti
       return []
     }
     const data = await response.json()
-    
+
     // Verificar se data.transactions existe e é um array
     if (data && data.transactions && Array.isArray(data.transactions)) {
       return data.transactions
     }
-    
+
     // Se for um array direto, retornar
     if (Array.isArray(data)) {
       return data
     }
-    
-    console.warn('Unexpected API response format:', data)
+
+    console.warn("Unexpected API response format:", data)
     return []
   } catch (error) {
-    console.error('Error fetching transactions:', error)
+    console.error("Error fetching transactions:", error)
     return []
   }
 }
@@ -50,19 +50,19 @@ const fetchPreviousMonthTransactions = async (
       return []
     }
     const data = await response.json()
-    
+
     if (data && data.transactions && Array.isArray(data.transactions)) {
       return data.transactions
     }
-    
+
     if (Array.isArray(data)) {
       return data
     }
-    
-    console.warn('Unexpected API response format for previous month:', data)
+
+    console.warn("Unexpected API response format for previous month:", data)
     return []
   } catch (error) {
-    console.error('Error fetching previous transactions:', error)
+    console.error("Error fetching previous transactions:", error)
     return []
   }
 }
@@ -77,7 +77,7 @@ const fetchBalance = async (month: number, year: number): Promise<{ saldo_anteri
     const data = await response.json()
     return data || { saldo_anterior: 0 }
   } catch (error) {
-    console.error('Error fetching balance:', error)
+    console.error("Error fetching balance:", error)
     return { saldo_anterior: 0 }
   }
 }
@@ -92,7 +92,7 @@ const fetchInvestments = async (month: number, year: number): Promise<any[]> => 
     const data = await response.json()
     return Array.isArray(data) ? data : []
   } catch (error) {
-    console.error('Error fetching investments:', error)
+    console.error("Error fetching investments:", error)
     return []
   }
 }
@@ -100,6 +100,7 @@ const fetchInvestments = async (month: number, year: number): Promise<any[]> => 
 // Main hook for financial data with React Query
 export function useFinancialDataSafe() {
   const { month, year } = useGlobalDate()
+  const queryClient = useQueryClient()
 
   // Fetch all data in parallel
   const transactionsQuery = useQuery({
@@ -148,10 +149,10 @@ export function useFinancialDataSafe() {
             farol: classifyFarol(calculations?.savingsRate || 0),
           }
         } catch (error) {
-          console.error('Error classifying transaction:', error)
+          console.error("Error classifying transaction:", error)
           return {
             ...transaction,
-            farol: 'red' as const,
+            farol: "red" as const,
           }
         }
       })
@@ -185,6 +186,20 @@ export function useFinancialDataSafe() {
     isLoading,
     error,
     refetch: () => {
+      transactionsQuery.refetch()
+      previousTransactionsQuery.refetch()
+      balanceQuery.refetch()
+      investmentsQuery.refetch()
+    },
+    // Função para forçar atualização completa
+    forceRefresh: () => {
+      // Invalidar todas as queries relacionadas
+      queryClient.invalidateQueries({ queryKey: ["transactions"] })
+      queryClient.invalidateQueries({ queryKey: ["balance"] })
+      queryClient.invalidateQueries({ queryKey: ["investments"] })
+      queryClient.invalidateQueries({ queryKey: ["accounts"] })
+
+      // Refetch all data
       transactionsQuery.refetch()
       previousTransactionsQuery.refetch()
       balanceQuery.refetch()
