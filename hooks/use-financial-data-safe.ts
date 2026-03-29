@@ -13,12 +13,36 @@ import {
 // API fetchers com tratamento de erro melhorado
 const fetchTransactions = async (month: number, year: number): Promise<Transaction[]> => {
   try {
-    const response = await fetch(`/api/transactions?month=${month}&year=${year}`)
+    // Primeiro tenta buscar do mês/ano específico
+    let response = await fetch(`/api/transactions?month=${month}&year=${year}`)
     if (!response.ok) {
       console.error(`Failed to fetch transactions: ${response.status}`)
       return []
     }
-    const data = await response.json()
+    let data = await response.json()
+
+    // Se não encontrar transações no mês, busca dos últimos 3 meses
+    if ((!data.transactions || data.transactions.length === 0) && Array.isArray(data)) {
+      data = { transactions: data }
+    }
+
+    if (!data.transactions || data.transactions.length === 0) {
+      console.log("🔍 Nenhuma transação no mês atual, buscando dos últimos 3 meses...")
+
+      // Buscar dos últimos 3 meses
+      const today = new Date()
+      const threeMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 3, 1)
+
+      response = await fetch(
+        `/api/transactions?startDate=${threeMonthsAgo.toISOString()}&endDate=${today.toISOString()}`
+      )
+      if (response.ok) {
+        data = await response.json()
+        console.log(
+          `📊 Encontradas ${data.transactions?.length || 0} transações nos últimos 3 meses`
+        )
+      }
+    }
 
     // Verificar se data.transactions existe e é um array
     if (data && data.transactions && Array.isArray(data.transactions)) {
