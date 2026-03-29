@@ -13,44 +13,63 @@ import {
 // API fetchers com tratamento de erro melhorado
 const fetchTransactions = async (month: number, year: number): Promise<Transaction[]> => {
   try {
-    // Primeiro tenta buscar do mês/ano específico
-    let response = await fetch(`/api/transactions?month=${month}&year=${year}`)
+    // LÓGICA: Se estamos em março, buscar fevereiro completo
+    // Se estamos no dia 1-5 do mês, buscar mês anterior
+    // Senão, buscar mês atual
+    const today = new Date()
+    const currentDay = today.getDate()
+    const currentMonth = today.getMonth() + 1
+    const currentYear = today.getFullYear()
+
+    let targetMonth = month
+    let targetYear = year
+
+    // Se for início do mês (dias 1-5), buscar mês anterior
+    if (currentDay <= 5 && month === currentMonth && year === currentYear) {
+      targetMonth = currentMonth === 1 ? 12 : currentMonth - 1
+      targetYear = currentMonth === 1 ? currentYear - 1 : currentYear
+      console.log(`📅 Início do mês detectado, buscando mês anterior: ${targetMonth}/${targetYear}`)
+    }
+
+    console.log(`🔍 Buscando transações de: ${targetMonth}/${targetYear}`)
+
+    const response = await fetch(`/api/transactions?month=${targetMonth}&year=${targetYear}`)
     if (!response.ok) {
       console.error(`Failed to fetch transactions: ${response.status}`)
       return []
     }
     let data = await response.json()
 
-    // Se não encontrar transações no mês, busca dos últimos 3 meses
+    // Se não encontrar no mês alvo, buscar dos últimos 2 meses
     if ((!data.transactions || data.transactions.length === 0) && Array.isArray(data)) {
       data = { transactions: data }
     }
 
     if (!data.transactions || data.transactions.length === 0) {
-      console.log("🔍 Nenhuma transação no mês atual, buscando dos últimos 3 meses...")
+      console.log("🔍 Nenhuma transação no período, buscando dos últimos 2 meses...")
 
-      // Buscar dos últimos 3 meses
-      const today = new Date()
-      const threeMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 3, 1)
+      // Buscar dos últimos 2 meses
+      const twoMonthsAgo = new Date(targetYear, targetMonth - 2, 1)
+      const endDate = new Date(targetYear, targetMonth, 0) // Último dia do mês alvo
 
-      response = await fetch(
-        `/api/transactions?startDate=${threeMonthsAgo.toISOString()}&endDate=${today.toISOString()}`
+      const fallbackResponse = await fetch(
+        `/api/transactions?startDate=${twoMonthsAgo.toISOString()}&endDate=${endDate.toISOString()}`
       )
-      if (response.ok) {
-        data = await response.json()
-        console.log(
-          `📊 Encontradas ${data.transactions?.length || 0} transações nos últimos 3 meses`
-        )
+      if (fallbackResponse.ok) {
+        data = await fallbackResponse.json()
+        console.log(`📊 Encontradas ${data.transactions?.length || 0} transações no período`)
       }
     }
 
     // Verificar se data.transactions existe e é um array
     if (data && data.transactions && Array.isArray(data.transactions)) {
+      console.log(`✅ ${data.transactions.length} transações encontradas`)
       return data.transactions
     }
 
     // Se for um array direto, retornar
     if (Array.isArray(data)) {
+      console.log(`✅ ${data.length} transações encontradas (array direto)`)
       return data
     }
 
