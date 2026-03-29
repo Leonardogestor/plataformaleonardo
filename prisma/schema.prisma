@@ -79,6 +79,7 @@ model User {
   transactions        Transaction[]
   subscriptions       Subscription[]
   featureAccess       FeatureAccess[]
+  anamnesis           UserAnamnesis?
 
   @@map("users")
 }
@@ -538,4 +539,20 @@ enum SubscriptionPlan {
   FREE
   PREMIUM
   PRO
+}
+
+model UserAnamnesis {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  responses   Json // Respostas do formulário estratégico
+  analysis    Json? // Análise e estratégias geradas pela IA
+  profileType String? // Tipo de perfil: CONTROLE, RECUPERACAO, CRESCIMENTO
+  riskLevel   String? // Nível de risco: CONSERVADOR, MODERADO, AGRESSIVO
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_anamnesis")
 }
