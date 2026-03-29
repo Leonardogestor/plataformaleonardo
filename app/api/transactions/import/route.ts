@@ -16,7 +16,7 @@ const importSchema = z.object({
         .transform((val) => Math.round(val * 100) / 100),
       description: z.string().min(1),
       date: z.string(),
-      accountId: z.string().optional(),
+      accountId: z.string().nullable().optional(),
     })
   ),
 })
@@ -29,7 +29,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
+    console.log("Dados recebidos na importação:", JSON.stringify(body, null, 2))
+
     const { transactions } = importSchema.parse(body)
+    console.log("Transações validadas com sucesso:", transactions.length)
 
     const results = {
       success: 0,
@@ -57,36 +60,13 @@ export async function POST(request: NextRequest) {
           continue
         }
 
+        // Set default category if none provided (skip categorization API to avoid errors)
+        let category = transaction.category || "Outros"
+        if (!category || category.trim() === "") {
+          category = "Outros"
+        }
+
         await prisma.$transaction(async (tx) => {
-          // Auto-categorize if no category provided
-          let category = transaction.category
-          if (!category || category.trim() === "") {
-            // Try to auto-categorize using existing rules
-            const categorizationResponse = await fetch(
-              `${process.env.NEXTAUTH_URL}/api/categorization/suggest`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  description: transaction.description,
-                  type: transaction.type,
-                  amount: transaction.amount,
-                }),
-              }
-            )
-
-            if (categorizationResponse.ok) {
-              const categorizationData = await categorizationResponse.json()
-              if (categorizationData.category) {
-                category = categorizationData.category
-              } else {
-                category = "Outros" // Default category
-              }
-            } else {
-              category = "Outros" // Default category
-            }
-          }
-
           await tx.transaction.create({
             data: {
               userId: session.user.id,
@@ -114,7 +94,13 @@ export async function POST(request: NextRequest) {
         existingKeys.add(transactionKey) // Add to avoid duplicates within same import
       } catch (error) {
         results.failed++
-        results.errors.push(`Erro na linha ${transaction.description}: ${error}`)
+        const errorMsg = error instanceof Error ? error.message : String(error)
+        console.error(`Erro ao importar transação "${transaction.description}":`, {
+          error: errorMsg,
+          transaction,
+          stack: error instanceof Error ? error.stack : undefined,
+        })
+        results.errors.push(`Erro na linha ${transaction.description}: ${errorMsg}`)
       }
     }
 
@@ -124,8 +110,20 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: "Dados inválidos", details: error.errors }, { status: 400 })
+      console.error("Erro de validação Zod:", error.errors)
+      const errorDetails = error.errors
+        .map((err) => `${err.path.join(".")}: ${err.message}`)
+        .join(", ")
+      return NextResponse.json(
+        {
+          error: "Dados inválidos",
+          details: error.errors,
+          message: `Campos inválidos: ${errorDetails}`,
+        },
+        { status: 400 }
+      )
     }
+    console.error("Erro geral na importação:", error)
     return NextResponse.json({ error: "Erro ao importar transações" }, { status: 500 })
   }
 }

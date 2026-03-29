@@ -134,17 +134,7 @@ export async function processDocumentPdf(documentId: string): Promise<void> {
         console.info(
           `Traditional parsing returned ${transactions.length} transactions, trying AI fallback`
         )
-        const aiResult = await hybridParseTransactions(
-          text,
-          () => [], // Empty traditional result to force AI
-          {
-            sourceType: "pdf",
-            bankHint: detectBankFromText(text),
-            minConfidence: 0.8,
-            enableOCRCorrection: true,
-            enablePreprocessing: true,
-          }
-        )
+        const aiResult = await hybridParseTransactions(text, "pdf")
 
         if (aiResult.transactions.length > 0) {
           transactions = aiResult.transactions.map((t) => ({
@@ -159,11 +149,16 @@ export async function processDocumentPdf(documentId: string): Promise<void> {
         }
       } else {
         // Refine traditional parsing with AI
-        const refinedResult = await refineTransactionsWithAI(transactions, {
-          improveCategories: true,
-          improveTypes: false, // Trust traditional type detection
-          enableOCRCorrection: true,
-        })
+        const refinedResult = await refineTransactionsWithAI(
+          transactions.map((t) => ({
+            type: t.type,
+            date: t.date,
+            description: t.description,
+            amount: t.amount,
+            category: t.category,
+            confidence: 0.8,
+          }))
+        )
 
         if (refinedResult.summary.confidence > 0.7) {
           transactions = refinedResult.transactions.map((t) => ({
@@ -178,17 +173,7 @@ export async function processDocumentPdf(documentId: string): Promise<void> {
       }
     } catch (error) {
       console.warn(`Traditional parsing failed, trying AI parsing:`, error)
-      const aiResult = await hybridParseTransactions(
-        text,
-        () => [], // Empty traditional result to force AI
-        {
-          sourceType: "pdf",
-          bankHint: detectBankFromText(text),
-          minConfidence: 0.8,
-          enableOCRCorrection: true,
-          enablePreprocessing: true,
-        }
-      )
+      const aiResult = await hybridParseTransactions(text, "pdf")
 
       transactions = aiResult.transactions.map((t) => ({
         type: t.type,

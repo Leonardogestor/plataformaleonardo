@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
+import { TransactionWithRelations } from "@/types/transaction"
 
 const transactionSchema = z.object({
   type: z.enum(["INCOME", "EXPENSE", "TRANSFER"]),
@@ -29,16 +30,6 @@ const transactionSchema = z.object({
 
 type TransactionFormData = z.infer<typeof transactionSchema>
 
-interface Transaction {
-  id: string
-  type: string
-  category: string
-  amount: string
-  description: string
-  date: string
-  account: { id: string; name: string } | null
-}
-
 interface Account {
   id: string
   name: string
@@ -48,7 +39,7 @@ interface Account {
 interface TransactionDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  transaction: Transaction | null
+  transaction: TransactionWithRelations | null
   onSuccess: () => void
 }
 
@@ -103,7 +94,7 @@ export function TransactionDialog({
 
         setValue("type", transaction.type as TransactionFormData["type"])
         setValue("category", transaction.category)
-        setValue("amount", transaction.amount)
+        setValue("amount", Number(transaction.amount))
         setValue("description", transaction.description)
         setValue("date", formattedDate ?? "")
         setValue("accountId", transaction.account?.id ? transaction.account.id : "none")
@@ -125,7 +116,7 @@ export function TransactionDialog({
           const amount =
             typeof amountStr === "number"
               ? amountStr
-              : parseFloat(amountStr?.replace(",", ".") || "0") || 0
+              : parseFloat(String(amountStr)?.replace(",", ".") || "0") || 0
           const response = await fetch("/api/categorization/suggest", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -284,7 +275,7 @@ export function TransactionDialog({
               <CurrencyInput
                 id="amount"
                 value={Number(watch("amount")) || 0}
-                onChange={(value) => setValue("amount", String(value))}
+                onChange={(value) => setValue("amount", value)}
                 placeholder="0,00"
               />
               {errors.amount && <p className="text-sm text-destructive">{errors.amount.message}</p>}

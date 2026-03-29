@@ -187,37 +187,22 @@ export function FinancialSummaryNew() {
         </Card>
 
         {/* 5. INVESTIMENTOS */}
-        <div className="space-y-2">
-          <Dialog open={investmentDialogOpen} onOpenChange={setInvestmentDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="w-full">
-                <Upload className="h-4 w-4 mr-2" />
-                Exportar PDF
-              </Button>
-            </DialogTrigger>
-          </Dialog>
-          <Dialog open={investmentDialogOpen} onOpenChange={setInvestmentDialogOpen}>
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between space-y-0 pb-2">
-                  <p className="text-sm font-medium text-muted-foreground">INVESTIMENTOS</p>
-                  <Briefcase className="h-4 w-4 text-purple-600" />
-                </div>
-              </CardContent>
-            </Card>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Importar Extrato de Investimentos</DialogTitle>
-                <DialogDescription>
-                  Envie seu extrato de investimentos em PDF ou Excel para análise automática. O
-                  sistema irá classificar: Tipo de ativo, Valor investido, Data, Instituição e
-                  Rentabilidade.
-                </DialogDescription>
-              </DialogHeader>
-              <DocumentUpload onUpload={handleInvestmentUpload} />
-            </DialogContent>
-          </Dialog>
-        </div>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between space-y-0 pb-2">
+              <p className="text-sm font-medium text-muted-foreground">INVESTIMENTOS</p>
+              <Briefcase className="h-4 w-4 text-purple-600" />
+            </div>
+            <div className="space-y-2">
+              <div className="text-2xl font-bold text-purple-600">
+                {formatCurrency(Math.abs(calculations.investimentos))}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Saldo acumulado: {formatCurrency(finalBalance || 0)}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Detailed Balance Summary */}

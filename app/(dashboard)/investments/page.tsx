@@ -58,7 +58,16 @@ import { z } from "zod"
 
 const investmentSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
-  type: z.enum(["STOCKS", "BONDS", "REAL_ESTATE", "FIXED_INCOME", "CRYPTO", "FUNDS", "OTHER"]),
+  type: z.enum([
+    "STOCKS",
+    "BONDS",
+    "REAL_ESTATE",
+    "FIXED_INCOME",
+    "CRYPTO",
+    "FUNDS",
+    "INTERNATIONAL",
+    "OTHER",
+  ]),
   amount: z.string().min(1, "Valor investido é obrigatório"),
   currentValue: z.string().min(1, "Valor atual é obrigatório"),
   quantity: z.string().optional(),
@@ -92,6 +101,7 @@ const investmentTypes = {
   FIXED_INCOME: { label: "Renda Fixa", icon: "💰" },
   CRYPTO: { label: "Cripto", icon: "₿" },
   FUNDS: { label: "Fundos", icon: "💼" },
+  INTERNATIONAL: { label: "Ativos Internacionais", icon: "🌍" },
   OTHER: { label: "Outro", icon: "📊" },
 }
 

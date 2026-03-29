@@ -141,16 +141,7 @@ export async function processDocumentExcel(documentId: string): Promise<void> {
         console.info(
           `Traditional Excel parsing returned ${transactions.length} transactions, trying AI fallback`
         )
-        const aiResult = await hybridParseTransactions(
-          JSON.stringify(jsonData, null, 2),
-          () => [], // Empty traditional result to force AI
-          {
-            sourceType: "excel",
-            minConfidence: 0.8,
-            enableOCRCorrection: true,
-            enablePreprocessing: true,
-          }
-        )
+        const aiResult = await hybridParseTransactions(JSON.stringify(jsonData, null, 2), "excel")
 
         if (aiResult.transactions.length > 0) {
           transactions = aiResult.transactions.map((t) => ({
@@ -165,11 +156,16 @@ export async function processDocumentExcel(documentId: string): Promise<void> {
         }
       } else {
         // Refine traditional parsing with AI
-        const refinedResult = await refineTransactionsWithAI(transactions, {
-          improveCategories: true,
-          improveTypes: true, // Excel might have type errors
-          enableOCRCorrection: true,
-        })
+        const refinedResult = await refineTransactionsWithAI(
+          transactions.map((t) => ({
+            type: t.type,
+            date: t.date,
+            description: t.description,
+            amount: t.amount,
+            category: t.category,
+            confidence: 0.8,
+          }))
+        )
 
         if (refinedResult.summary.confidence > 0.7) {
           transactions = refinedResult.transactions.map((t) => ({
@@ -184,16 +180,7 @@ export async function processDocumentExcel(documentId: string): Promise<void> {
       }
     } catch (error) {
       console.warn(`Traditional Excel parsing failed, trying AI parsing:`, error)
-      const aiResult = await hybridParseTransactions(
-        JSON.stringify(jsonData, null, 2),
-        () => [], // Empty traditional result to force AI
-        {
-          sourceType: "excel",
-          minConfidence: 0.8,
-          enableOCRCorrection: true,
-          enablePreprocessing: true,
-        }
-      )
+      const aiResult = await hybridParseTransactions(JSON.stringify(jsonData, null, 2), "excel")
 
       transactions = aiResult.transactions.map((t) => ({
         type: t.type,

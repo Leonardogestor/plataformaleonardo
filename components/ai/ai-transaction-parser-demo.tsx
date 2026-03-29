@@ -6,8 +6,16 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Brain, Upload, FileText, Table } from "lucide-react"
+import { Brain, Upload, FileText as FileTextIcon } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 
 interface ParsedTransaction {
   date: string
@@ -185,7 +193,7 @@ Data Histórico Valor
                   onClick={() => loadSample("pdf")}
                   className="flex items-center gap-1"
                 >
-                  <FileText className="h-3 w-3" />
+                  <FileTextIcon className="h-3 w-3" />
                   PDF
                 </Button>
                 <Button
@@ -212,7 +220,7 @@ Data Histórico Valor
                   onClick={() => loadSample("text")}
                   className="flex items-center gap-1"
                 >
-                  <FileText className="h-3 w-3" />
+                  <FileTextIcon className="h-3 w-3" />
                   Texto
                 </Button>
                 <Button
@@ -221,7 +229,7 @@ Data Histórico Valor
                   onClick={() => loadSample("ocr")}
                   className="flex items-center gap-1 border-orange-300 text-orange-600 hover:bg-orange-50"
                 >
-                  <FileText className="h-3 w-3" />
+                  <FileTextIcon className="h-3 w-3" />
                   OCR
                 </Button>
               </div>
@@ -272,7 +280,7 @@ Data Histórico Valor
                         </div>
                         <div className="text-center">
                           <div className="text-2xl font-bold">
-                            {Math.round((result.summary.quality || 0) * 100)}%
+                            {Math.round((result.summary.confidence || 0) * 100)}%
                           </div>
                           <div className="text-sm text-muted-foreground">Qualidade</div>
                         </div>
@@ -339,11 +347,11 @@ Data Histórico Valor
                                   <div className="flex items-center gap-2">
                                     <div
                                       className={`w-2 h-2 rounded-full ${getConfidenceColor(
-                                        transaction.confidence
+                                        transaction.confidence || 0
                                       )}`}
                                     />
                                     <span className="text-sm">
-                                      {getConfidenceText(transaction.confidence)}
+                                      {getConfidenceText(transaction.confidence || 0)}
                                     </span>
                                   </div>
                                 </TableCell>
@@ -351,11 +359,11 @@ Data Histórico Valor
                                   <div className="flex items-center gap-2">
                                     <div
                                       className={`w-2 h-2 rounded-full ${getQualityColor(
-                                        transaction.quality_score || 0
+                                        transaction.confidence || 0
                                       )}`}
                                     />
                                     <span className="text-sm">
-                                      {getConfidenceText(transaction.quality_score)}
+                                      {getConfidenceText(transaction.confidence || 0)}
                                     </span>
                                   </div>
                                 </TableCell>

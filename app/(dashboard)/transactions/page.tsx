@@ -5,12 +5,14 @@ import { useRouter } from "next/navigation"
 import TransactionsTable from "@/components/transactions/transactions-table"
 import { TransactionFilters } from "@/components/transactions/transaction-filters"
 import { Button } from "@/components/ui/button"
-import { Plus, Upload, Receipt } from "lucide-react"
+import { Plus, Upload, Receipt, Trash2, CheckSquare, Square } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { TransactionsSkeleton } from "@/components/ui/loading-skeletons"
 import { EmptyState } from "@/components/ui/empty-state"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
 import dynamic from "next/dynamic"
+import { Transaction } from "@prisma/client"
+import { TransactionWithRelations } from "@/types/transaction"
 
 // Lazy load do TransactionDialog para melhorar performance
 const TransactionDialog = dynamic(
@@ -21,18 +23,6 @@ const TransactionDialog = dynamic(
   { ssr: false }
 )
 
-interface Transaction {
-  id: string
-  type: string
-  category: string
-  amount: number
-  description: string
-  date: string
-  isPending?: boolean
-  account: { id: string; name: string } | null
-  card?: { name: string; brand: string } | null
-}
-
 interface Pagination {
   page: number
   limit: number
@@ -41,7 +31,9 @@ interface Pagination {
 }
 
 export default function TransactionsPage() {
-  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [transactions, setTransactions] = useState<TransactionWithRelations[]>([])
+  const [selectedTransactions, setSelectedTransactions] = useState<string[]>([])
+  const [isAllSelected, setIsAllSelected] = useState(false)
   const [pagination, setPagination] = useState<Pagination>({
     page: 1,
     limit: 50,
@@ -50,7 +42,9 @@ export default function TransactionsPage() {
   })
   const [isLoading, setIsLoading] = useState(false)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
+  const [editingTransaction, setEditingTransaction] = useState<TransactionWithRelations | null>(
+    null
+  )
   const [filters, setFilters] = useState({
     search: "",
     category: "",
@@ -130,13 +124,72 @@ export default function TransactionsPage() {
     }
   }
 
+  const handleDeleteSelected = async () => {
+    if (selectedTransactions.length === 0) return
+    if (!confirm(`Tem certeza que deseja excluir ${selectedTransactions.length} transação(ões)?`))
+      return
+
+    try {
+      const deletePromises = selectedTransactions.map((id) =>
+        fetch(`/api/transactions/${id}`, { method: "DELETE" })
+      )
+
+      const results = await Promise.all(deletePromises)
+      const failedCount = results.filter((r) => !r.ok).length
+
+      if (failedCount === 0) {
+        toast({
+          title: "Transações excluídas!",
+          description: `${selectedTransactions.length} transação(ões) removida(s) com sucesso`,
+        })
+      } else {
+        toast({
+          title: "Aviso",
+          description: `${selectedTransactions.length - failedCount} excluídas, ${failedCount} falharam`,
+          variant: "destructive",
+        })
+      }
+
+      // Disparar evento para atualizar o dashboard
+      window.dispatchEvent(new CustomEvent("transaction-updated"))
+      setSelectedTransactions([])
+      setIsAllSelected(false)
+      fetchTransactions()
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível excluir as transações",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedTransactions([])
+      setIsAllSelected(false)
+    } else {
+      setSelectedTransactions(transactions.map((t) => t.id))
+      setIsAllSelected(true)
+    }
+  }
+
+  const handleSelectTransaction = (id: string) => {
+    setSelectedTransactions((prev) => {
+      const newSelection = prev.includes(id) ? prev.filter((tid) => tid !== id) : [...prev, id]
+
+      setIsAllSelected(newSelection.length === transactions.length)
+      return newSelection
+    })
+  }
+
   const handleSuccess = () => {
     setIsDialogOpen(false)
     setEditingTransaction(null)
     fetchTransactions()
   }
 
-  const handleEdit = (transaction: Transaction) => {
+  const handleEdit = (transaction: TransactionWithRelations) => {
     setEditingTransaction(transaction)
     setIsDialogOpen(true)
   }
@@ -165,6 +218,45 @@ export default function TransactionsPage() {
 
         <TransactionFilters filters={filters} onFiltersChange={setFilters} />
 
+        {transactions.length > 0 && (
+          <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSelectAll}
+                className="flex items-center gap-2"
+              >
+                {isAllSelected ? (
+                  <>
+                    <CheckSquare className="h-4 w-4" /> Desmarcar Todos
+                  </>
+                ) : (
+                  <>
+                    <Square className="h-4 w-4" /> Selecionar Todos
+                  </>
+                )}
+              </Button>
+              {selectedTransactions.length > 0 && (
+                <span className="text-sm text-muted-foreground">
+                  {selectedTransactions.length} selecionada(s)
+                </span>
+              )}
+            </div>
+            {selectedTransactions.length > 0 && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleDeleteSelected}
+                className="flex items-center gap-2"
+              >
+                <Trash2 className="h-4 w-4" />
+                Excluir ({selectedTransactions.length})
+              </Button>
+            )}
+          </div>
+        )}
+
         {isLoading ? (
           <TransactionsSkeleton />
         ) : transactions.length === 0 ? (
@@ -185,6 +277,9 @@ export default function TransactionsPage() {
             onPageChange={(page) => setPagination({ ...pagination, page })}
             onEdit={handleEdit}
             onDelete={handleDelete}
+            selectedTransactions={selectedTransactions}
+            onSelectTransaction={handleSelectTransaction}
+            isAllSelected={isAllSelected}
           />
         )}
 

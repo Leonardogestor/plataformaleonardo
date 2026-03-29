@@ -9,35 +9,26 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
-import { Edit, Trash2 } from "lucide-react"
-
-interface Transaction {
-  id: string
-  type: string
-  category: string
-  subcategory?: string
-  amount: number
-  description: string
-  date: string
-  isPending?: boolean
-  status?: "green" | "yellow" | "red"
-  account: { id: string; name: string } | null
-  card?: { name: string; brand: string } | null
-}
+import { Edit, Trash2, CheckSquare, Square } from "lucide-react"
+import { TransactionWithRelations } from "@/types/transaction"
+import { Checkbox } from "@/components/ui/checkbox"
 
 // Função TransactionsTable deve ser definida acima deste export
 import React from "react"
 
 interface TransactionsTableProps {
-  transactions: Transaction[]
+  transactions: TransactionWithRelations[]
   isLoading: boolean
   pagination: {
     page: number
     totalPages: number
   }
   onPageChange: (page: number) => void
-  onEdit?: (transaction: Transaction) => void
+  onEdit?: (transaction: TransactionWithRelations) => void
   onDelete?: (id: string) => void
+  selectedTransactions?: string[]
+  onSelectTransaction?: (id: string) => void
+  isAllSelected?: boolean
 }
 
 function TransactionsTable({
@@ -47,6 +38,9 @@ function TransactionsTable({
   onPageChange,
   onEdit,
   onDelete,
+  selectedTransactions = [],
+  onSelectTransaction,
+  isAllSelected = false,
 }: TransactionsTableProps) {
   // Placeholder para renderização básica
   if (isLoading) {
@@ -66,6 +60,12 @@ function TransactionsTable({
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-12">
+                <Checkbox
+                  checked={isAllSelected}
+                  onCheckedChange={() => onSelectTransaction?.("all")}
+                />
+              </TableHead>
               <TableHead>Data</TableHead>
               <TableHead>Tipo</TableHead>
               <TableHead>Categoria</TableHead>
@@ -77,14 +77,20 @@ function TransactionsTable({
           <TableBody>
             {transactions.map((t) => (
               <TableRow key={t.id}>
-                <TableCell>{t.date}</TableCell>
+                <TableCell>
+                  <Checkbox
+                    checked={selectedTransactions.includes(t.id)}
+                    onCheckedChange={() => onSelectTransaction?.(t.id)}
+                  />
+                </TableCell>
+                <TableCell>{new Date(t.date).toLocaleDateString("pt-BR")}</TableCell>
                 <TableCell>{t.type}</TableCell>
                 <TableCell>{t.category}</TableCell>
                 <TableCell className="text-right font-mono">
                   {new Intl.NumberFormat("pt-BR", {
                     style: "currency",
                     currency: "BRL",
-                  }).format(t.amount)}
+                  }).format(Number(t.amount))}
                   {t.status && (
                     <div
                       className={`ml-2 inline-block w-2 h-2 rounded-full ${

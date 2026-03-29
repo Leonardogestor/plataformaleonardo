@@ -38,19 +38,57 @@ export default function ImportTransactionsPage() {
 
   const [isImporting, setIsImporting] = useState(false)
   const [isParsing, setIsParsing] = useState(false)
-  const [step, setStep] = useState<"upload" | "preview" | "mapping" | "review" | "confirm">(
-    "upload"
-  )
+  const [step, setStep] = useState<"upload" | "preview" | "review" | "confirm">("upload")
   const [reviewData, setReviewData] = useState<any[]>([])
   const router = useRouter()
   const { toast } = useToast()
   const ofxExcelInputRef = useRef<HTMLInputElement>(null)
 
-  const handleFileUpload = (data: ParsedRow[], fileHeaders: string[]) => {
+  const handleFileUpload = async (data: ParsedRow[], fileHeaders: string[]) => {
     setCsvData(data)
     setHeaders(fileHeaders)
     setImportSource("csv")
-    setStep("preview")
+
+    // Processamento automático com IA
+    setIsParsing(true)
+    try {
+      const response = await fetch("/api/transactions/import/auto-map", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ headers: fileHeaders, rows: data }),
+      })
+
+      const result = await response.json()
+      if (!response.ok) {
+        throw new Error(result.error || "Falha no processamento automático")
+      }
+
+      setReviewData(result.transactions)
+      setStep("review")
+
+      toast({
+        title: "Processamento Automático Concluído!",
+        description: `${result.transactions.length} transações processadas com ${result.confidence.toFixed(1)}% de confiança`,
+      })
+
+      if (result.errors && result.errors.length > 0) {
+        toast({
+          title: "Avisos",
+          description: `${result.errors.length} linhas não puderam ser processadas`,
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Erro no processamento",
+        description:
+          error instanceof Error ? error.message : "Não foi possível processar o arquivo",
+        variant: "destructive",
+      })
+      setStep("preview") // Fallback para preview manual
+    } finally {
+      setIsParsing(false)
+    }
   }
 
   const handleOfxExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -98,11 +136,36 @@ export default function ImportTransactionsPage() {
         Array.isArray(data.headers) &&
         Array.isArray(data.rows)
       ) {
-        setHeaders(data.headers)
-        setCsvData(data.rows)
-        setImportSource("xlsx")
-        setStep("preview")
-        toast({ title: "Planilha carregada. Faça o mapeamento das colunas." })
+        // Processamento automático para Excel também
+        try {
+          const autoMapResponse = await fetch("/api/transactions/import/auto-map", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ headers: data.headers, rows: data.rows }),
+          })
+
+          const autoMapResult = await autoMapResponse.json()
+          if (autoMapResponse.ok) {
+            setReviewData(autoMapResult.transactions)
+            setStep("review")
+            toast({
+              title: "Excel processado automaticamente!",
+              description: `${autoMapResult.transactions.length} transações processadas`,
+            })
+          } else {
+            setHeaders(data.headers)
+            setCsvData(data.rows)
+            setImportSource("xlsx")
+            setStep("preview")
+            toast({ title: "Planilha carregada. Faça o mapeamento das colunas." })
+          }
+        } catch (error) {
+          setHeaders(data.headers)
+          setCsvData(data.rows)
+          setImportSource("xlsx")
+          setStep("preview")
+          toast({ title: "Planilha carregada. Faça o mapeamento das colunas." })
+        }
       } else {
         throw new Error("Resposta inválida do servidor")
       }
@@ -130,6 +193,65 @@ export default function ImportTransactionsPage() {
         ...rest,
         amount: parseFloat(rest.amount || "0"),
       }))
+
+      // Validação básica antes de enviar
+      const validationErrors: string[] = []
+      console.log("Dados das transações para validação:", mappedTransactions.slice(0, 3))
+
+      mappedTransactions.forEach((transaction, index) => {
+        console.log(`Validando linha ${index + 1}:`, transaction)
+
+        // Validação de tipo
+        if (!transaction.type) {
+          validationErrors.push(`Linha ${index + 1}: Tipo é obrigatório (vazio)`)
+        } else if (!["INCOME", "EXPENSE", "TRANSFER"].includes(transaction.type)) {
+          validationErrors.push(
+            `Linha ${index + 1}: Tipo inválido "${transaction.type}". Use: INCOME, EXPENSE ou TRANSFER`
+          )
+        }
+
+        // Validação de categoria
+        if (!transaction.category || transaction.category.trim() === "") {
+          validationErrors.push(`Linha ${index + 1}: Categoria é obrigatória (vazia)`)
+        }
+
+        // Validação de descrição
+        if (!transaction.description || transaction.description.trim() === "") {
+          validationErrors.push(`Linha ${index + 1}: Descrição é obrigatória (vazia)`)
+        }
+
+        // Validação de valor
+        if (transaction.amount === undefined || transaction.amount === null) {
+          validationErrors.push(`Linha ${index + 1}: Valor é obrigatório (nulo/indefinido)`)
+        } else if (isNaN(transaction.amount)) {
+          validationErrors.push(
+            `Linha ${index + 1}: Valor deve ser um número válido (recebeu: ${transaction.amount})`
+          )
+        } else if (transaction.amount <= 0) {
+          validationErrors.push(
+            `Linha ${index + 1}: Valor deve ser positivo (recebeu: ${transaction.amount})`
+          )
+        }
+
+        // Validação de data
+        if (!transaction.date) {
+          validationErrors.push(`Linha ${index + 1}: Data é obrigatória (vazia)`)
+        } else {
+          const dateObj = new Date(transaction.date)
+          if (isNaN(dateObj.getTime())) {
+            validationErrors.push(
+              `Linha ${index + 1}: Data inválida (recebeu: "${transaction.date}")`
+            )
+          }
+        }
+      })
+
+      if (validationErrors.length > 0) {
+        throw new Error(`Erros de validação:\n${validationErrors.join("\n")}`)
+      }
+
+      console.log("Enviando transações para API:", mappedTransactions)
+
       const response = await fetch("/api/transactions/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -144,12 +266,16 @@ export default function ImportTransactionsPage() {
         window.dispatchEvent(new CustomEvent("transaction-updated"))
         router.push("/transactions")
       } else {
-        throw new Error()
+        const errorData = await response.json().catch(() => ({}))
+        console.error("Erro na importação:", errorData)
+        throw new Error(errorData.message || errorData.error || "Erro desconhecido")
       }
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Não foi possível importar as transações"
       toast({
-        title: "Erro",
-        description: "Não foi possível importar as transações",
+        title: "Erro na Importação",
+        description: errorMessage,
         variant: "destructive",
       })
     } finally {
@@ -195,7 +321,7 @@ export default function ImportTransactionsPage() {
         <div className="h-px w-12 bg-border" />
         <div
           className={`flex h-8 w-8 items-center justify-center rounded-full ${
-            step === "mapping" || step === "confirm"
+            step === "review" || step === "confirm"
               ? "bg-primary text-primary-foreground"
               : "bg-muted"
           }`}
@@ -204,10 +330,10 @@ export default function ImportTransactionsPage() {
         </div>
         <span
           className={
-            step === "mapping" || step === "confirm" ? "font-medium" : "text-muted-foreground"
+            step === "review" || step === "confirm" ? "font-medium" : "text-muted-foreground"
           }
         >
-          Mapeamento
+          Revisão
         </span>
         <div className="h-px w-12 bg-border" />
         <div
@@ -272,20 +398,42 @@ export default function ImportTransactionsPage() {
       {step === "preview" && (
         <CsvPreview
           data={csvData}
-          onContinue={() => setStep("mapping")}
-          onBack={() => setStep("upload")}
-        />
-      )}
+          onContinue={async () => {
+            // Tentar processamento automático mesmo no preview
+            setIsParsing(true)
+            try {
+              const response = await fetch("/api/transactions/import/auto-map", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ headers, rows: csvData }),
+              })
 
-      {step === "mapping" && (
-        <CsvMapping
-          headers={headers}
-          data={csvData}
-          onBack={() => setStep("preview")}
-          onMapping={(mapping) => {
-            setReviewData(applyMapping(csvData, mapping))
-            setStep("review")
+              const result = await response.json()
+              if (response.ok) {
+                setReviewData(result.transactions)
+                setStep("review")
+                toast({
+                  title: "Processamento Automático!",
+                  description: `${result.transactions.length} transações processadas`,
+                })
+              } else {
+                toast({
+                  title: "Não foi possível processar automaticamente",
+                  description: "Verifique o formato dos dados",
+                  variant: "destructive",
+                })
+              }
+            } catch (error) {
+              toast({
+                title: "Erro no processamento",
+                description: "Tente novamente",
+                variant: "destructive",
+              })
+            } finally {
+              setIsParsing(false)
+            }
           }}
+          onBack={() => setStep("upload")}
         />
       )}
 
@@ -293,7 +441,7 @@ export default function ImportTransactionsPage() {
         <ReviewImport
           transactions={reviewData}
           onConfirm={handleReviewConfirm}
-          onBack={() => setStep(importSource === "ofx" ? "upload" : "mapping")}
+          onBack={() => setStep("preview")}
         />
       )}
 

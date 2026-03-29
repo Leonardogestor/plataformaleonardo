@@ -22,13 +22,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse transactions with enhanced AI
-    const result = await parseTransactionsWithAI(data, {
-      sourceType: options.sourceType || "text",
-      bankHint: options.bankHint,
-      existingCategories: options.existingCategories || [],
-      enableOCRCorrection: options.enableOCRCorrection !== false,
-      enablePreprocessing: options.enablePreprocessing !== false,
-    })
+    const result = await parseTransactionsWithAI(
+      data,
+      options.sourceType || "text",
+      options.bankHint,
+      options.existingCategories || [],
+      options.enablePreprocessing !== false,
+      true // enableQualityScoring
+    )
 
     return NextResponse.json(result)
   } catch (error) {

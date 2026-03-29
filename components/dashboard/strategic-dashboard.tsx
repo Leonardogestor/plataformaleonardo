@@ -58,68 +58,6 @@ export function StrategicDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* KEY METRICS - Decision Focus */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {/* Cash Flow - Most Important */}
-        <Card className="border-l-4 border-l-blue-500">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between space-y-0 pb-2">
-              <p className="text-sm font-medium text-muted-foreground">Fluxo de Caixa</p>
-              <DollarSign className="h-4 w-4 text-blue-600" />
-            </div>
-            <div
-              className={`text-2xl font-bold ${resultado >= 0 ? "text-green-600" : "text-red-600"}`}
-            >
-              {formatCurrency(resultado)}
-            </div>
-            <div className="flex items-center gap-2 mt-2">
-              <Progress value={Math.max(0, savingsRate * 100)} className="flex-1" />
-              <span className="text-xs text-muted-foreground">{formatPercent(savingsRate)}</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Income */}
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between space-y-0 pb-2">
-              <p className="text-sm font-medium text-muted-foreground">🟢 Receitas</p>
-              <TrendingUp className="h-4 w-4 text-green-600" />
-            </div>
-            <div className="text-2xl font-bold text-green-600">{formatCurrency(receitas)}</div>
-          </CardContent>
-        </Card>
-
-        {/* Expenses */}
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between space-y-0 pb-2">
-              <p className="text-sm font-medium text-muted-foreground">🔴 Despesas</p>
-              <TrendingDown className="h-4 w-4 text-red-600" />
-            </div>
-            <div className="text-2xl font-bold text-red-600">
-              {formatCurrency(Math.abs(despesas))}
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              {formatPercent(Math.abs(despesas) / receitas)} da receita
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Net Worth */}
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between space-y-0 pb-2">
-              <p className="text-sm font-medium text-muted-foreground">Patrimônio</p>
-              <PiggyBank className="h-4 w-4 text-purple-600" />
-            </div>
-            <div className="text-2xl font-bold text-purple-600">
-              {formatCurrency(finalBalance || 0)}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
       {/* STRATEGY INSIGHTS - New Block */}
       {strategy && (
         <div className="grid gap-6 md:grid-cols-2">
