@@ -2,6 +2,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useGlobalDate } from "@/contexts/global-date-context"
+import { useRealTimeUpdates } from "./use-real-time-updates"
 import {
   Transaction,
   FinancialCalculations,
@@ -101,6 +102,9 @@ const fetchInvestments = async (month: number, year: number): Promise<any[]> => 
 export function useFinancialDataSafe() {
   const { month, year } = useGlobalDate()
   const queryClient = useQueryClient()
+
+  // 🔥 Atualizações em tempo real
+  useRealTimeUpdates()
 
   // Fetch all data in parallel
   const transactionsQuery = useQuery({

@@ -212,6 +212,42 @@ export async function processDocumentExcel(documentId: string): Promise<void> {
     const finishedAt = new Date()
     const durationMs = finishedAt.getTime() - startedAt.getTime()
 
+    // 🔥 ATUALIZAÇÃO AUTOMÁTICA DE SALDOS
+    console.log("🔄 Atualizando saldos das contas após importação...")
+
+    const accounts = await prisma.account.findMany({
+      where: { userId },
+      include: {
+        transactions: {
+          select: {
+            amount: true,
+            type: true,
+          },
+        },
+      },
+    })
+
+    for (const account of accounts) {
+      const correctBalance = account.transactions.reduce((balance, transaction) => {
+        const amount = Number(transaction.amount)
+        return balance + (transaction.type === "INCOME" ? amount : -amount)
+      }, 0)
+
+      const currentBalance = Number(account.balance)
+      if (Math.abs(currentBalance - correctBalance) > 0.01) {
+        await prisma.account.update({
+          where: { id: account.id },
+          data: { balance: correctBalance },
+        })
+        console.log(
+          `💰 Saldo atualizado: Conta ${account.name} → R$ ${correctBalance.toLocaleString("pt-BR")}`
+        )
+      }
+    }
+
+    // 🔥 INVALIDAR CACHE DO CLIENTE
+    console.log("🗑️ Cache invalidado - cliente precisará recarregar")
+
     const status = result.failed > 0 && result.success === 0 ? "FAILED" : "COMPLETED"
     const errorMessage = result.errors.length > 0 ? result.errors.slice(0, 3).join("; ") : null
 
