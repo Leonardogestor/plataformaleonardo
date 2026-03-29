@@ -16,10 +16,25 @@ const DEFAULT_CATEGORY = "Outros"
 const MAX_TRANSACTIONS_PER_DOCUMENT = 5000
 
 function toNormalizedTransaction(row: any): NormalizedTransaction {
+  // Parse amount with Brazilian format support
+  let amount = 0
+  if (typeof row.amount === "number") {
+    amount = Math.abs(row.amount)
+  } else if (typeof row.amount === "string") {
+    const amountStr = String(row.amount)
+    // Remove R$ and spaces
+    let clean = amountStr.replace(/[R$\$\€\£\s]/g, "")
+    // Brazilian format: 1.234,56 -> 1234.56
+    clean = clean.replace(/\./g, "").replace(/,/g, ".")
+    // Remove any other non-numeric characters except dot and minus
+    clean = clean.replace(/[^\d.-]/g, "")
+    amount = parseFloat(clean) || 0
+  }
+
   return {
     type: row.type || "EXPENSE",
     category: row.category || DEFAULT_CATEGORY,
-    amount: parseFloat(row.amount) || 0,
+    amount: amount,
     description: row.description || "",
     date: new Date(row.date).toISOString() || new Date().toISOString(),
   }
