@@ -66,6 +66,20 @@ export async function POST(request: NextRequest) {
           category = "Outros"
         }
 
+        // 🔥 CORRIGIR VALOR - Parsing brasileiro
+        let amount = transaction.amount
+        if (typeof amount === "string") {
+          const amountStr = String(amount)
+          // Remove R$ and spaces
+          let clean = amountStr.replace(/[R$\$\€\£\s]/g, "")
+          // Brazilian format: 1.234,56 -> 1234.56
+          clean = clean.replace(/\./g, "").replace(/,/g, ".")
+          // Remove any other non-numeric characters except dot and minus
+          clean = clean.replace(/[^\d.-]/g, "")
+          amount = parseFloat(clean) || 0
+        }
+        amount = Math.abs(Number(amount)) // Garantir positivo
+
         await prisma.$transaction(async (tx) => {
           await tx.transaction.create({
             data: {
@@ -73,7 +87,7 @@ export async function POST(request: NextRequest) {
               type: transaction.type,
               category,
               subcategory: transaction.subcategory || null,
-              amount: transaction.amount,
+              amount: amount, // Usar valor corrigido
               description: transaction.description,
               date: new Date(transaction.date),
               accountId: transaction.accountId || null,
@@ -82,8 +96,7 @@ export async function POST(request: NextRequest) {
           })
 
           if (transaction.accountId) {
-            const increment =
-              transaction.type === "INCOME" ? transaction.amount : -transaction.amount
+            const increment = transaction.type === "INCOME" ? amount : -amount // Usar valor corrigido
             await tx.account.update({
               where: { id: transaction.accountId },
               data: { balance: { increment } },
