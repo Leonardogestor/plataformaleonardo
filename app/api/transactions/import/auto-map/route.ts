@@ -369,6 +369,52 @@ function detectCategory(description: string, type: string): string {
   }
 }
 
+// Função para detectar o tipo de cada coluna
+function detectColumnTypes(headers: string[], rows: any[]): Record<string, string> {
+  const columnTypes: Record<string, string> = {}
+
+  headers.forEach((header) => {
+    const samples = rows
+      .slice(0, 5)
+      .map((row) => row[header])
+      .filter((val) => val !== undefined && val !== null)
+
+    if (samples.length === 0) {
+      columnTypes[header] = "description"
+      return
+    }
+
+    // Verificar se é coluna de valor
+    const valuePattern = /^-?\$?\s?\d+([.,]\d{1,2})?$|^\d+([.,]\d{1,2})?\s?$/
+    const isValueColumn = samples.some((sample) => {
+      const str = String(sample).trim()
+      return valuePattern.test(str) || !isNaN(parseFloat(str.replace(/[R$\$\€\£\s.,]/g, "")))
+    })
+
+    if (isValueColumn) {
+      columnTypes[header] = "amount"
+      return
+    }
+
+    // Verificar se é coluna de data
+    const datePattern = /^\d{2}[\/\-]\d{2}[\/\-]\d{4}$|^\d{4}[\/\-]\d{2}[\/\-]\d{2}$/
+    const isDateColumn = samples.some((sample) => {
+      const str = String(sample).trim()
+      return datePattern.test(str) || !isNaN(Date.parse(str))
+    })
+
+    if (isDateColumn) {
+      columnTypes[header] = "date"
+      return
+    }
+
+    // Se não for valor nem data, é descrição
+    columnTypes[header] = "description"
+  })
+
+  return columnTypes
+}
+
 // Função principal de mapeamento automático
 function autoMapData(headers: string[], rows: any[]): AutoMappingResult {
   const transactions: any[] = []
@@ -434,20 +480,20 @@ function autoMapData(headers: string[], rows: any[]): AutoMappingResult {
       for (const descColumn of descriptionColumns) {
         if (row[descColumn] && String(row[descColumn]).trim()) {
           let descValue = String(row[descColumn]).trim()
-          
+
           // Se for DEBITO ou CREDITO, não usar como descrição
           if (descValue.toLowerCase() === "debito" || descValue.toLowerCase() === "credito") {
             console.log(`Ignorando "${descValue}" como descrição (é tipo)`)
             continue
           }
-          
+
           transaction.description = descValue
           console.log(`Descrição: "${descValue}"`)
           descriptionFound = true
           break
         }
       }
-      
+
       // Se não encontrou descrição nas colunas de texto, procurar em todas
       if (!descriptionFound) {
         for (const header of headers) {
@@ -455,13 +501,13 @@ function autoMapData(headers: string[], rows: any[]): AutoMappingResult {
             const value = row[header]
             if (value !== undefined && value !== null && String(value).trim()) {
               let descValue = String(value).trim()
-              
+
               // Se for DEBITO ou CREDITO, não usar como descrição
               if (descValue.toLowerCase() === "debito" || descValue.toLowerCase() === "credito") {
                 console.log(`Ignorando "${descValue}" como descrição alternativa (é tipo)`)
                 continue
               }
-              
+
               transaction.description = descValue
               console.log(`Descrição alternativa: "${descValue}" (coluna: ${header})`)
               break
@@ -472,7 +518,7 @@ function autoMapData(headers: string[], rows: any[]): AutoMappingResult {
 
       // Detectar tipo automaticamente
       transaction.type = detectTransactionType(transaction.amount, transaction.description)
-      
+
       // Detectar categoria automaticamente
       transaction.category = detectCategory(transaction.description, transaction.type)
 
@@ -503,7 +549,6 @@ function autoMapData(headers: string[], rows: any[]): AutoMappingResult {
     transactions,
     confidence,
     errors: errors.length > 0 ? errors : undefined,
-    mapping: Object.keys(mapping).length > 0 ? mapping : undefined,
   }
 }
 
