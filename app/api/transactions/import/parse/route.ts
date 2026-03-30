@@ -57,14 +57,24 @@ export async function POST(request: NextRequest) {
       }
 
       // Encontrar a última coluna com dados reais para evitar colunas vazias
+      console.log("Dados brutos da planilha:", data.length, "linhas")
+      console.log("Exemplo primeira linha:", data[0]?.slice(0, 10))
+
       const maxColumnsFound = Math.max(
-        ...data.map(
-          (row) =>
-            row.findIndex(
-              (cell) => cell !== undefined && cell !== null && String(cell).trim() !== ""
-            ) + 1
-        )
+        ...data.map((row) => {
+          // Encontrar a última célula não vazia na linha
+          let lastNonEmptyIndex = -1
+          for (let i = row.length - 1; i >= 0; i--) {
+            if (row[i] !== undefined && row[i] !== null && String(row[i]).trim() !== "") {
+              lastNonEmptyIndex = i
+              break
+            }
+          }
+          return lastNonEmptyIndex + 1 // +1 porque queremos o count, não o índice
+        })
       )
+
+      console.log("Máximo de colunas encontradas:", maxColumnsFound)
 
       // Limitar a colunas com dados (máximo 100 para evitar arquivos corrompidos)
       const maxColumns = Math.min(maxColumnsFound, 100)
