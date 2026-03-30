@@ -6,7 +6,16 @@ import { z } from "zod"
 
 const investmentSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
-  type: z.enum(["STOCKS", "BONDS", "REAL_ESTATE", "FIXED_INCOME", "CRYPTO", "FUNDS", "OTHER"]),
+  type: z.enum([
+    "STOCKS",
+    "BONDS",
+    "REAL_ESTATE",
+    "FIXED_INCOME",
+    "CRYPTO",
+    "FUNDS",
+    "INTERNATIONAL",
+    "OTHER",
+  ]),
   amount: z.number().positive("Valor investido deve ser positivo"),
   currentValue: z.number().positive("Valor atual deve ser positivo"),
   quantity: z.number().positive().optional(),
