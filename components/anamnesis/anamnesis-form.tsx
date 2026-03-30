@@ -167,6 +167,22 @@ export function AnamnesisForm({ onSubmit }: AnamnesisFormProps) {
   }
 
   const nextStep = () => {
+    // Validar campos do passo atual antes de prosseguir
+    if (currentStep === 0) {
+      const name = form.getValues("personalInfo.name")
+      const birthDate = form.getValues("personalInfo.birthDate")
+
+      if (!name || name.trim() === "") {
+        form.setError("personalInfo.name", { message: "Nome é obrigatório" })
+        return
+      }
+
+      if (!birthDate) {
+        form.setError("personalInfo.birthDate", { message: "Data de nascimento é obrigatória" })
+        return
+      }
+    }
+
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1)
     }

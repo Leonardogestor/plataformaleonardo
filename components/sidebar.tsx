@@ -29,6 +29,7 @@ import {
 } from "lucide-react"
 
 const navigation = [
+  { name: "Anamnese", href: "/anamnesis", icon: User }, // Menu Anamnese Financeira
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Contas", href: "/accounts", icon: Wallet },
   { name: "Transações", href: "/transactions", icon: ArrowLeftRight },
@@ -39,7 +40,6 @@ const navigation = [
   { name: "Projeções", href: "/projections", icon: LineChart },
   { name: "Documentos", href: "/documents", icon: FileText },
   { name: "Categorização", href: "/categorization", icon: Brain },
-  { name: "Anamnese", href: "/dashboard/profile/anamnesis", icon: User }, // Menu Anamnese Financeira
   { name: "Relatórios", href: "/reports", icon: BarChart3 },
   { name: "Configurações", href: "/settings", icon: Settings },
 ]
