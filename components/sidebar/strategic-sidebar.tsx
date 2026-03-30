@@ -64,6 +64,11 @@ const navigation = [
     href: "/settings",
     icon: Settings,
   },
+  {
+    name: "Anamnese",
+    href: "/dashboard/profile/anamnesis",
+    icon: User,
+  },
 ]
 
 export function StrategicSidebar() {
