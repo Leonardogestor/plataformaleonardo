@@ -45,13 +45,38 @@ export async function POST(request: NextRequest) {
       if (!sheet) {
         return NextResponse.json({ error: "Planilha não encontrada" }, { status: 400 })
       }
-      const data = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, defval: "" }) as string[][]
+      const data = XLSX.utils.sheet_to_json<string[]>(sheet, {
+        header: 1,
+        defval: "",
+      }) as string[][]
       if (data.length < 2) {
-        return NextResponse.json({ error: "Planilha sem dados. Use a primeira linha como cabeçalho." }, { status: 400 })
+        return NextResponse.json(
+          { error: "Planilha sem dados. Use a primeira linha como cabeçalho." },
+          { status: 400 }
+        )
       }
-      const firstRow = data[0]
-      const headers = (firstRow ?? []).map((h, i) => String(h ?? "").trim() || `Col ${i + 1}`) as string[]
-      const rows: Record<string, string>[] = data.slice(1).map((row) => {
+
+      // Encontrar a última coluna com dados reais para evitar colunas vazias
+      const maxColumnsFound = Math.max(
+        ...data.map(
+          (row) =>
+            row.findIndex(
+              (cell) => cell !== undefined && cell !== null && String(cell).trim() !== ""
+            ) + 1
+        )
+      )
+
+      // Limitar a colunas com dados (máximo 100 para evitar arquivos corrompidos)
+      const maxColumns = Math.min(maxColumnsFound, 100)
+
+      // Truncar dados para colunas relevantes apenas
+      const truncatedData = data.map((row) => row.slice(0, maxColumns))
+
+      const firstRow = truncatedData[0]
+      const headers = (firstRow ?? []).map(
+        (h, i) => String(h ?? "").trim() || `Col ${i + 1}`
+      ) as string[]
+      const rows: Record<string, string>[] = truncatedData.slice(1).map((row) => {
         const obj: Record<string, string> = {}
         headers.forEach((h, i) => {
           obj[h] = row[i] != null ? String(row[i]).trim() : ""
