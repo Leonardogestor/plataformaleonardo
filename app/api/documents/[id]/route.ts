@@ -13,10 +13,7 @@ const updateDocumentSchema = z.object({
 /**
  * GET – Return document metadata. For file download use GET /api/documents/[id]/download to get secure redirect to blob URL.
  */
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
@@ -26,23 +23,40 @@ export async function GET(
     const { id } = await params
     const doc = await prisma.document.findFirst({
       where: { id, userId: session.user.id },
+      include: {
+        syncLogs: {
+          where: { documentId: id },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: {
+            transactionsProcessed: true,
+            status: true,
+            error: true,
+          },
+        },
+      },
     })
 
     if (!doc) {
       return NextResponse.json({ error: "Documento não encontrado" }, { status: 404 })
     }
 
-    return NextResponse.json(doc)
+    // Adicionar transactionCount do SyncLog mais recente
+    const response = {
+      ...doc,
+      transactionCount: doc.syncLogs[0]?.transactionsProcessed || 0,
+      syncStatus: doc.syncLogs[0]?.status || null,
+      syncError: doc.syncLogs[0]?.error || null,
+    }
+
+    return NextResponse.json(response)
   } catch (error) {
     console.error("Erro ao obter documento:", error)
     return NextResponse.json({ error: "Erro ao obter documento" }, { status: 500 })
   }
 }
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {

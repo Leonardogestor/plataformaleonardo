@@ -196,73 +196,148 @@ export default function ImportsPage() {
       return
     }
 
+    if (!selectedBank || !selectedMonth || !selectedYear) {
+      toast({
+        title: "Dados incompletos",
+        description: "Selecione o banco, mês e ano antes de enviar os arquivos.",
+        variant: "destructive",
+      })
+      return
+    }
+
     setUploading(true)
     const newDocuments: ImportDocument[] = []
 
-    for (const file of files) {
-      try {
-        setProcessingFiles((prev) => [...prev, file.name])
+    try {
+      for (const file of files) {
+        try {
+          setProcessingFiles((prev) => [...prev, file.name])
 
-        // Simulação de upload
-        await new Promise((resolve) => setTimeout(resolve, 1000))
+          // Criar FormData para upload
+          const formData = new FormData()
+          formData.append("file", file)
+          formData.append("name", `Extrato ${selectedBank} - ${selectedMonth} ${selectedYear}`)
 
-        const newDoc: ImportDocument = {
-          id: Date.now().toString() + Math.random(),
-          name: `Extrato ${selectedBank}`,
-          fileName: file.name,
-          mimeType: file.type,
-          fileSize: file.size,
-          status: "PROCESSING",
-          errorMessage: null,
-          createdAt: new Date().toISOString(),
-          transactionCount: Math.floor(Math.random() * 50) + 10,
-          bankName: selectedBank,
-          period: `${selectedMonth} ${selectedYear}`,
-        }
+          // Fazer upload real para a API
+          const response = await fetch("/api/documents", {
+            method: "POST",
+            body: formData,
+          })
 
-        newDocuments.push(newDoc)
-
-        // Simular processamento
-        setTimeout(() => {
-          setProcessingFiles((prev) => prev.filter((f) => f !== file.name))
-          setImports((prevImports) =>
-            prevImports.map((session) =>
-              session.id === currentSession?.id
-                ? {
-                    ...session,
-                    documents: session.documents.map((doc) =>
-                      doc.id === newDoc.id ? { ...doc, status: "COMPLETED" as const } : doc
-                    ),
-                  }
-                : session
-            )
-          )
-        }, 2000)
-      } catch (error) {
-        toast({
-          title: "Erro no upload",
-          description: `Erro ao fazer upload de ${file.name}`,
-          variant: "destructive",
-        })
-      }
-    }
-
-    setCurrentSession((prev) =>
-      prev
-        ? {
-            ...prev,
-            documents: [...prev.documents, ...newDocuments],
-            status: newDocuments.length > 0 ? "PROCESSING" : "UPLOADING",
+          if (!response.ok) {
+            const errorData = await response.json()
+            throw new Error(errorData.error || "Erro ao fazer upload")
           }
-        : null
-    )
 
-    setFiles([])
-    setUploading(false)
-    toast({
-      title: "Upload iniciado",
-      description: `${files.length} arquivo(s) enviados para processamento.`,
-    })
+          const uploadedDoc = await response.json()
+
+          const newDoc: ImportDocument = {
+            id: uploadedDoc.id,
+            name: `Extrato ${selectedBank}`,
+            fileName: file.name,
+            mimeType: file.type,
+            fileSize: file.size,
+            status: "PROCESSING",
+            errorMessage: null,
+            createdAt: uploadedDoc.createdAt,
+            transactionCount: 0,
+            bankName: selectedBank,
+            period: `${selectedMonth} ${selectedYear}`,
+          }
+
+          newDocuments.push(newDoc)
+
+          // Verificar status do processamento
+          const checkProcessingStatus = async () => {
+            try {
+              const statusResponse = await fetch(`/api/documents/${uploadedDoc.id}`)
+              if (statusResponse.ok) {
+                const statusData = await statusResponse.json()
+                if (statusData.status === "COMPLETED") {
+                  setProcessingFiles((prev) => prev.filter((f) => f !== file.name))
+                  setCurrentSession((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          documents: prev.documents.map((doc) =>
+                            doc.id === newDoc.id
+                              ? {
+                                  ...doc,
+                                  status: "COMPLETED" as const,
+                                  transactionCount: statusData.transactionCount || 0,
+                                }
+                              : doc
+                          ),
+                        }
+                      : null
+                  )
+                } else if (statusData.status === "FAILED") {
+                  setProcessingFiles((prev) => prev.filter((f) => f !== file.name))
+                  setCurrentSession((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          documents: prev.documents.map((doc) =>
+                            doc.id === newDoc.id
+                              ? {
+                                  ...doc,
+                                  status: "FAILED" as const,
+                                  errorMessage: statusData.errorMessage,
+                                }
+                              : doc
+                          ),
+                        }
+                      : null
+                  )
+                } else {
+                  // Continuar verificando
+                  setTimeout(checkProcessingStatus, 2000)
+                }
+              }
+            } catch (error) {
+              console.error("Erro ao verificar status:", error)
+              setTimeout(checkProcessingStatus, 2000)
+            }
+          }
+
+          // Iniciar verificação de status
+          setTimeout(checkProcessingStatus, 2000)
+        } catch (error) {
+          console.error("Erro no upload do arquivo:", file.name, error)
+          toast({
+            title: "Erro no upload",
+            description: `Erro ao fazer upload de ${file.name}: ${error instanceof Error ? error.message : "Erro desconhecido"}`,
+            variant: "destructive",
+          })
+          setProcessingFiles((prev) => prev.filter((f) => f !== file.name))
+        }
+      }
+
+      setCurrentSession((prev) =>
+        prev
+          ? {
+              ...prev,
+              documents: [...prev.documents, ...newDocuments],
+              status: newDocuments.length > 0 ? "PROCESSING" : "UPLOADING",
+            }
+          : null
+      )
+
+      setFiles([])
+      toast({
+        title: "Upload iniciado",
+        description: `${files.length} arquivo(s) enviados para processamento.`,
+      })
+    } catch (error) {
+      console.error("Erro geral no upload:", error)
+      toast({
+        title: "Erro no upload",
+        description: "Ocorreu um erro ao processar os arquivos.",
+        variant: "destructive",
+      })
+    } finally {
+      setUploading(false)
+    }
   }
 
   const updateDocumentName = (docId: string, newName: string) => {
@@ -563,6 +638,18 @@ export default function ImportsPage() {
               disabled={!selectedMonth || !selectedYear || !selectedBank}
             >
               Próximo
+            </Button>
+          )}
+          {currentSession.status === "UPLOADING" && currentSession.documents.length > 0 && (
+            <Button
+              onClick={() =>
+                setCurrentSession((prev) => (prev ? { ...prev, status: "PROCESSING" } : null))
+              }
+              disabled={currentSession.documents.some((doc) =>
+                processingFiles.includes(doc.fileName)
+              )}
+            >
+              {processingFiles.length > 0 ? "Processando..." : "Continuar"}
             </Button>
           )}
         </div>
