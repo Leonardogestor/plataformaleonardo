@@ -39,7 +39,7 @@ const navigation = [
   { name: "Projeções", href: "/projections", icon: LineChart },
   { name: "Documentos", href: "/documents", icon: FileText },
   { name: "Categorização", href: "/categorization", icon: Brain },
-  { name: "Anamnese", href: "/dashboard/profile/anamnesis", icon: User },
+  { name: "Anamnese", href: "/dashboard/profile/anamnesis", icon: User }, // Menu Anamnese Financeira
   { name: "Relatórios", href: "/reports", icon: BarChart3 },
   { name: "Configurações", href: "/settings", icon: Settings },
 ]
