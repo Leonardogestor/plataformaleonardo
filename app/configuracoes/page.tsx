@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useSession } from "next-auth/react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,13 +15,30 @@ import {
 } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
 
+interface User {
+  id: string
+  name: string
+  email: string
+  createdAt: string
+}
+
 export default function ConfiguracoesPage() {
-  // Simulação de dados do usuário
-  const [nome] = useState("Usuário Exemplo")
-  const [email, setEmail] = useState("usuario@exemplo.com")
+  const { data: session } = useSession()
+  const { toast } = useToast()
+
+  // Estado do usuário
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  // Estados dos formulários
+  const [nome, setNome] = useState("")
+  const [email, setEmail] = useState("")
   const [telefone, setTelefone] = useState("")
   const [editandoEmail, setEditandoEmail] = useState(false)
   const [editandoTelefone, setEditandoTelefone] = useState(false)
+  const [salvando, setSalvando] = useState(false)
+
+  // Preferências da plataforma
   const [tema, setTema] = useState("sistema")
   const [moeda, setMoeda] = useState("BRL")
   const [tooltipsAtivos, setTooltipsAtivos] = useState(true)
@@ -29,16 +47,80 @@ export default function ConfiguracoesPage() {
   const [mesInicial, setMesInicial] = useState("janeiro")
   const [periodoRelatorio, setPeriodoRelatorio] = useState("mensal")
   const [agrupamento, setAgrupamento] = useState("mensal")
-  const { toast } = useToast()
 
-  // Feedback e confirmação
-  const handleSalvarEmail = () => {
-    setEditandoEmail(false)
-    toast({
-      title: "E-mail atualizado",
-      description: "Seu e-mail foi alterado com sucesso.",
-    })
+  // Carregar dados do usuário
+  useEffect(() => {
+    const loadUserData = async () => {
+      try {
+        const response = await fetch("/api/user/settings")
+        if (response.ok) {
+          const data = await response.json()
+          setUser(data.user)
+          setNome(data.user.name)
+          setEmail(data.user.email)
+        } else {
+          const error = await response.json()
+          toast({
+            title: "Erro",
+            description: error.error || "Não foi possível carregar as informações",
+            variant: "destructive",
+          })
+        }
+      } catch (error) {
+        console.error("Erro ao carregar dados:", error)
+        toast({
+          title: "Erro",
+          description: "Não foi possível carregar as informações",
+          variant: "destructive",
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (session?.user) {
+      loadUserData()
+    }
+  }, [session, toast])
+
+  // Salvar email
+  const handleSalvarEmail = async () => {
+    setSalvando(true)
+    try {
+      const response = await fetch("/api/user/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setUser(data.user)
+        setEditandoEmail(false)
+        toast({
+          title: "E-mail atualizado",
+          description: "Seu e-mail foi alterado com sucesso.",
+        })
+      } else {
+        toast({
+          title: "Erro",
+          description: data.error || "Não foi possível atualizar o e-mail",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar o e-mail",
+        variant: "destructive",
+      })
+    } finally {
+      setSalvando(false)
+    }
   }
+
+  // Salvar telefone
   const handleSalvarTelefone = () => {
     setEditandoTelefone(false)
     toast({
@@ -46,18 +128,21 @@ export default function ConfiguracoesPage() {
       description: "Seu telefone foi alterado com sucesso.",
     })
   }
+
   const handleAlterarSenha = () => {
     toast({
       title: "Redefinição de senha",
       description: "Você receberá um e-mail para redefinir sua senha.",
     })
   }
+
   const handleExportarDados = () => {
     toast({
       title: "Exportação solicitada",
       description: "Você receberá um link para baixar todos os seus dados.",
     })
   }
+
   const handleExcluirConta = () => {
     if (
       window.confirm(
@@ -69,6 +154,21 @@ export default function ConfiguracoesPage() {
         description: "Sua conta será removida em até 7 dias úteis.",
       })
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="max-w-3xl mx-auto py-8">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-64 mb-4"></div>
+          <div className="h-4 bg-gray-200 rounded w-96 mb-8"></div>
+          <div className="space-y-4">
+            <div className="h-32 bg-gray-200 rounded"></div>
+            <div className="h-32 bg-gray-200 rounded"></div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -95,11 +195,20 @@ export default function ConfiguracoesPage() {
             <label className="block text-sm font-medium mb-1">E-mail</label>
             {editandoEmail ? (
               <div className="flex gap-2">
-                <Input value={email} onChange={(e) => setEmail(e.target.value)} />
-                <Button size="sm" onClick={handleSalvarEmail}>
-                  Salvar
+                <Input
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={salvando}
+                />
+                <Button size="sm" onClick={handleSalvarEmail} disabled={salvando}>
+                  {salvando ? "Salvando..." : "Salvar"}
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => setEditandoEmail(false)}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setEditandoEmail(false)}
+                  disabled={salvando}
+                >
                   Cancelar
                 </Button>
               </div>
