@@ -18,6 +18,11 @@ import {
 
 const navigation = [
   {
+    name: "Anamnese",
+    href: "/anamnesis",
+    icon: User,
+  },
+  {
     name: "Dashboard",
     href: "/dashboard",
     icon: LayoutDashboard,
@@ -66,11 +71,6 @@ const navigation = [
     name: "Configurações",
     href: "/settings",
     icon: Settings,
-  },
-  {
-    name: "Anamnese",
-    href: "/anamnesis",
-    icon: User,
   },
 ]
 
