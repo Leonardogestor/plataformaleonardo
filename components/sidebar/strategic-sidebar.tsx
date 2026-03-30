@@ -12,6 +12,7 @@ import {
   ArrowRightLeft,
   PieChart,
   Settings,
+  User,
 } from "lucide-react"
 
 const navigation = [

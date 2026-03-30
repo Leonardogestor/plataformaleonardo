@@ -430,6 +430,7 @@ enum InvestmentType {
   CRYPTO
   FUNDS
   OTHER
+  INTERNATIONAL
 }
 
 enum BankProvider {
