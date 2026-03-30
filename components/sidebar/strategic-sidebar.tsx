@@ -67,7 +67,7 @@ const navigation = [
   },
   {
     name: "Anamnese",
-    href: "/dashboard/profile/anamnesis",
+    href: "/anamnesis",
     icon: User,
   },
 ]
