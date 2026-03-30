@@ -136,7 +136,7 @@ export function ProjectionsManager() {
               onChange={(e) => setTempValue(e.target.value)}
               type={field === "percentualInvestimento" ? "number" : "number"}
               step={field === "percentualInvestimento" ? "0.1" : "0.01"}
-              className="flex-1"
+              className="flex-1 bg-black text-white border-gray-600"
               autoFocus
             />
             <Button size="sm" onClick={handleSave}>

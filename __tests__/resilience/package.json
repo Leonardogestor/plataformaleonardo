@@ -1,0 +1,23 @@
+{
+  "name": "@platform/resilience-tests",
+  "version": "1.0.0",
+  "description": "Resilience and load testing for LMG Platform",
+  "scripts": {
+    "test": "vitest run",
+    "test:redis": "vitest run redis.test.ts",
+    "test:openai": "vitest run openai.test.ts", 
+    "test:deduplication": "vitest run deduplication.test.ts",
+    "test:timeout": "vitest run timeout.test.ts",
+    "test:load": "vitest run load.test.ts",
+    "test:confidence": "vitest run confidence.test.ts",
+    "test:fallback": "vitest run fallback.test.ts",
+    "test:all": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "vitest": "^1.0.0"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^1.0.0"
+  }
+}

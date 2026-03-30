@@ -58,28 +58,32 @@ model Budget {
 }
 
 model User {
-  id                  String                    @id @default(cuid())
-  name                String
-  email               String                    @unique
-  password            String
-  role                UserRole                  @default(USER)
-  createdAt           DateTime                  @default(now())
-  updatedAt           DateTime                  @updatedAt
-  accounts            Account[]
-  bankConnections     BankConnection[]
-  budgets             Budget[]
-  cards               Card[]
-  categorizationRules CategoryRule[]
-  documents           Document[]
-  financial_ledger    financial_ledger[]
-  financial_snapshots financial_snapshots[]
-  goals               Goal[]
-  governanceChecklist GovernanceChecklistItem[]
-  investments         Investment[]
-  transactions        Transaction[]
-  subscriptions       Subscription[]
-  featureAccess       FeatureAccess[]
-  anamnesis           UserAnamnesis?
+  id                     String                    @id @default(cuid())
+  name                   String
+  email                  String                    @unique
+  password               String
+  role                   UserRole                  @default(USER)
+  createdAt              DateTime                  @default(now())
+  updatedAt              DateTime                  @updatedAt
+  accounts               Account[]
+  bankConnections        BankConnection[]
+  budgets                Budget[]
+  cards                  Card[]
+  categorizationRules    CategoryRule[]
+  documents              Document[]
+  financial_ledger       financial_ledger[]
+  financial_snapshots    financial_snapshots[]
+  goals                  Goal[]
+  governanceChecklist    GovernanceChecklistItem[]
+  investments            Investment[]
+  transactions           Transaction[]
+  subscriptions          Subscription[]
+  featureAccess          FeatureAccess[]
+  anamnesis              UserAnamnesis?
+  rawTransactions        RawTransaction[]
+  parsedTransactions     ParsedTransaction[]
+  normalizedTransactions NormalizedTransaction[]
+  merchantMappings       MerchantMapping[]
 
   @@map("users")
 }
@@ -98,6 +102,7 @@ model Document {
   fileKey         String?
   fileSize        Int?
   fileUrl         String?
+  fileHash        String?                   @unique
   status          DocumentStatus            @default(PROCESSING)
   updatedAt       DateTime                  @updatedAt
   user            User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -106,6 +111,7 @@ model Document {
   @@index([userId])
   @@index([userId, vencimentoAt])
   @@index([userId, status])
+  @@index([fileHash])
   @@map("documents")
 }
 
@@ -210,11 +216,13 @@ model Transaction {
   updatedAt             DateTime          @updatedAt
   isPending             Boolean?          @default(false)
   subcategory           String?
+  status                String?           @default("ACTIVE")
   account               Account?          @relation(fields: [accountId], references: [id])
   card                  Card?             @relation(fields: [cardId], references: [id])
   installmentGroup      InstallmentGroup? @relation(fields: [installmentGroupId], references: [id])
   user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([userId, date, amount, description])
   @@index([userId])
   @@index([accountId])
   @@index([cardId])
@@ -533,6 +541,8 @@ enum SubscriptionStatus {
   CANCELED
   EXPIRED
   PENDING
+  PAST_DUE
+  TRAILING
 }
 
 enum SubscriptionPlan {
@@ -555,4 +565,77 @@ model UserAnamnesis {
 
   @@index([userId])
   @@map("user_anamnesis")
+}
+
+model MerchantMapping {
+  id             String   @id @default(cuid())
+  userId         String
+  rawDescription String
+  merchant       String
+  category       String
+  subcategory    String?
+  usageCount     Int      @default(1)
+  confidence     Float    @default(0.9)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, rawDescription])
+  @@index([userId])
+  @@index([rawDescription])
+  @@map("merchant_mappings")
+}
+
+model RawTransaction {
+  id        String   @id @default(cuid())
+  userId    String
+  source    String
+  rawText   String?
+  rawJson   Json?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("raw_transactions")
+}
+
+model ParsedTransaction {
+  id          String   @id @default(cuid())
+  userId      String
+  date        DateTime
+  description String
+  amount      Decimal  @db.Decimal(15, 2)
+  type        String
+  confidence  Float
+  rawId       String
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([rawId])
+  @@index([date])
+  @@map("parsed_transactions")
+}
+
+model NormalizedTransaction {
+  id                      String   @id @default(cuid())
+  userId                  String
+  parsedId                String
+  merchant                String
+  category                String
+  subcategory             String?
+  standardizedDescription String
+  confidence              Float
+  createdAt               DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([parsedId])
+  @@index([category])
+  @@map("normalized_transactions")
 }

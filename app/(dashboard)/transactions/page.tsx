@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import TransactionsTable from "@/components/transactions/transactions-table"
 import { TransactionFilters } from "@/components/transactions/transaction-filters"
 import { Button } from "@/components/ui/button"
-import { Plus, Upload, Receipt, Trash2, CheckSquare, Square } from "lucide-react"
+import { Plus, Upload, Receipt, Trash2, CheckSquare, Square, Edit } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { TransactionsSkeleton } from "@/components/ui/loading-skeletons"
 import { EmptyState } from "@/components/ui/empty-state"
@@ -19,6 +19,15 @@ const TransactionDialog = dynamic(
   () =>
     import("@/components/transactions/transaction-dialog").then((mod) => ({
       default: mod.TransactionDialog,
+    })),
+  { ssr: false }
+)
+
+// Lazy load do BulkEditCategoryDialog
+const BulkEditCategoryDialog = dynamic(
+  () =>
+    import("@/components/transactions/bulk-edit-category-dialog").then((mod) => ({
+      default: mod.BulkEditCategoryDialog,
     })),
   { ssr: false }
 )
@@ -42,6 +51,7 @@ export default function TransactionsPage() {
   })
   const [isLoading, setIsLoading] = useState(false)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isBulkEditDialogOpen, setIsBulkEditDialogOpen] = useState(false)
   const [editingTransaction, setEditingTransaction] = useState<TransactionWithRelations | null>(
     null
   )
@@ -189,6 +199,14 @@ export default function TransactionsPage() {
     fetchTransactions()
   }
 
+  const handleBulkEditSuccess = () => {
+    setSelectedTransactions([])
+    setIsAllSelected(false)
+    // Disparar evento para atualizar o dashboard
+    window.dispatchEvent(new CustomEvent("transaction-updated"))
+    fetchTransactions()
+  }
+
   const handleEdit = (transaction: TransactionWithRelations) => {
     setEditingTransaction(transaction)
     setIsDialogOpen(true)
@@ -244,15 +262,26 @@ export default function TransactionsPage() {
               )}
             </div>
             {selectedTransactions.length > 0 && (
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleDeleteSelected}
-                className="flex items-center gap-2"
-              >
-                <Trash2 className="h-4 w-4" />
-                Excluir ({selectedTransactions.length})
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsBulkEditDialogOpen(true)}
+                  className="flex items-center gap-2"
+                >
+                  <Edit className="h-4 w-4" />
+                  Editar Categoria ({selectedTransactions.length})
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleDeleteSelected}
+                  className="flex items-center gap-2"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Excluir ({selectedTransactions.length})
+                </Button>
+              </div>
             )}
           </div>
         )}
@@ -291,6 +320,13 @@ export default function TransactionsPage() {
           }}
           transaction={editingTransaction}
           onSuccess={handleSuccess}
+        />
+
+        <BulkEditCategoryDialog
+          open={isBulkEditDialogOpen}
+          onOpenChange={setIsBulkEditDialogOpen}
+          selectedTransactions={selectedTransactions}
+          onSuccess={handleBulkEditSuccess}
         />
       </div>
     </ErrorBoundary>

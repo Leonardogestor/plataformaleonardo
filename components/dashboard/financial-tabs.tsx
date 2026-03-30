@@ -242,7 +242,7 @@ export function FinancialTabs() {
 
         {/* DESPESAS */}
         <TabsContent value="despesas" className="space-y-4">
-          <Card>
+          <Card className="bg-black text-white">
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span>🔴 Despesas do Mês</span>

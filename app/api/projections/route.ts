@@ -39,33 +39,124 @@ export async function GET(request: NextRequest) {
     const maxImpact = Math.max(...Array.from(monthlyMap.values(), (v) => v || 0), 0)
     const endStr = lastDate ? lastDate.toLocaleDateString() : "-"
 
+    // Buscar dados reais do usuário para cálculo
+    const [transactions, accounts, investments] = await Promise.all([
+      // Transações dos últimos 3 meses para calcular média
+      prisma.transaction.findMany({
+        where: {
+          userId: session.user.id,
+          date: {
+            gte: new Date(now.getFullYear(), now.getMonth() - 3, now.getDate()),
+            lte: now,
+          },
+        },
+        select: { amount: true, type: true },
+      }),
+      // Saldos das contas
+      prisma.account.findMany({
+        where: { userId: session.user.id },
+        select: { balance: true },
+      }),
+      // Total de investimentos
+      prisma.investment.findMany({
+        where: { userId: session.user.id },
+        select: { currentValue: true },
+      }),
+    ])
+
+    // Calcular médias reais
+    const incomeTransactions = transactions.filter((t) => t.type === "INCOME")
+    const expenseTransactions = transactions.filter((t) => t.type === "EXPENSE")
+
+    const avgIncome =
+      incomeTransactions.length > 0
+        ? incomeTransactions.reduce((sum, t) => sum + Number(t.amount), 0) /
+          incomeTransactions.length
+        : 0
+
+    const avgExpense =
+      expenseTransactions.length > 0
+        ? expenseTransactions.reduce((sum, t) => sum + Number(t.amount), 0) /
+          expenseTransactions.length
+        : 0
+
+    const totalAccounts = accounts.reduce((sum, acc) => sum + Number(acc.balance || 0), 0)
+    const totalInvestments = investments.reduce(
+      (sum, inv) => sum + Number(inv.currentValue || 0),
+      0
+    )
+    const currentNetWorth = totalAccounts + totalInvestments
+
+    const avgSaving = avgIncome - avgExpense
+    const finalNetWorth = currentNetWorth + avgSaving * period
+
+    // Buscar metas reais do usuário
+    const goals = await prisma.goal.findMany({
+      where: { userId: session.user.id },
+      select: { name: true, targetAmount: true, currentAmount: true, deadline: true },
+    })
+
+    const goalsData = goals.map((goal) => {
+      const progress = Number(goal.currentAmount || 0) / Number(goal.targetAmount || 1)
+      const monthsToGoal = goal.deadline
+        ? Math.max(
+            0,
+            Math.ceil(
+              (new Date(goal.deadline).getTime() - now.getTime()) / (1000 * 60 * 60 * 24 * 30)
+            )
+          )
+        : null
+
+      return {
+        name: goal.name,
+        status: progress >= 1 ? "atinge" : "não atinge",
+        monthsToGoal,
+        progress: Math.min(100, progress * 100),
+      }
+    })
+
+    // Gerar insights baseados nos dados reais
+    const insights = []
+    if (maxImpact > 0) {
+      insights.push(
+        `Parcelados comprometem R$ ${maxImpact.toLocaleString()} por mês até ${endStr}.`
+      )
+    }
+    if (avgSaving > 0) {
+      const projectedGrowth = ((avgSaving * 60) / currentNetWorth) * 100
+      insights.push(
+        `Mantendo o padrão atual, seu patrimônio cresce ${projectedGrowth.toFixed(0)}% em 5 anos.`
+      )
+    }
+    if (avgExpense > 0 && avgIncome > 0) {
+      const expenseRatio = (avgExpense / avgIncome) * 100
+      if (expenseRatio > 70) {
+        insights.push(
+          `Suas despesas representam ${expenseRatio.toFixed(0)}% da sua receita. Considere reduzir para aumentar investimentos.`
+        )
+      }
+    }
+
     return NextResponse.json({
       period,
       scenario,
       summary: {
-        avgIncome: 5000,
-        avgExpense: 3500 + maxImpact,
-        avgSaving: 1500 - maxImpact,
-        finalNetWorth: 80000,
-        status: "dentro do planejado",
+        avgIncome,
+        avgExpense: avgExpense + maxImpact,
+        avgSaving: avgSaving - maxImpact,
+        finalNetWorth,
+        status: avgSaving > 0 ? "dentro do planejado" : "abaixo do planejado",
       },
       series: Array.from({ length: period }, (_, i) => ({
         month: i + 1,
-        netWorth: 20000 + i * 1500 - maxImpact * i,
-        income: 5000,
-        expense: 3500 + maxImpact,
-        saving: 1500 - maxImpact,
-        investment: 10000 + i * 1000,
+        netWorth: currentNetWorth + avgSaving * i - maxImpact * i,
+        income: avgIncome,
+        expense: avgExpense + maxImpact,
+        saving: avgSaving - maxImpact,
+        investment: totalInvestments + Math.max(0, avgSaving - maxImpact) * i * 0.7, // 70% da economia aplicada
       })),
-      goals: [
-        { name: "Reserva de Emergência", status: "atinge", monthsToGoal: 8 },
-        { name: "Viagem Europa", status: "não atinge", monthsToGoal: null },
-      ],
-      insights: [
-        `Parcelados comprometem R$ ${maxImpact.toLocaleString()} por mês até ${endStr}.`,
-        "Mantendo o padrão atual, seu patrimônio cresce 60% em 5 anos.",
-        "A despesa atual reduz sua capacidade de aporte em 30%.",
-      ],
+      goals: goalsData,
+      insights,
     })
   } catch (error) {
     console.error("Erro projeções:", error)
