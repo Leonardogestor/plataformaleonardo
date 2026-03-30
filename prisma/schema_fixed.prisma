@@ -1,0 +1,37 @@
+// Schema fixado sem UserAnamnesis temporariamente
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  name              String?
+  password          String?
+  role              Role      @default(USER)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  accounts           Account[]
+  cards              Card[]
+  transactions       Transaction[]
+  budgets            Budget[]
+  goals              Goal[]
+  investments        Investment[]
+  documents          Document[]
+  categorizationRules CategoryRule[]
+  financial_ledger    financial_ledger[]
+  financial_snapshots financial_snapshots[]
+  governanceChecklist GovernanceChecklistItem[]
+  subscriptions       Subscription[]
+  featureAccess       FeatureAccess[]
+
+  @@map("users")
+}
+
+// Rest of the schema without UserAnamnesis for now
