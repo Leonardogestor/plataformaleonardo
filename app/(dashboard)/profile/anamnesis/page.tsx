@@ -1,3 +1,4 @@
+// Deploy fix - 2026-03-30
 export default function AnamnesisPage() {
   return (
     <div className="min-h-screen bg-background p-8">
@@ -6,7 +7,7 @@ export default function AnamnesisPage() {
         <p className="text-muted-foreground mb-6">
           Análise completa do seu perfil financeiro e estratégias personalizadas
         </p>
-        
+
         <div className="bg-card p-6 rounded-lg border">
           <h2 className="text-xl font-semibold mb-4">Anámnese Não Encontrada</h2>
           <p className="text-muted-foreground mb-4">
