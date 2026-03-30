@@ -6,6 +6,10 @@ import { z } from "zod"
 
 // Schema para validação das respostas do formulário
 const anamnesisSchema = z.object({
+  personalInfo: z.object({
+    name: z.string().min(1, "Nome é obrigatório"),
+    birthDate: z.string().min(1, "Data de nascimento é obrigatória"),
+  }),
   financialContext: z.object({
     incomeType: z.enum(["FIXA", "VARIÁVEL", "MISTA"]),
     financialSituation: z.enum(["ORGANIZADA", "DESORGANIZADA", "CRÍTICA"]),
@@ -47,19 +51,7 @@ const anamnesisSchema = z.object({
   }),
   executionCapacity: z.object({
     willingnessToAdjust: z.enum(["AJUSTA_ALGUNS", "REDUZ_SIGNIFICATIVO", "MANTÉM_TUDO"]),
-    growthPreference: z.enum([
-      "CRESCIMENTO_RÁPIDO",
-      "CRESCIMENTO_EQUILIBRADO",
-      "SEGURANÇA_ESTABILIDADE",
-    ]),
-    commitmentLevel: z.number().min(1).max(5),
-  }),
-  futureExpectation: z.object({
-    incomeTrend: z.enum(["AUMENTAR", "PERMANECER_IGUAL", "VARIAR_INCERTA"]),
-  }),
-  knowledgeExperience: z.object({
-    investmentKnowledge: z.enum(["INICIANTE", "INTERMEDIÁRIO", "AVANÇADO"]),
-    investmentTime: z.enum(["NÃO_INVESTE", "MENOS_1_ANO", "1-3_ANOS", "3-5_ANOS", "MAIS_5_ANOS"]),
+    growthPreference: z.enum(["SEGURANÇA", "CRESCIMENTO_MODERADO", "CRESCIMENTO_AGRESSIVO"]),
   }),
 })
 
@@ -81,6 +73,8 @@ export async function POST(request: NextRequest) {
     const anamnesis = await prisma.userAnamnesis.upsert({
       where: { userId: session.user.id },
       update: {
+        name: validatedData.personalInfo.name,
+        birthDate: new Date(validatedData.personalInfo.birthDate),
         responses: validatedData,
         analysis: analysis,
         profileType: analysis.profileType,
@@ -88,6 +82,8 @@ export async function POST(request: NextRequest) {
       },
       create: {
         userId: session.user.id,
+        name: validatedData.personalInfo.name,
+        birthDate: new Date(validatedData.personalInfo.birthDate),
         responses: validatedData,
         analysis: analysis,
         profileType: analysis.profileType,

@@ -4,9 +4,12 @@ import { prisma } from "@/lib/db"
 import { z } from "zod"
 
 const registerSchema = z.object({
-  name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
-  email: z.string().email("Email inválido"),
-  password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
+  name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").max(100, "Nome muito longo"),
+  email: z.string().email("Email inválido").max(255, "Email muito longo"),
+  password: z
+    .string()
+    .min(6, "Senha deve ter pelo menos 6 caracteres")
+    .max(100, "Senha muito longa"),
 })
 
 export async function POST(request: Request) {
@@ -19,10 +22,7 @@ export async function POST(request: Request) {
     })
 
     if (existingUser) {
-      return NextResponse.json(
-        { error: "Email já cadastrado" },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: "Email já cadastrado" }, { status: 400 })
     }
 
     const hashedPassword = await bcrypt.hash(password, 10)
@@ -53,9 +53,6 @@ export async function POST(request: Request) {
       )
     }
 
-    return NextResponse.json(
-      { error: "Erro ao criar usuário" },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: "Erro ao criar usuário" }, { status: 500 })
   }
 }

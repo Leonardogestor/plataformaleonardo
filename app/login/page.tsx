@@ -15,8 +15,11 @@ import { LoginBackgroundEffect } from "@/components/ui/login-background-effect"
 import { useToast } from "@/hooks/use-toast"
 
 const loginSchema = z.object({
-  email: z.string().email("Email inválido"),
-  password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
+  email: z.string().email("Email inválido").max(255, "Email muito longo"),
+  password: z
+    .string()
+    .min(6, "Senha deve ter pelo menos 6 caracteres")
+    .max(100, "Senha muito longa"),
 })
 
 type LoginFormData = z.infer<typeof loginSchema>

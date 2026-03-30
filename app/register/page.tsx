@@ -12,15 +12,20 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
 
-const registerSchema = z.object({
-  name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
-  email: z.string().email("Email inválido"),
-  password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
-  confirmPassword: z.string(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "As senhas não conferem",
-  path: ["confirmPassword"],
-})
+const registerSchema = z
+  .object({
+    name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").max(100, "Nome muito longo"),
+    email: z.string().email("Email inválido").max(255, "Email muito longo"),
+    password: z
+      .string()
+      .min(6, "Senha deve ter pelo menos 6 caracteres")
+      .max(100, "Senha muito longa"),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "As senhas não conferem",
+    path: ["confirmPassword"],
+  })
 
 type RegisterFormData = z.infer<typeof registerSchema>
 
@@ -93,36 +98,17 @@ export default function RegisterPage() {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name">Nome</Label>
-              <Input
-                id="name"
-                type="text"
-                placeholder="Seu nome completo"
-                {...register("name")}
-              />
-              {errors.name && (
-                <p className="text-sm text-destructive">{errors.name.message}</p>
-              )}
+              <Input id="name" type="text" placeholder="Seu nome completo" {...register("name")} />
+              {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="seu@email.com"
-                {...register("email")}
-              />
-              {errors.email && (
-                <p className="text-sm text-destructive">{errors.email.message}</p>
-              )}
+              <Input id="email" type="email" placeholder="seu@email.com" {...register("email")} />
+              {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Senha</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••"
-                {...register("password")}
-              />
+              <Input id="password" type="password" placeholder="••••••" {...register("password")} />
               {errors.password && (
                 <p className="text-sm text-destructive">{errors.password.message}</p>
               )}

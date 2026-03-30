@@ -13,6 +13,7 @@ import {
   PieChart,
   Settings,
   User,
+  Upload,
 } from "lucide-react"
 
 const navigation = [
@@ -52,6 +53,7 @@ const navigation = [
     icon: ArrowRightLeft,
     subitems: [
       { name: "Transações", href: "/transactions" },
+      { name: "Importações", href: "/imports" },
       { name: "Documentos", href: "/documents" },
     ],
   },
