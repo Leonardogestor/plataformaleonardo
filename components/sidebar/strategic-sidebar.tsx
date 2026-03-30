@@ -80,7 +80,7 @@ export function StrategicSidebar() {
   return (
     <div className="flex h-full w-64 flex-col bg-card">
       <div className="flex h-16 shrink-0 items-center px-6">
-        <Link href="/dashboard" className="flex items-center gap-2">
+        <Link href="/anamnesis" className="flex items-center gap-2">
           <span className="font-semibold text-lg text-white">LMG FINANCE</span>
         </Link>
       </div>
