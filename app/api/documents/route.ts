@@ -22,58 +22,83 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    // 2. Receber arquivo
+    // 2. Receber múltiplos arquivos
     const formData = await request.formData()
-    const file = formData.get("file") as File | null
-    const name = formData.get("name") as string || "Documento"
+    const files = formData.getAll("files") as File[] | null
+    const name = (formData.get("name") as string) || "Lote de Documentos"
 
-    if (!file || file.size === 0) {
+    if (!files || files.length === 0) {
       return NextResponse.json({ error: "Nenhum arquivo enviado" }, { status: 400 })
     }
 
-    if (file.size > MAX_SIZE) {
-      return NextResponse.json({ error: "Arquivo muito grande. Máximo 10MB." }, { status: 400 })
+    // Validar todos os arquivos
+    for (const file of files) {
+      if (file.size === 0) {
+        return NextResponse.json({ error: `Arquivo vazio: ${file.name}` }, { status: 400 })
+      }
+      if (file.size > MAX_SIZE) {
+        return NextResponse.json(
+          { error: `Arquivo muito grande: ${file.name}. Máximo 10MB.` },
+          { status: 400 }
+        )
+      }
+      if (!file.name.toLowerCase().endsWith(".pdf")) {
+        return NextResponse.json(
+          { error: `Apenas arquivos PDF são permitidos: ${file.name}` },
+          { status: 400 }
+        )
+      }
     }
 
-    if (!file.name.toLowerCase().endsWith('.pdf')) {
-      return NextResponse.json({ error: "Apenas arquivos PDF são permitidos." }, { status: 400 })
-    }
+    console.log(
+      `📄 Iniciando processamento de ${files.length} PDFs:`,
+      files.map((f) => f.name)
+    )
 
-    console.log("📄 Iniciando processamento simples do PDF:", file.name)
+    // 3. Criar múltiplos documentos no banco
+    const documents = await Promise.all(
+      files.map(async (file) => {
+        const doc = await prisma.document.create({
+          data: {
+            userId: session.user.id,
+            name: file.name,
+            fileName: file.name,
+            mimeType: "application/pdf",
+            fileSize: file.size,
+            status: "PROCESSING",
+          },
+        })
 
-    // 3. Criar documento no banco
-    const doc = await prisma.document.create({
-      data: {
-        userId: session.user.id,
-        name: name.trim() || file.name,
-        fileName: file.name,
-        mimeType: "application/pdf",
-        fileSize: file.size,
-        status: "PROCESSING",
+        console.log("✅ Documento criado no banco:", doc.id)
+
+        // Processar PDF em background (não bloqueante)
+        processPdfSimple(doc.id, file).catch((error) => {
+          console.error("❌ Erro no processamento:", error)
+        })
+
+        return doc
+      })
+    )
+
+    console.log(`📊 ${documents.length} documentos criados e processando...`)
+
+    // 4. Retornar sucesso imediato com todos os documentos
+    return NextResponse.json(
+      {
+        documents: documents.map((doc) => ({
+          id: doc.id,
+          name: doc.name,
+          status: doc.status,
+          message: "PDF recebido e está sendo processado...",
+        })),
+        total: documents.length,
+        message: `${documents.length} PDFs recebidos e processando...`,
       },
-    })
-
-    console.log("✅ Documento criado no banco:", doc.id)
-
-    // 4. Processar PDF em background (não bloqueante)
-    processPdfSimple(doc.id, file).catch(error => {
-      console.error("❌ Erro no processamento:", error)
-    })
-
-    // 5. Retornar sucesso imediato
-    return NextResponse.json({
-      id: doc.id,
-      name: doc.name,
-      status: "PROCESSING",
-      message: "PDF recebido e está sendo processado..."
-    }, { status: 201 })
-
+      { status: 201 }
+    )
   } catch (error) {
     console.error("❌ Erro geral:", error)
-    return NextResponse.json(
-      { error: "Erro ao processar PDF. Tente novamente." },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: "Erro ao processar PDF. Tente novamente." }, { status: 500 })
   }
 }
 
@@ -94,7 +119,7 @@ async function processPdfSimple(documentId: string, file: File) {
     // 2. Salvar texto extraído
     await prisma.document.update({
       where: { id: documentId },
-      data: { extractedText: text.slice(0, 10000) }
+      data: { extractedText: text.slice(0, 10000) },
     })
 
     // 3. Parse simples de transações
@@ -106,7 +131,7 @@ async function processPdfSimple(documentId: string, file: File) {
     }
 
     // 4. Converter para formato padrão
-    const transactions = rows.map(row => ({
+    const transactions = rows.map((row) => ({
       type: row.type,
       category: "Outros", // Categoria padrão
       amount: row.amount,
@@ -129,20 +154,19 @@ async function processPdfSimple(documentId: string, file: File) {
       data: {
         status: finalStatus,
         errorMessage: result.failed > 0 ? result.errors[0] : null,
-      }
+      },
     })
 
     console.log("✅ Processamento finalizado:", finalStatus)
-
   } catch (error) {
     console.error("❌ Erro no processamento:", error)
-    
+
     await prisma.document.update({
       where: { id: documentId },
       data: {
         status: "FAILED",
-        errorMessage: error instanceof Error ? error.message : "Erro desconhecido"
-      }
+        errorMessage: error instanceof Error ? error.message : "Erro desconhecido",
+      },
     })
   }
 }

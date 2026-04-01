@@ -202,66 +202,35 @@ export default function ImportsPage() {
     const newDocuments: ImportDocument[] = []
 
     try {
-      for (const file of files) {
-        try {
-          setProcessingFiles((prev) => [...prev, file.name])
+      // Criar FormData para upload múltiplo
+      const formData = new FormData()
+      files.forEach(file => formData.append("files", file))
+      formData.append("name", `Lote ${selectedBank} - ${selectedMonth}/${selectedYear}`)
 
-          // Criar FormData para upload
-          const formData = new FormData()
-          formData.append("file", file)
-          formData.append("name", `Extrato ${selectedBank} - ${selectedMonth} ${selectedYear}`)
+      // Fazer upload real para a API
+      const response = await fetch("/api/documents", {
+        method: "POST",
+        body: formData,
+      })
 
-          // Fazer upload real para a API
-          const response = await fetch("/api/documents", {
-            method: "POST",
-            body: formData,
-          })
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Erro ao fazer upload")
+      }
 
-          if (!response.ok) {
-            const errorData = await response.json()
-            throw new Error(errorData.error || "Erro ao fazer upload")
-          }
+      const uploadResult = await response.json()
 
-          const uploadedDoc = await response.json()
-
-          const newDoc: ImportDocument = {
-            id: uploadedDoc.id,
-            name: `Extrato ${selectedBank}`,
-            fileName: file.name,
-            mimeType: file.type,
-            fileSize: file.size,
-            status: "PROCESSING",
-            errorMessage: null,
-            createdAt: uploadedDoc.createdAt,
-            transactionCount: 0,
-            bankName: selectedBank,
-            period: `${selectedMonth} ${selectedYear}`,
-          }
-
-          newDocuments.push(newDoc)
-
-          // Verificar status do processamento
-          const checkProcessingStatus = async () => {
-            try {
-              const statusResponse = await fetch(`/api/documents/${uploadedDoc.id}`)
-              if (statusResponse.ok) {
-                const statusData = await statusResponse.json()
-                if (statusData.status === "COMPLETED") {
-                  setProcessingFiles((prev) => prev.filter((f) => f !== file.name))
-                  setCurrentSession((prev) =>
-                    prev
-                      ? {
-                          ...prev,
-                          documents: prev.documents.map((doc) =>
-                            doc.id === newDoc.id
-                              ? {
-                                  ...doc,
-                                  status: "COMPLETED" as const,
-                                  transactionCount: statusData.transactionCount || 0,
-                                }
-                              : doc
-                          ),
-                        }
+      // Criar documentos para cada arquivo
+      uploadResult.documents.forEach((uploadedDoc: any, index: number) => {
+        const file = files[index]
+        const newDoc: ImportDocument = {
+          id: uploadedDoc.id,
+          name: file.name,
+          fileName: file.name,
+          fileSize: file.size,
+          mimeType: "application/pdf",
+          status: uploadedDoc.status,
+          createdAt: new Date().toISOString(),
                       : null
                   )
                 } else if (statusData.status === "FAILED") {
