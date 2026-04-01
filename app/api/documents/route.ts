@@ -68,6 +68,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
+    // Verificar configuração do Blob Storage antes de processar
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      console.error("BLOB_READ_WRITE_TOKEN não configurado")
+      return NextResponse.json(
+        {
+          error: "Sistema de upload não configurado. Contate o administrador.",
+        },
+        { status: 500 }
+      )
+    }
+
     const limit = await checkDocumentsLimit(session.user.id)
     if (limit.limited) {
       const retryAfter = limit.retryAfter ?? 60
@@ -106,6 +117,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    console.log("Iniciando upload do arquivo:", { fileName: file.name, size: file.size, mimeType })
+
     const buffer = Buffer.from(await file.arrayBuffer())
     const fileExtension = fileName.endsWith(".pdf")
       ? "pdf"
@@ -116,41 +129,64 @@ export async function POST(request: NextRequest) {
           : "csv"
 
     const pathnameSuffix = `${randomUUID()}.${fileExtension}`
-    const blobResult = await uploadDocumentBlob(session.user.id, pathnameSuffix, buffer, {
-      contentType: mimeType || ALLOWED_MIME_TYPES[0],
-    })
 
-    const doc = await prisma.document.create({
-      data: {
-        userId: session.user.id,
-        name: name.trim() || file.name,
-        fileName: file.name,
-        mimeType: mimeType || (ALLOWED_MIME_TYPES[0] as string),
-        fileSize: file.size,
-        fileUrl: blobResult.url,
-        fileKey: blobResult.pathname,
-        status: "PROCESSING",
-      },
-    })
+    try {
+      const blobResult = await uploadDocumentBlob(session.user.id, pathnameSuffix, buffer, {
+        contentType: mimeType || ALLOWED_MIME_TYPES[0],
+      })
 
-    // Processar arquivos PDF e Excel/CSV
-    const processingEnabled = process.env.DOCUMENT_PROCESSING_ENABLED !== "false"
-    if (processingEnabled) {
-      if (fileExtension === "pdf") {
-        processDocumentPdf(doc.id).catch((e) => {
-          console.error("Background PDF processing failed for document", doc.id, e)
-        })
+      console.log("Blob upload concluído:", blobResult.pathname)
+
+      const doc = await prisma.document.create({
+        data: {
+          userId: session.user.id,
+          name: name.trim() || file.name,
+          fileName: file.name,
+          mimeType: mimeType || (ALLOWED_MIME_TYPES[0] as string),
+          fileSize: file.size,
+          fileUrl: blobResult.url,
+          fileKey: blobResult.pathname,
+          status: "PROCESSING",
+        },
+      })
+
+      console.log("Documento criado no banco:", doc.id)
+
+      // Processar arquivos PDF e Excel/CSV
+      const processingEnabled = process.env.DOCUMENT_PROCESSING_ENABLED !== "false"
+      if (processingEnabled) {
+        if (fileExtension === "pdf") {
+          console.log("Iniciando processamento PDF para documento:", doc.id)
+          processDocumentPdf(doc.id).catch((e) => {
+            console.error("Background PDF processing failed for document", doc.id, e)
+          })
+        } else {
+          console.log("Iniciando processamento Excel para documento:", doc.id)
+          processDocumentExcel(doc.id).catch((e) => {
+            console.error("Background Excel processing failed for document", doc.id, e)
+          })
+        }
       } else {
-        // Excel, XLS, CSV
-        processDocumentExcel(doc.id).catch((e) => {
-          console.error("Background Excel processing failed for document", doc.id, e)
-        })
+        console.log("Processamento de documentos desabilitado")
       }
-    }
 
-    return NextResponse.json(doc, { status: 201 })
+      return NextResponse.json(doc, { status: 201 })
+    } catch (blobError) {
+      console.error("Erro específico no upload do blob:", blobError)
+      return NextResponse.json(
+        {
+          error: `Falha no upload do arquivo: ${blobError instanceof Error ? blobError.message : "Erro desconhecido"}`,
+        },
+        { status: 500 }
+      )
+    }
   } catch (error) {
-    console.error("Erro ao enviar documento:", error)
-    return NextResponse.json({ error: "Erro ao enviar documento" }, { status: 500 })
+    console.error("Erro geral ao enviar documento:", error)
+    return NextResponse.json(
+      {
+        error: "Erro ao enviar documento. Tente novamente.",
+      },
+      { status: 500 }
+    )
   }
 }

@@ -24,7 +24,12 @@
     "ngrok:kill": "node ./scripts/ngrok-kill.js",
     "ngrok:start": "ngrok http 3000",
     "ngrok:clip": "node ./scripts/ngrok-clipboard.js",
-    "dev:all": "npm run ngrok:kill && concurrently \"npm run dev\" \"npm run ngrok:start\" && npm run ngrok:clip"
+    "dev:all": "npm run ngrok:kill && concurrently \"npm run dev\" \"npm run ngrok:start\" && npm run ngrok:clip",
+    "deploy": "deploy.bat",
+    "deploy:staging": "deploy.bat staging",
+    "deploy:prod": "deploy.bat production",
+    "vercel:build": "vercel build",
+    "vercel:env:pull": "vercel env pull .env.production"
   },
   "dependencies": {
     "@ai-sdk/openai": "^0.0.9",

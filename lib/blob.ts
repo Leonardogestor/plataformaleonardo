@@ -30,18 +30,34 @@ export async function uploadDocumentBlob(
   const pathname = `${PREFIX}/${userId}/${pathnameSuffix}`
   const contentType = options?.contentType ?? "application/pdf"
 
-  // Blob store configurado como "Private" no dashboard Vercel.
-  // A URL NUNCA é enviada ao cliente: o download é feito por proxy (stream) em GET /api/documents/[id]/download.
-  // Isso garante que apenas usuários autenticados possam acessar os documentos.
-  const blob = await put(pathname, body, {
-    access: "private" as any,
-    addRandomSuffix: true,
-    contentType,
-  })
-  return {
-    url: blob.url,
-    pathname: blob.pathname,
-    contentType: blob.contentType ?? undefined,
+  try {
+    // Verificar se BLOB_READ_WRITE_TOKEN está configurado
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      console.error("BLOB_READ_WRITE_TOKEN não está configurado nas variáveis de ambiente")
+      throw new Error("Configuração do Blob Storage ausente. Contate o administrador.")
+    }
+
+    // Blob store configurado como "Private" no dashboard Vercel.
+    // A URL NUNCA é enviada ao cliente: o download é feito por proxy (stream) em GET /api/documents/[id]/download.
+    // Isso garante que apenas usuários autenticados possam acessar os documentos.
+    const blob = await put(pathname, body, {
+      access: "private" as any,
+      addRandomSuffix: false, // Removido para manter controle sobre o nome
+      contentType,
+    })
+
+    console.log("Blob uploaded successfully:", { pathname: blob.pathname, url: blob.url })
+
+    return {
+      url: blob.url,
+      pathname: blob.pathname,
+      contentType: blob.contentType ?? undefined,
+    }
+  } catch (error) {
+    console.error("Erro no upload do blob:", error)
+    throw new Error(
+      `Falha no upload do arquivo: ${error instanceof Error ? error.message : "Erro desconhecido"}`
+    )
   }
 }
 

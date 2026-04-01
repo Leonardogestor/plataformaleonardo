@@ -6,7 +6,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Loader2, Save, RefreshCw, Download, Filter, Search } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
@@ -30,12 +36,28 @@ interface ImportTransactionsEditorProps {
 }
 
 const categories = [
-  { value: "receita", label: "Receita", subcategories: ["Salário", "Freelas", "Investimentos", "Outros"] },
-  { value: "despesa", label: "Despesa", subcategories: ["Moradia", "Alimentação", "Transporte", "Saúde", "Lazer", "Outros"] },
-  { value: "investimento", label: "Investimento", subcategories: ["Renda Fixa", "Ações", "Fundos", "Cripto", "Outros"] },
+  {
+    value: "receita",
+    label: "Receita",
+    subcategories: ["Salário", "Freelas", "Investimentos", "Outros"],
+  },
+  {
+    value: "despesa",
+    label: "Despesa",
+    subcategories: ["Moradia", "Alimentação", "Transporte", "Saúde", "Lazer", "Outros"],
+  },
+  {
+    value: "investimento",
+    label: "Investimento",
+    subcategories: ["Renda Fixa", "Ações", "Fundos", "Cripto", "Outros"],
+  },
 ]
 
-export function ImportTransactionsEditor({ documentId, documentName, onClose }: ImportTransactionsEditorProps) {
+export function ImportTransactionsEditor({
+  documentId,
+  documentName,
+  onClose,
+}: ImportTransactionsEditorProps) {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -50,71 +72,23 @@ export function ImportTransactionsEditor({ documentId, documentName, onClose }: 
     const loadTransactions = async () => {
       setLoading(true)
       try {
-        // Simulação - na prática viria da API
-        const mockTransactions: Transaction[] = [
-          {
-            id: "1",
-            date: "2026-01-15",
-            description: "Pagamento Salário",
-            amount: 5000,
-            category: "receita",
-            subcategory: "Salário",
-            originalCategory: "receita",
-            confidence: 0.95,
-            documentId,
-          },
-          {
-            id: "2",
-            date: "2026-01-16",
-            description: "Supermercado ABC",
-            amount: -350.75,
-            category: "despesa",
-            subcategory: "Alimentação",
-            originalCategory: "despesa",
-            confidence: 0.88,
-            documentId,
-          },
-          {
-            id: "3",
-            date: "2026-01-17",
-            description: "Aluguel Apartamento",
-            amount: -1200,
-            category: "despesa",
-            subcategory: "Moradia",
-            originalCategory: "despesa",
-            confidence: 0.92,
-            documentId,
-          },
-          {
-            id: "4",
-            date: "2026-01-18",
-            description: "Uber Viagem",
-            amount: -45.50,
-            category: "despesa",
-            subcategory: "Transporte",
-            originalCategory: "despesa",
-            confidence: 0.85,
-            documentId,
-          },
-          {
-            id: "5",
-            date: "2026-01-19",
-            description: "Investimento CDB",
-            amount: 1000,
-            category: "investimento",
-            subcategory: "Renda Fixa",
-            originalCategory: "investimento",
-            confidence: 0.90,
-            documentId,
-          },
-        ]
-        setTransactions(mockTransactions)
+        // Buscar transações reais da API
+        const response = await fetch(`/api/documents/${documentId}/transactions`)
+        if (!response.ok) {
+          throw new Error("Falha ao carregar transações")
+        }
+
+        const data = await response.json()
+        setTransactions(data.transactions || [])
       } catch (error) {
+        console.error("Erro ao carregar transações:", error)
         toast({
           title: "Erro ao carregar transações",
           description: "Não foi possível carregar as transações deste documento.",
           variant: "destructive",
         })
+        // Em caso de erro, mostrar array vazio em vez de dados mockados
+        setTransactions([])
       } finally {
         setLoading(false)
       }
@@ -125,8 +99,17 @@ export function ImportTransactionsEditor({ documentId, documentName, onClose }: 
 
   const saveTransaction = async (transactionId: string, updates: Partial<Transaction>) => {
     try {
-      // Simulação de API
-      await new Promise((resolve) => setTimeout(resolve, 500))
+      const response = await fetch(`/api/transactions/${transactionId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updates),
+      })
+
+      if (!response.ok) {
+        throw new Error("Falha ao salvar transação")
+      }
 
       setTransactions((prev) =>
         prev.map((t) => (t.id === transactionId ? { ...t, ...updates } : t))
@@ -137,6 +120,7 @@ export function ImportTransactionsEditor({ documentId, documentName, onClose }: 
         description: "As alterações foram salvas com sucesso.",
       })
     } catch (error) {
+      console.error("Erro ao salvar transação:", error)
       toast({
         title: "Erro ao salvar",
         description: "Não foi possível salvar as alterações.",
@@ -148,70 +132,20 @@ export function ImportTransactionsEditor({ documentId, documentName, onClose }: 
   const refreshTransactions = async () => {
     setLoading(true)
     try {
-      // Simulação - na prática viria da API
-      const mockTransactions: Transaction[] = [
-        {
-          id: "1",
-          date: "2026-01-15",
-          description: "Pagamento Salário",
-          amount: 5000,
-          category: "receita",
-          subcategory: "Salário",
-          originalCategory: "receita",
-          confidence: 0.95,
-          documentId,
-        },
-        {
-          id: "2",
-          date: "2026-01-16",
-          description: "Supermercado ABC",
-          amount: -350.75,
-          category: "despesa",
-          subcategory: "Alimentação",
-          originalCategory: "despesa",
-          confidence: 0.88,
-          documentId,
-        },
-        {
-          id: "3",
-          date: "2026-01-17",
-          description: "Aluguel Apartamento",
-          amount: -1200,
-          category: "despesa",
-          subcategory: "Moradia",
-          originalCategory: "despesa",
-          confidence: 0.92,
-          documentId,
-        },
-        {
-          id: "4",
-          date: "2026-01-18",
-          description: "Uber Viagem",
-          amount: -45.50,
-          category: "despesa",
-          subcategory: "Transporte",
-          originalCategory: "despesa",
-          confidence: 0.85,
-          documentId,
-        },
-        {
-          id: "5",
-          date: "2026-01-19",
-          description: "Investimento CDB",
-          amount: 1000,
-          category: "investimento",
-          subcategory: "Renda Fixa",
-          originalCategory: "investimento",
-          confidence: 0.90,
-          documentId,
-        },
-      ]
-      setTransactions(mockTransactions)
+      // Buscar transações reais da API
+      const response = await fetch(`/api/documents/${documentId}/transactions`)
+      if (!response.ok) {
+        throw new Error("Falha ao atualizar transações")
+      }
+
+      const data = await response.json()
+      setTransactions(data.transactions || [])
       toast({
         title: "Transações atualizadas",
         description: "Lista de transações foi atualizada.",
       })
     } catch (error) {
+      console.error("Erro ao atualizar transações:", error)
       toast({
         title: "Erro ao atualizar",
         description: "Não foi possível atualizar as transações.",
@@ -243,13 +177,33 @@ export function ImportTransactionsEditor({ documentId, documentName, onClose }: 
 
     setSaving(true)
     try {
-      // Simulação de API
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      // Atualizar cada transação individualmente
+      const updatePromises = selectedTransactions.map(async (transactionId) => {
+        const response = await fetch(`/api/transactions/${transactionId}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            category: bulkCategory,
+            subcategory: bulkSubcategory || null,
+          }),
+        })
 
+        if (!response.ok) {
+          throw new Error(`Falha ao atualizar transação ${transactionId}`)
+        }
+
+        return response.json()
+      })
+
+      await Promise.all(updatePromises)
+
+      // Atualizar estado local
       setTransactions((prev) =>
         prev.map((t) =>
           selectedTransactions.includes(t.id)
-            ? { ...t, category: bulkCategory, subcategory: bulkSubcategory }
+            ? { ...t, category: bulkCategory, subcategory: bulkSubcategory || "" }
             : t
         )
       )
@@ -263,6 +217,7 @@ export function ImportTransactionsEditor({ documentId, documentName, onClose }: 
         description: `${selectedTransactions.length} transações atualizadas com sucesso.`,
       })
     } catch (error) {
+      console.error("Erro ao salvar alterações em massa:", error)
       toast({
         title: "Erro ao salvar",
         description: "Não foi possível salvar as alterações em massa.",
@@ -315,8 +270,9 @@ export function ImportTransactionsEditor({ documentId, documentName, onClose }: 
   }
 
   const filteredTransactions = transactions.filter((transaction) => {
-    const matchesSearch = transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         transaction.category.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesSearch =
+      transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      transaction.category.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesCategory = !filterCategory || transaction.category === filterCategory
     return matchesSearch && matchesCategory
   })
@@ -378,7 +334,7 @@ export function ImportTransactionsEditor({ documentId, documentName, onClose }: 
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">Todas</SelectItem>
-                  {categories.map(cat => (
+                  {categories.map((cat) => (
                     <SelectItem key={cat.value} value={cat.value}>
                       {cat.label}
                     </SelectItem>
@@ -395,9 +351,7 @@ export function ImportTransactionsEditor({ documentId, documentName, onClose }: 
         <Card className="border-blue-200 bg-blue-50">
           <CardHeader>
             <CardTitle className="text-base">Edição em Massa</CardTitle>
-            <CardDescription>
-              {selectedTransactions.length} transações selecionadas
-            </CardDescription>
+            <CardDescription>{selectedTransactions.length} transações selecionadas</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-4 items-end">
@@ -408,7 +362,7 @@ export function ImportTransactionsEditor({ documentId, documentName, onClose }: 
                     <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
                   <SelectContent>
-                    {categories.map(cat => (
+                    {categories.map((cat) => (
                       <SelectItem key={cat.value} value={cat.value}>
                         {cat.label}
                       </SelectItem>
@@ -425,8 +379,8 @@ export function ImportTransactionsEditor({ documentId, documentName, onClose }: 
                     </SelectTrigger>
                     <SelectContent>
                       {categories
-                        .find(cat => cat.value === bulkCategory)
-                        ?.subcategories.map(sub => (
+                        .find((cat) => cat.value === bulkCategory)
+                        ?.subcategories.map((sub) => (
                           <SelectItem key={sub} value={sub}>
                             {sub}
                           </SelectItem>
@@ -435,11 +389,12 @@ export function ImportTransactionsEditor({ documentId, documentName, onClose }: 
                   </Select>
                 </div>
               )}
-              <Button 
-                onClick={saveBulkChanges} 
-                disabled={saving || !bulkCategory}
-              >
-                {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+              <Button onClick={saveBulkChanges} disabled={saving || !bulkCategory}>
+                {saving ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
                 Aplicar a {selectedTransactions.length} transações
               </Button>
             </div>
@@ -454,7 +409,10 @@ export function ImportTransactionsEditor({ documentId, documentName, onClose }: 
             <CardTitle className="text-base">Transações</CardTitle>
             <div className="flex items-center gap-2">
               <Checkbox
-                checked={selectedTransactions.length === filteredTransactions.length && filteredTransactions.length > 0}
+                checked={
+                  selectedTransactions.length === filteredTransactions.length &&
+                  filteredTransactions.length > 0
+                }
                 onCheckedChange={toggleAllSelections}
               />
               <Label className="text-sm">Selecionar todas</Label>
@@ -472,37 +430,41 @@ export function ImportTransactionsEditor({ documentId, documentName, onClose }: 
                   checked={selectedTransactions.includes(transaction.id)}
                   onCheckedChange={() => toggleTransactionSelection(transaction.id)}
                 />
-                
+
                 <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
                   <div>
                     <Label className="text-xs text-muted-foreground">Data</Label>
                     <p className="text-sm font-medium">{formatDate(transaction.date)}</p>
                   </div>
-                  
+
                   <div className="md:col-span-2">
                     <Label className="text-xs text-muted-foreground">Descrição</Label>
                     <p className="text-sm font-medium truncate">{transaction.description}</p>
                   </div>
-                  
+
                   <div>
                     <Label className="text-xs text-muted-foreground">Valor</Label>
-                    <p className={`text-sm font-bold ${transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    <p
+                      className={`text-sm font-bold ${transaction.amount >= 0 ? "text-green-600" : "text-red-600"}`}
+                    >
                       {formatCurrency(transaction.amount)}
                     </p>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     <div className="flex-1">
                       <Label className="text-xs text-muted-foreground">Categoria</Label>
                       <Select
                         value={transaction.category}
-                        onValueChange={(value) => saveTransaction(transaction.id, { category: value })}
+                        onValueChange={(value) =>
+                          saveTransaction(transaction.id, { category: value })
+                        }
                       >
                         <SelectTrigger className="text-sm">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {categories.map(cat => (
+                          {categories.map((cat) => (
                             <SelectItem key={cat.value} value={cat.value}>
                               {cat.label}
                             </SelectItem>
@@ -510,19 +472,21 @@ export function ImportTransactionsEditor({ documentId, documentName, onClose }: 
                         </SelectContent>
                       </Select>
                     </div>
-                    
+
                     <div className="flex-1">
                       <Select
                         value={transaction.subcategory || ""}
-                        onValueChange={(value) => saveTransaction(transaction.id, { subcategory: value })}
+                        onValueChange={(value) =>
+                          saveTransaction(transaction.id, { subcategory: value })
+                        }
                       >
                         <SelectTrigger className="text-sm">
                           <SelectValue placeholder="Subcategoria" />
                         </SelectTrigger>
                         <SelectContent>
                           {categories
-                            .find(cat => cat.value === transaction.category)
-                            ?.subcategories.map(sub => (
+                            .find((cat) => cat.value === transaction.category)
+                            ?.subcategories.map((sub) => (
                               <SelectItem key={sub} value={sub}>
                                 {sub}
                               </SelectItem>
@@ -532,7 +496,7 @@ export function ImportTransactionsEditor({ documentId, documentName, onClose }: 
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="flex flex-col items-end gap-1">
                   <Badge className={getConfidenceColor(transaction.confidence)}>
                     {getConfidenceText(transaction.confidence)}

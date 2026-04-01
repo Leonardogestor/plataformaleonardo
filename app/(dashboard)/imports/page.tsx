@@ -521,7 +521,10 @@ export default function ImportsPage() {
               <Upload className="h-5 w-5" />
               Upload dos Extratos
             </CardTitle>
-            <CardDescription>Anexe os arquivos PDF dos extratos bancários.</CardDescription>
+            <CardDescription>
+              Anexe os arquivos PDF dos extratos bancários. O upload é automático após selecionar os
+              arquivos.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleFileUpload} className="space-y-4">
@@ -531,10 +534,20 @@ export default function ImportsPage() {
                   type="file"
                   accept=".pdf,application/pdf"
                   multiple
-                  onChange={(e) => setFiles(Array.from(e.target.files || []))}
+                  onChange={(e) => {
+                    const selectedFiles = Array.from(e.target.files || [])
+                    setFiles(selectedFiles)
+                    // Iniciar upload automaticamente se tiver arquivos
+                    if (selectedFiles.length > 0 && selectedBank && selectedMonth && selectedYear) {
+                      // Dar um pequeno delay para o estado atualizar
+                      setTimeout(() => {
+                        handleFileUpload(e as any)
+                      }, 100)
+                    }
+                  }}
                 />
                 <p className="text-sm text-muted-foreground mt-1">
-                  Você pode selecionar múltiplos arquivos PDF.
+                  Você pode selecionar múltiplos arquivos PDF. O upload começará automaticamente.
                 </p>
               </div>
 
@@ -554,13 +567,18 @@ export default function ImportsPage() {
               )}
 
               <div className="flex gap-2">
-                <Button type="submit" disabled={files.length === 0 || uploading}>
+                <Button type="submit" disabled={files.length === 0 || uploading} className="w-full">
                   {uploading ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Enviando {files.length} arquivo(s)...
+                    </>
                   ) : (
-                    <Upload className="mr-2 h-4 w-4" />
+                    <>
+                      <Upload className="mr-2 h-4 w-4" />
+                      Enviar Arquivos Manualmente
+                    </>
                   )}
-                  {uploading ? "Enviando..." : "Enviar Arquivos"}
                 </Button>
               </div>
             </form>
@@ -638,8 +656,22 @@ export default function ImportsPage() {
               onClick={() => {
                 // Mostrar seção de upload se ainda não tiver documentos
                 if (currentSession.documents.length === 0) {
-                  // Scroll para a seção de upload
-                  document.getElementById("upload-section")?.scrollIntoView({ behavior: "smooth" })
+                  // Scroll para a seção de upload e focar no input
+                  const uploadSection = document.getElementById("upload-section")
+                  if (uploadSection) {
+                    uploadSection.scrollIntoView({ behavior: "smooth" })
+                    // Tentar focar no input de arquivo após um pequeno delay
+                    setTimeout(() => {
+                      const fileInput = uploadSection.querySelector(
+                        'input[type="file"]'
+                      ) as HTMLInputElement
+                      if (fileInput) {
+                        fileInput.focus()
+                        // Abrir diálogo de seleção de arquivo
+                        fileInput.click()
+                      }
+                    }, 500)
+                  }
                 } else {
                   // Se já tem documentos, mostrar botão para continuar
                   setCurrentSession((prev) => (prev ? { ...prev, status: "PROCESSING" } : null))
@@ -647,7 +679,17 @@ export default function ImportsPage() {
               }}
               className="bg-blue-600 hover:bg-blue-700"
             >
-              {currentSession.documents.length === 0 ? "Fazer Upload" : "Continuar"}
+              {currentSession.documents.length === 0 ? (
+                <>
+                  <Upload className="mr-2 h-4 w-4" />
+                  Selecionar Arquivos
+                </>
+              ) : (
+                <>
+                  <ArrowRight className="mr-2 h-4 w-4" />
+                  Continuar
+                </>
+              )}
             </Button>
           )}
         </div>
