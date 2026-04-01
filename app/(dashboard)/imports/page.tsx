@@ -102,34 +102,16 @@ export default function ImportsPage() {
   const fetchImports = useCallback(async () => {
     try {
       setLoading(true)
-      // Simulação - na prática viria da API
-      const mockSessions: ImportSession[] = [
-        {
-          id: "1",
-          period: "Janeiro 2026",
-          year: 2026,
-          month: "Janeiro",
-          documents: [
-            {
-              id: "doc1",
-              name: "Extrato Itaú",
-              fileName: "extrato_itau_jan2026.pdf",
-              mimeType: "application/pdf",
-              fileSize: 2048576,
-              status: "COMPLETED",
-              errorMessage: null,
-              createdAt: "2026-01-15T10:00:00Z",
-              transactionCount: 45,
-              bankName: "Itaú",
-              period: "Janeiro 2026",
-            },
-          ],
-          status: "COMPLETED",
-          createdAt: "2026-01-15T09:00:00Z",
-        },
-      ]
-      setImports(mockSessions)
+      // Buscar importações reais da API
+      const response = await fetch("/api/imports")
+      if (response.ok) {
+        const data = await response.json()
+        setImports(data)
+      } else {
+        setImports([])
+      }
     } catch {
+      setImports([])
       toast({
         title: "Erro",
         description: "Não foi possível carregar as importações",
