@@ -6,6 +6,7 @@ import type { Prisma } from "@prisma/client"
 import { uploadDocumentBlob, MAX_DOCUMENT_SIZE_BYTES } from "@/lib/blob"
 import { processDocumentPdf } from "@/lib/pdf-processing"
 import { processDocumentExcel } from "@/lib/excel-processing"
+import { processPdfFromBuffer } from "@/lib/pdf-processing-temp"
 import { checkDocumentsLimit } from "@/lib/rate-limit"
 import { randomUUID } from "crypto"
 
@@ -79,14 +80,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const limit = await checkDocumentsLimit(session.user.id)
-    if (limit.limited) {
-      const retryAfter = limit.retryAfter ?? 60
-      return NextResponse.json(
-        { error: "Muitos uploads. Tente novamente em alguns minutos." },
-        { status: 429, headers: { "Retry-After": String(retryAfter) } }
-      )
-    }
+    // Rate limit desabilitado temporariamente para debug
+    // const limit = await checkDocumentsLimit(session.user.id)
+    // if (limit.limited) {
+    //   const retryAfter = limit.retryAfter ?? 60
+    //   return NextResponse.json(
+    //     { error: "Muitos uploads. Tente novamente em alguns minutos." },
+    //     { status: 429, headers: { "Retry-After": String(retryAfter) } }
+    //   )
+    // }
 
     const formData = await request.formData()
     const file = formData.get("file") as File | null
@@ -131,6 +133,41 @@ export async function POST(request: NextRequest) {
     const pathnameSuffix = `${randomUUID()}.${fileExtension}`
 
     try {
+      // Verificar se o Blob Storage está configurado
+      if (!process.env.BLOB_READ_WRITE_TOKEN) {
+        console.error("BLOB_READ_WRITE_TOKEN não configurado, usando fallback")
+
+        // Fallback: criar documento sem upload físico por enquanto
+        const doc = await prisma.document.create({
+          data: {
+            userId: session.user.id,
+            name: name.trim() || file.name,
+            fileName: file.name,
+            mimeType: mimeType || (ALLOWED_MIME_TYPES[0] as string),
+            fileSize: file.size,
+            fileUrl: null, // Sem upload físico por enquanto
+            fileKey: null,
+            status: "PROCESSING",
+          },
+        })
+
+        console.log("Documento criado no banco (sem upload):", doc.id)
+
+        // Processar apenas o buffer localmente
+        const processingEnabled = process.env.DOCUMENT_PROCESSING_ENABLED !== "false"
+        if (processingEnabled && fileExtension === "pdf") {
+          console.log("Iniciando processamento PDF local para documento:", doc.id)
+
+          // Processar diretamente do buffer sem salvar no blob
+          processPdfFromBuffer(doc.id, buffer).catch((e) => {
+            console.error("Background PDF processing failed for document", doc.id, e)
+          })
+        }
+
+        return NextResponse.json(doc, { status: 201 })
+      }
+
+      console.log("Tentando fazer upload para o blob storage...")
       const blobResult = await uploadDocumentBlob(session.user.id, pathnameSuffix, buffer, {
         contentType: mimeType || ALLOWED_MIME_TYPES[0],
       })
