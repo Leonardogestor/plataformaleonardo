@@ -30,12 +30,11 @@ export async function uploadDocumentBlob(
   const pathname = `${PREFIX}/${userId}/${pathnameSuffix}`
   const contentType = options?.contentType ?? "application/pdf"
 
-  // SDK Vercel Blob hoje aceita apenas access: "public". A URL NUNCA é enviada ao cliente:
-  // o download é feito por proxy (stream) em GET /api/documents/[id]/download.
-  // Quando a Vercel suportar access: "private" e signed URL (ex: 60s), usar private aqui
-  // e no download gerar signed URL ou continuar proxy com token.
+  // Blob store configurado como "Private" no dashboard Vercel.
+  // A URL NUNCA é enviada ao cliente: o download é feito por proxy (stream) em GET /api/documents/[id]/download.
+  // Isso garante que apenas usuários autenticados possam acessar os documentos.
   const blob = await put(pathname, body, {
-    access: "public",
+    access: "private" as any,
     addRandomSuffix: true,
     contentType,
   })
