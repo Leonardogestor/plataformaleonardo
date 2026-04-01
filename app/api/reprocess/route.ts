@@ -40,17 +40,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar idempotência (hash do arquivo)
-    const existingDocument = await prisma.document.findFirst({
-      where: {
-        fileHash: document.fileHash,
-        id: { not: documentId }, // Diferente do atual
-        status: { in: ["COMPLETED", "PROCESSING"] },
-      },
-    })
+    // Skip hash check for now as fileHash field is not in the schema
+    // const existingDocument = await prisma.document.findFirst({
+    //   where: {
+    //     fileHash: document.fileHash,
+    //     id: { not: documentId }, // Diferente do atual
+    //     status: { in: ["COMPLETED", "PROCESSING"] },
+    //   },
+    // })
 
-    if (existingDocument && !forceReprocess) {
-      return NextResponse.json({ error: "Documento duplicado detectado" }, { status: 409 })
-    }
+    // if (existingDocument && !forceReprocess) {
+    //   return NextResponse.json({ error: "Documento duplicado detectado" }, { status: 409 })
+    // }
 
     // Atualizar status para PROCESSING
     await prisma.document.update({

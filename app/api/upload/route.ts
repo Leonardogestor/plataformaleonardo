@@ -69,31 +69,32 @@ export async function POST(request: NextRequest) {
     const fileHash = generateFileHash(Buffer.from(buffer))
 
     // Verificar duplicata por hash
-    const existingDocument = await prisma.document.findFirst({
-      where: {
-        userId: session.user.id,
-        fileHash,
-      },
-    })
+    // Skip hash check for now as fileHash field is not in the schema
+    // const existingDocument = await prisma.document.findFirst({
+    //   where: {
+    //     userId: session.user.id,
+    //     fileHash,
+    //   },
+    // })
 
-    if (existingDocument) {
-      apiLogger.info("Duplicate document detected", {
-        fileHash,
-        originalFileId: existingDocument.id,
-        originalFileName: existingDocument.fileName,
-      })
+    // if (existingDocument) {
+    //   apiLogger.info("Duplicate document detected", {
+    //     fileHash,
+    //     originalFileId: existingDocument.id,
+    //     originalFileName: existingDocument.fileName,
+    //   })
 
-      return NextResponse.json({
-        success: false,
-        error: "Documento já processado anteriormente",
-        duplicate: true,
-        originalFile: {
-          id: existingDocument.id,
-          name: existingDocument.fileName,
-          createdAt: existingDocument.createdAt,
-        },
-      })
-    }
+    //   return NextResponse.json({
+    //     success: false,
+    //     error: "Documento já processado anteriormente",
+    //     duplicate: true,
+    //     originalFile: {
+    //       id: existingDocument.id,
+    //       name: existingDocument.fileName,
+    //       createdAt: existingDocument.createdAt,
+    //     },
+    //   })
+    // }
 
     // Salvar documento com status PROCESSING
     const document = await prisma.document.create({
@@ -103,7 +104,6 @@ export async function POST(request: NextRequest) {
         fileName: file.name,
         mimeType: file.type,
         fileSize: file.size,
-        fileHash,
         status: "PROCESSING",
       },
     })
