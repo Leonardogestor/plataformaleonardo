@@ -6,10 +6,21 @@ const prisma = new PrismaClient()
 async function main() {
   console.log("🌱 Iniciando seed para novo usuário cliente...")
 
-  // Limpar usuários existentes
-  console.log("🧹 Limpando usuários existentes...")
+  // Limpar todos os dados existentes para começar do zero
+  console.log("🧹 Limpando todos os dados existentes...")
   await prisma.user.deleteMany({})
-  console.log("✅ Usuários antigos removidos")
+  await prisma.transaction.deleteMany({})
+  await prisma.investmentMovement.deleteMany({})
+  await prisma.document.deleteMany({})
+  await prisma.syncLog.deleteMany({})
+  await prisma.rawTransaction.deleteMany({})
+  await prisma.parsedTransaction.deleteMany({})
+  await prisma.normalizedTransaction.deleteMany({})
+  await prisma.merchantMapping.deleteMany({})
+  await prisma.categoryRule.deleteMany({})
+  await prisma.financial_ledger.deleteMany({})
+  await prisma.financial_snapshots.deleteMany({})
+  console.log("✅ Todos os dados antigos removidos - sistema limpo")
 
   // Criar senha hash para o novo usuário cliente
   const clientPassword = await bcrypt.hash("Lmg@2026", 10)

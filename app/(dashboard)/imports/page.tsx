@@ -187,6 +187,17 @@ export default function ImportsPage() {
           }
         : null
     )
+
+    // Mostrar toast de sucesso e instruir o usuário
+    toast({
+      title: "Configuração concluída!",
+      description: "Agora envie os arquivos PDF dos extratos.",
+    })
+
+    // Scroll suave para a seção de upload
+    setTimeout(() => {
+      document.getElementById("upload-section")?.scrollIntoView({ behavior: "smooth" })
+    }, 100)
   }
 
   const handleFileUpload = async (e: React.FormEvent) => {
@@ -522,7 +533,7 @@ export default function ImportsPage() {
         </Card>
 
         {/* Upload dos Arquivos */}
-        <Card>
+        <Card id="upload-section">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Upload className="h-5 w-5" />
@@ -640,16 +651,21 @@ export default function ImportsPage() {
               Próximo
             </Button>
           )}
-          {currentSession.status === "UPLOADING" && currentSession.documents.length > 0 && (
+          {currentSession.status === "UPLOADING" && (
             <Button
-              onClick={() =>
-                setCurrentSession((prev) => (prev ? { ...prev, status: "PROCESSING" } : null))
-              }
-              disabled={currentSession.documents.some((doc) =>
-                processingFiles.includes(doc.fileName)
-              )}
+              onClick={() => {
+                // Mostrar seção de upload se ainda não tiver documentos
+                if (currentSession.documents.length === 0) {
+                  // Scroll para a seção de upload
+                  document.getElementById("upload-section")?.scrollIntoView({ behavior: "smooth" })
+                } else {
+                  // Se já tem documentos, mostrar botão para continuar
+                  setCurrentSession((prev) => (prev ? { ...prev, status: "PROCESSING" } : null))
+                }
+              }}
+              className="bg-blue-600 hover:bg-blue-700"
             >
-              {processingFiles.length > 0 ? "Processando..." : "Continuar"}
+              {currentSession.documents.length === 0 ? "Fazer Upload" : "Continuar"}
             </Button>
           )}
         </div>
