@@ -58,6 +58,9 @@ export async function POST(request: NextRequest) {
     // 3. Criar múltiplos documentos no banco
     const documents = await Promise.all(
       files.map(async (file) => {
+        // Ler buffer do arquivo uma vez
+        const buffer = Buffer.from(await file.arrayBuffer())
+
         const doc = await prisma.document.create({
           data: {
             userId: session.user.id,
@@ -72,7 +75,7 @@ export async function POST(request: NextRequest) {
         console.log("✅ Documento criado no banco:", doc.id)
 
         // Processar PDF em background (não bloqueante)
-        processPdfSimple(doc.id, file).catch((error) => {
+        processPdfSimple(doc.id, buffer, file.name).catch((error) => {
           console.error("❌ Erro no processamento:", error)
         })
 
@@ -102,12 +105,11 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function processPdfSimple(documentId: string, file: File) {
+async function processPdfSimple(documentId: string, buffer: Buffer, fileName: string) {
   try {
     console.log("🔄 Processando PDF simples para:", documentId)
 
     // 1. Extrair texto
-    const buffer = Buffer.from(await file.arrayBuffer())
     const text = await extractTextFromPdf(buffer)
 
     if (!text || text.length < 10) {
