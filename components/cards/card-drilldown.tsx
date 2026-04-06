@@ -42,8 +42,8 @@ export default function CardDrilldown({
 
   // Calcular impacto mensal futuro (somatório das parcelas mensais ativas)
   const futureMonthlyImpact = installments.reduce((sum, p) => sum + p.installmentValue, 0)
-  // Critério de pressão: se o impacto mensal for maior que 30% do limite (mock: 8000)
-  const cardLimit = 8000 // TODO: buscar real do cartão
+  // Critério de pressão: se o impacto mensal for maior que 30% do limite real do cartão
+  const cardLimit = card?.limit || 8000
   const pressure = futureMonthlyImpact > cardLimit * 0.3
 
   // Ordenação: mais longos e mais caros no topo

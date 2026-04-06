@@ -1,48 +1,57 @@
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-
-// TODO: Substituir por fetch real dos cartões
-
 import { useEffect, useState } from "react"
+import { useToast } from "@/hooks/use-toast"
 
 type Card = {
   id: string
   name: string
-  institution?: string
+  institution: string
   limit: number
-  used: number
+  usedLimit: number
   closeDay: number
   dueDay: number
-  status: string
+  brand: string
 }
 
-export default function CardList({
-  onSelect,
-  onAdd,
-}: {
-  onSelect: (id: string) => void
-  onAdd: () => void
-}) {
+export default function CardList() {
   const [cards, setCards] = useState<Card[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { toast } = useToast()
 
   useEffect(() => {
-    setLoading(true)
-    fetch("/api/cards")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.error) setError(data.error)
-        else setCards(data)
-      })
-      .catch(() => setError("Erro ao buscar cartões"))
-      .finally(() => setLoading(false))
+    fetchCards()
   }, [])
+
+  const fetchCards = async () => {
+    try {
+      const response = await fetch("/api/cards")
+      if (response.ok) {
+        const data = await response.json()
+        setCards(data)
+      } else {
+        toast({
+          title: "Erro ao buscar cartões",
+          description: "Não foi possível carregar seus cartões.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Erro ao buscar cartões:", error)
+      toast({
+        title: "Erro de conexão",
+        description: "Verifique sua conexão com a internet.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <Button onClick={onAdd}>Novo Cartão</Button>
+        <Button onClick={() => {}}>Novo Cartão</Button>
       </div>
       {loading ? (
         <div>Carregando cartões...</div>

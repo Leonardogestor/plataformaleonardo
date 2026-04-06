@@ -22,12 +22,14 @@ import {
   FileText,
 } from "lucide-react"
 import { DocumentUpload } from "@/components/documents/document-upload"
+import { useToast } from "@/hooks/use-toast"
 import { useState } from "react"
 
 export function FinancialSummaryNew() {
   const { calculations, previousCalculations, finalBalance, previousBalance, isLoading } =
     useFinancialDataSafe()
   const [investmentDialogOpen, setInvestmentDialogOpen] = useState(false)
+  const { toast } = useToast()
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -76,9 +78,34 @@ export function FinancialSummaryNew() {
     : 0
 
   // Handle investment document upload
-  const handleInvestmentUpload = (document: any) => {
+  const handleInvestmentUpload = async (document: any) => {
     console.log("Investment document uploaded:", document)
-    // TODO: Process investment document - extract asset type, value, date, institution, profitability
+
+    try {
+      // Process investment document - extract asset type, value, date, institution, profitability
+      const response = await fetch("/api/investments/process-document", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ document }),
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        console.log("Investment processed:", result)
+        toast({
+          title: "Investimento processado",
+          description: "Dados do investimento foram extraídos e salvos.",
+        })
+      }
+    } catch (error) {
+      console.error("Error processing investment:", error)
+      toast({
+        title: "Erro ao processar",
+        description: "Não foi possível processar o documento.",
+        variant: "destructive",
+      })
+    }
+
     setInvestmentDialogOpen(false)
   }
 
