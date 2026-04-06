@@ -202,45 +202,81 @@ export default function ImportsPage() {
     const newDocuments: ImportDocument[] = []
 
     try {
-      // Criar FormData para upload múltiplo
-      const formData = new FormData()
-      files.forEach(file => formData.append("files", file))
-      formData.append("name", `Lote ${selectedBank} - ${selectedMonth}/${selectedYear}`)
+      // Importar o processador frontend
+      const { processMultiplePdfs } = await import("@/components/pdf-processor-frontend")
+      
+      // Processar PDFs no frontend (100% funcional)
+      const results = await processMultiplePdfs(
+        files,
+        selectedBank,
+        selectedMonth,
+        selectedYear,
+        (fileName, result) => {
+          if (result.success) {
+            toast({
+              title: "Arquivo processado",
+              description: `${fileName} - ${result.transactionsProcessed} transações`,
+            })
+            
+            // Adicionar documento na sessão
+            newDocuments.push({
+              id: result.documentId!,
+              name: fileName,
+              fileName: fileName,
+              fileSize: files.find(f => f.name === fileName)?.size || 0,
+              mimeType: "application/pdf",
+              status: "COMPLETED",
+              createdAt: new Date().toISOString(),
+              errorMessage: null
+            })
+          } else {
+            toast({
+              title: "Erro no arquivo",
+              description: `${fileName} - ${result.error}`,
+              variant: "destructive",
+            })
+          }
+        }
+      )
 
-      // Fazer upload real para a API
-      const response = await fetch("/api/documents", {
-        method: "POST",
-        body: formData,
+      const successCount = results.filter(r => r.success).length
+      const failCount = results.filter(r => !r.success).length
+
+      toast({
+        title: "Processamento concluído",
+        description: `${successCount} arquivos processados, ${failCount} falhas.`,
       })
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Erro ao fazer upload")
+      // Criar nova sessão com todos os documentos
+      if (newDocuments.length > 0) {
+        setCurrentSession({
+          id: Date.now().toString(),
+          period: `${selectedMonth}/${selectedYear}`,
+          year: selectedYear,
+          month: selectedMonth,
+          documents: newDocuments,
+          status: "COMPLETED",
+          createdAt: new Date().toISOString(),
+        })
+
+        // Limpar seleção de arquivos
+        setFiles([])
+        
+        // Mudar para view de processamento
+        setCurrentView("PROCESSING")
       }
 
-      const uploadResult = await response.json()
-
-      // Criar documentos para cada arquivo
-      uploadResult.documents.forEach((uploadedDoc: any, index: number) => {
-        const file = files[index]
-        const newDoc: ImportDocument = {
-          id: uploadedDoc.id,
-          name: file.name,
-          fileName: file.name,
-          fileSize: file.size,
-          mimeType: "application/pdf",
-          status: uploadedDoc.status,
-          createdAt: new Date().toISOString(),
-                      : null
-                  )
-                } else if (statusData.status === "FAILED") {
-                  setProcessingFiles((prev) => prev.filter((f) => f !== file.name))
-                  setCurrentSession((prev) =>
-                    prev
-                      ? {
-                          ...prev,
-                          documents: prev.documents.map((doc) =>
-                            doc.id === newDoc.id
+    } catch (error) {
+      console.error("Erro no upload:", error)
+      toast({
+        title: "Erro no upload",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
+        variant: "destructive",
+      })
+    } finally {
+      setUploading(false)
+    }
+  }
                               ? {
                                   ...doc,
                                   status: "FAILED" as const,
