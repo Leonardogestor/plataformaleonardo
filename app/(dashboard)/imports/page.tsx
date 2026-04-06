@@ -372,23 +372,46 @@ export default function ImportsPage() {
     if (!currentSession) return
 
     try {
-      // Simulação de salvamento
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      // 1. Forçar atualização do Dashboard
+      await fetch("/api/dashboard/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ forceUpdate: true })
+      })
+
+      // 2. Forçar atualização dos Cartões
+      await fetch("/api/cards/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ forceUpdate: true })
+      })
+
+      // 3. Forçar atualização das Metas
+      await fetch("/api/goals/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ forceUpdate: true })
+      })
+
+      // 4. Limpar cache do navegador
+      if ('caches' in window) {
+        const cacheNames = await caches.keys()
+        await Promise.all(cacheNames.map(name => caches.delete(name)))
+      }
 
       const finalSession = { ...currentSession, status: "COMPLETED" as const }
       setImports((prev) => [...prev, finalSession])
 
       toast({
         title: "Importação concluída!",
-        description: "Todas as transações foram salvas com sucesso.",
+        description: "Todas as transações foram salvas e todas as abas foram atualizadas.",
       })
 
-      setCurrentView("LIST")
-      setCurrentSession(null)
-      setSelectedBank("")
-      setSelectedMonth("")
-      setSelectedYear(new Date().getFullYear())
+      // 5. Redirecionar para transações para ver o resultado
+      window.location.href = "/transactions"
+
     } catch (error) {
+      console.error("Erro ao salvar importação:", error)
       toast({
         title: "Erro ao salvar",
         description: "Não foi possível salvar as transações.",

@@ -39,13 +39,7 @@ export default function ProjectionsPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
         <div>
-          <TooltipProgressiva
-            id="projections_scenario"
-            text="Altere o cenário ou período para simular diferentes futuros. Use para planejar com confiança."
-            cta="Ver impacto"
-          >
-            <h2 className="text-3xl font-bold tracking-tight">Projeções Financeiras</h2>
-          </TooltipProgressiva>
+          <h2 className="text-3xl font-bold tracking-tight">Projeções Financeiras</h2>
           <p className="text-muted-foreground">
             Veja como suas decisões de hoje impactam seu futuro financeiro.
           </p>
