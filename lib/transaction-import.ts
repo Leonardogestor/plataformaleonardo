@@ -10,7 +10,7 @@ import { prisma } from "@/lib/db"
 export interface NormalizedTransaction {
   type: "INCOME" | "EXPENSE" | "TRANSFER"
   category: string
-  subcategory?: string
+  subcategory?: string | null
   amount: number
   description: string
   date: string // ISO date
