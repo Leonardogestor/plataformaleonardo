@@ -91,7 +91,7 @@ async function parsePDF(buffer: Buffer): Promise<ParsedInvestment[]> {
     const lines = text.split("\n").filter((line) => line.trim())
     const investments: ParsedInvestment[] = []
 
-    // Look for patterns like "Tesouro Selic 2029", "R$ 1.000,00", etc.
+    // Look for patterns like "Tesouro Selic 2026", "R$ 1.000,00", etc.
     let currentInvestment: Partial<ParsedInvestment> = {}
 
     for (const line of lines) {

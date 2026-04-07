@@ -25,7 +25,13 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 const profileSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
@@ -212,9 +218,10 @@ export default function SettingsPage() {
         const url = window.URL.createObjectURL(blob)
         const a = document.createElement("a")
         a.href = url
-        const filename = reportType === "monthly" 
-          ? `relatorio_mensal_${selectedMonth}_${selectedYear}.pdf`
-          : `relatorio_anual_${selectedYear}.pdf`
+        const filename =
+          reportType === "monthly"
+            ? `relatorio_mensal_${selectedMonth}_${selectedYear}.pdf`
+            : `relatorio_anual_${selectedYear}.pdf`
         a.download = filename
         document.body.appendChild(a)
         a.click()
@@ -226,7 +233,7 @@ export default function SettingsPage() {
           description: "O arquivo PDF foi baixado com sucesso",
         })
       } else {
-        throw new Error('Erro ao gerar relatório')
+        throw new Error("Erro ao gerar relatório")
       }
     } catch (error) {
       toast({
@@ -486,7 +493,7 @@ export default function SettingsPage() {
                       </SelectTrigger>
                       <SelectContent>
                         {Array.from({ length: 5 }, (_, i) => {
-                          const year = new Date().getFullYear() - i
+                          const year = new Date().getFullYear() + 2 - i // 2026, 2025, 2024, 2023, 2022
                           return (
                             <SelectItem key={year} value={year.toString()}>
                               {year}
@@ -512,10 +519,11 @@ export default function SettingsPage() {
                         Relatório Mensal
                       </h5>
                       <p className="text-sm text-muted-foreground">
-                        Análise detalhada das finanças do mês selecionado com insights e recomendações.
+                        Análise detalhada das finanças do mês selecionado com insights e
+                        recomendações.
                       </p>
                     </div>
-                    <Button 
+                    <Button
                       onClick={() => handleExportData("monthly")}
                       disabled={isExporting}
                       className="shrink-0"
@@ -535,7 +543,7 @@ export default function SettingsPage() {
                         Visão completa do ano selecionado com comparações mensais e tendências.
                       </p>
                     </div>
-                    <Button 
+                    <Button
                       onClick={() => handleExportData("annual")}
                       disabled={isExporting}
                       className="shrink-0"
@@ -563,9 +571,9 @@ export default function SettingsPage() {
 
               <div className="p-4 bg-muted rounded-lg">
                 <p className="text-sm text-muted-foreground">
-                  💡 <strong>Dica:</strong> Os relatórios em PDF são ideais para compartilhar com 
-                  consultores financeiros ou para arquivo pessoal. Selecione o período desejado 
-                  para obter análises específicas.
+                  💡 <strong>Dica:</strong> Os relatórios em PDF são ideais para compartilhar com
+                  consultores financeiros ou para arquivo pessoal. Selecione o período desejado para
+                  obter análises específicas.
                 </p>
               </div>
             </CardContent>

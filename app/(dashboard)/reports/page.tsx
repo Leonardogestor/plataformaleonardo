@@ -26,7 +26,7 @@ export default function ReportsPage() {
   const { toast } = useToast()
 
   const currentYear = new Date().getFullYear()
-  const years = Array.from({ length: 5 }, (_, i) => currentYear - i)
+  const years = Array.from({ length: 5 }, (_, i) => currentYear + 2 - i) // 2026, 2025, 2024, 2023, 2022
   const months = [
     { value: 1, label: "Janeiro" },
     { value: 2, label: "Fevereiro" },

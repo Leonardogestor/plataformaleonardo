@@ -192,7 +192,7 @@ export function ProjectionsManager() {
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Recalcular Tudo
               </Button>
-              <Button size="sm" onClick={() => generateProjections(1, 2028, 12)}>
+              <Button size="sm" onClick={() => generateProjections(1, 2026, 12)}>
                 Gerar 12 Meses
               </Button>
             </div>
