@@ -7,16 +7,16 @@ import { z } from "zod"
 // Schema para validação das respostas do formulário
 const anamnesisSchema = z.object({
   personalInfo: z.object({
-    name: z.string().min(1, "Nome é obrigatório"),
-    birthDate: z.string().min(1, "Data de nascimento é obrigatória"),
+    name: z.string().min(1, "Nome e obrigatorio"),
+    birthDate: z.string().min(1, "Data de nascimento e obrigatoria"),
   }),
   financialContext: z.object({
-    incomeType: z.enum(["FIXA", "VARIÁVEL", "MISTA"]),
-    financialSituation: z.enum(["ORGANIZADA", "DESORGANIZADA", "CRÍTICA"]),
-    hasDebts: z.enum(["NÃO", "SIM_CONTROLE", "SIM_PREOCUPANTE"]),
+    incomeType: z.enum(["FIXA", "VARIAVEL", "MISTA"]),
+    financialSituation: z.enum(["ORGANIZADA", "DESORGANIZADA", "CRITICA"]),
+    hasDebts: z.enum(["NAO", "SIM_CONTROLE", "SIM_PREOCUPANTE"]),
   }),
   lifeMoment: z.object({
-    careerStage: z.enum(["INÍCIO_CARREIRA", "CRESCIMENTO_PROFISSIONAL", "ESTÁVEL", "TRANSIÇÃO"]),
+    careerStage: z.enum(["INICIO_CARREIRA", "CRESCIMENTO_PROFISSIONAL", "ESTAVEL", "TRANSICAO"]),
     hasDependents: z.boolean(),
   }),
   financialBehavior: z.object({
@@ -37,12 +37,12 @@ const anamnesisSchema = z.object({
     preferredFormat: z.enum(["PDF", "EXCEL_CSV", "IMAGENS", "PAPEL"]),
   }),
   budgetControl: z.object({
-    spendingPattern: z.enum(["MUITO_PREVISÍVEL", "MODERADAMENTE_PREVISÍVEL", "IMPREVISÍVEL"]),
+    spendingPattern: z.enum(["MUITO_PREVISIVEL", "MODERADAMENTE_PREVISIVEL", "IMPREVISIVEL"]),
     budgetHandling: z.enum([
       "SEGUE_RIGOROSAMENTE",
-      "GUIA_FLEXÍVEL",
-      "CRIA_NÃO_SEGUE",
-      "NÃO_FAZ_ORÇAMENTO",
+      "GUIA_FLEXIVEL",
+      "CRIA_NAO_SEGUE",
+      "NAO_FAZ_ORCAMENTO",
     ]),
   }),
   cardsInstallments: z.object({
@@ -50,21 +50,40 @@ const anamnesisSchema = z.object({
     installmentFrequency: z.enum(["NUNCA", "RARAMENTE", "REGULARMENTE", "FREQUENTEMENTE"]),
   }),
   executionCapacity: z.object({
-    willingnessToAdjust: z.enum(["AJUSTA_ALGUNS", "REDUZ_SIGNIFICATIVO", "MANTÉM_TUDO"]),
-    growthPreference: z.enum(["SEGURANÇA", "CRESCIMENTO_MODERADO", "CRESCIMENTO_AGRESSIVO"]),
+    willingnessToAdjust: z.enum(["AJUSTA_ALGUNS", "REDUZ_SIGNIFICATIVO", "MANTEM_TUDO"]),
+    growthPreference: z.enum(["SEGURANCA", "CRESCIMENTO_MODERADO", "CRESCIMENTO_AGRESSIVO"]),
   }),
 })
 
 export async function POST(request: NextRequest) {
   try {
+    console.log("POST /api/user/anamnesis - Iniciando")
+
     const session = await getServerSession(authOptions)
+    console.log("Session:", session?.user?.id ? "OK" : "NOT_FOUND")
 
     if (!session?.user?.id) {
+      console.log("Erro: Usuário não autenticado")
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
     const body = await request.json()
-    const validatedData = anamnesisSchema.parse(body)
+    console.log("Dados recebidos:", JSON.stringify(body, null, 2))
+
+    let validatedData
+    try {
+      validatedData = anamnesisSchema.parse(body)
+      console.log("Dados validados com sucesso")
+    } catch (validationError: any) {
+      console.error("Erro de validação:", validationError.errors)
+      return NextResponse.json(
+        {
+          error: "Dados inválidos",
+          details: validationError.errors,
+        },
+        { status: 400 }
+      )
+    }
 
     // Análise das respostas para determinar perfil e estratégias
     const analysis = analyzeResponses(validatedData)
@@ -380,7 +399,7 @@ function determineInterventionLevel(responses: any) {
 
   if (responses.financialContext.financialSituation === "CRÍTICA") {
     level = "INTENSO"
-  } else if (responses.executionCapacity.commitmentLevel >= 4) {
+  } else if (responses.executionCapacity.willingnessToAdjust === "REDUZ_SIGNIFICATIVO") {
     level = "MODERADO"
   }
 

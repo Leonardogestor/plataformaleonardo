@@ -9,17 +9,14 @@ import { checkDocumentsLimit } from "@/lib/rate-limit"
  * POST – Re-trigger async PDF processing for a document (e.g. after FAILED or for reprocess).
  * Does not block: enqueues processing and returns immediately.
  */
-export async function POST(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const limit = await checkDocumentsLimit(session.user.id)
+    const limit = await checkDocumentsLimit(_request)
     if (limit.limited) {
       const retryAfter = limit.retryAfter ?? 60
       return NextResponse.json(

@@ -413,7 +413,7 @@ export default function ConfiguracoesPage() {
           </div>
           <div className="flex flex-wrap gap-4 items-center">
             <div>
-              <span className="block text-sm font-medium mb-1">Cartão LMG</span>
+              <span className="block text-sm font-medium mb-1">Cartão LMG PLATAFORMA</span>
               <span className="text-xs text-muted-foreground">
                 Última sincronização: 22/01/2026
               </span>

@@ -39,7 +39,7 @@ const contasIniciais = [
   {
     id: 2,
     nome: "Poupança Família",
-    instituicao: "Banco LMG",
+    instituicao: "Banco LMG PLATAFORMA",
     tipo: "poupanca",
     saldoInicial: 2000,
     dataSaldo: "2026-01-01",

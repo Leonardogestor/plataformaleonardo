@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    const limit = await checkSyncLimit(session.user.id)
+    const limit = await checkSyncLimit(request)
     if (limit.limited) {
       const retryAfter = limit.retryAfter ?? 60
       return NextResponse.json(

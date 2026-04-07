@@ -17,19 +17,22 @@ export async function GET(request: NextRequest) {
 
     // Buscar anamnese do usuário
     const anamnesis = await prisma.userAnamnesis.findUnique({
-      where: { userId: session.user.id }
+      where: { userId: session.user.id },
     })
 
     if (!anamnesis) {
-      return NextResponse.json({ 
-        error: "Anamnese não encontrada. Preencha primeiro." 
-      }, { status: 404 })
+      return NextResponse.json(
+        {
+          error: "Anamnese não encontrada. Preencha primeiro.",
+        },
+        { status: 404 }
+      )
     }
 
     // Buscar metas existentes
     const existingGoals = await prisma.goal.findMany({
       where: { userId: session.user.id },
-      orderBy: { targetDate: 'asc' }
+      orderBy: { createdAt: "asc" },
     })
 
     // Buscar transações recentes para calcular progresso
@@ -39,8 +42,8 @@ export async function GET(request: NextRequest) {
     const transactions = await prisma.transaction.findMany({
       where: {
         userId: session.user.id,
-        date: { gte: thirtyDaysAgo }
-      }
+        date: { gte: thirtyDaysAgo },
+      },
     })
 
     // Extrair metas da anamnese
@@ -48,49 +51,39 @@ export async function GET(request: NextRequest) {
     const anamnesisGoals = responses.objectives?.goals || []
 
     // Criar/atualizar metas baseadas na anamnese
-    const syncedGoals = await syncGoalsFromAnamnesis(
-      session.user.id, 
-      anamnesisGoals, 
-      existingGoals
-    )
+    const syncedGoals = await syncGoalsFromAnamnesis(session.user.id, anamnesisGoals, existingGoals)
 
     // Calcular progresso real das metas
-    const goalsWithProgress = await calculateGoalsProgress(
-      syncedGoals,
-      transactions,
-      responses
-    )
+    const goalsWithProgress = await calculateGoalsProgress(syncedGoals, transactions, responses)
 
     // Gerar recomendações baseadas no progresso
-    const recommendations = generateGoalsRecommendations(
-      goalsWithProgress,
-      responses,
-      transactions
-    )
+    const recommendations = generateGoalsRecommendations(goalsWithProgress, responses, transactions)
 
     return NextResponse.json({
       userProfile: {
         name: anamnesis.name,
         profileType: anamnesis.profileType,
-        riskLevel: anamnesis.riskLevel
+        riskLevel: anamnesis.riskLevel,
       },
       goals: goalsWithProgress,
       recommendations: recommendations,
       anamnesisGoals: anamnesisGoals,
-      syncedAt: new Date().toISOString()
+      syncedAt: new Date().toISOString(),
     })
-
   } catch (error) {
     console.error("❌ Erro ao buscar metas da anamnese:", error)
-    return NextResponse.json({ 
-      error: "Erro ao carregar metas" 
-    }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: "Erro ao carregar metas",
+      },
+      { status: 500 }
+    )
   }
 }
 
 async function syncGoalsFromAnamnesis(
-  userId: string, 
-  anamnesisGoals: string[], 
+  userId: string,
+  anamnesisGoals: string[],
   existingGoals: any[]
 ) {
   const syncedGoals = []
@@ -98,9 +91,10 @@ async function syncGoalsFromAnamnesis(
   // Para cada meta da anamnese
   for (const goalText of anamnesisGoals) {
     // Verificar se já existe
-    const existing = existingGoals.find(g => 
-      g.name.toLowerCase().includes(goalText.toLowerCase()) ||
-      goalText.toLowerCase().includes(g.name.toLowerCase())
+    const existing = existingGoals.find(
+      (g) =>
+        g.name.toLowerCase().includes(goalText.toLowerCase()) ||
+        goalText.toLowerCase().includes(g.name.toLowerCase())
     )
 
     if (existing) {
@@ -108,10 +102,8 @@ async function syncGoalsFromAnamnesis(
       const updated = await prisma.goal.update({
         where: { id: existing.id },
         data: {
-          // Manter dados existentes mas marcar como sincronizado
-          anamnesisSynced: true,
-          updatedAt: new Date()
-        }
+          updatedAt: new Date(),
+        },
       })
       syncedGoals.push(updated)
     } else {
@@ -122,12 +114,10 @@ async function syncGoalsFromAnamnesis(
           name: goalText,
           targetAmount: estimateGoalAmount(goalText),
           currentAmount: 0,
-          targetDate: estimateGoalDate(goalText),
           category: getGoalCategory(goalText),
-          priority: "MEDIUM",
           status: "ACTIVE",
-          anamnesisSynced: true
-        }
+          deadline: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 ano
+        },
       })
       syncedGoals.push(newGoal)
     }
@@ -138,84 +128,84 @@ async function syncGoalsFromAnamnesis(
 
 function estimateGoalAmount(goalText: string): number {
   const text = goalText.toLowerCase()
-  
+
   // Estimativas baseadas em palavras-chave
-  if (text.includes('casa') || text.includes('imóvel')) return 500000
-  if (text.includes('carro') || text.includes('veículo')) return 50000
-  if (text.includes('aposentadoria')) return 1000000
-  if (text.includes('faculdade') || text.includes('estudo')) return 50000
-  if (text.includes('viagem')) return 20000
-  if (text.includes('emergência') || text.includes('reserva')) return 30000
-  if (text.includes('investimento')) return 100000
-  
+  if (text.includes("casa") || text.includes("imóvel")) return 500000
+  if (text.includes("carro") || text.includes("veículo")) return 50000
+  if (text.includes("aposentadoria")) return 1000000
+  if (text.includes("faculdade") || text.includes("estudo")) return 50000
+  if (text.includes("viagem")) return 20000
+  if (text.includes("emergência") || text.includes("reserva")) return 30000
+  if (text.includes("investimento")) return 100000
+
   return 50000 // Padrão
 }
 
 function estimateGoalDate(goalText: string): Date {
   const text = goalText.toLowerCase()
   const now = new Date()
-  
+
   // Estimativas baseadas em palavras-chave
-  if (text.includes('curto') || text.includes('breve')) {
+  if (text.includes("curto") || text.includes("breve")) {
     now.setMonth(now.getMonth() + 6)
-  } else if (text.includes('médio')) {
+  } else if (text.includes("médio")) {
     now.setFullYear(now.getFullYear() + 2)
-  } else if (text.includes('longo') || text.includes('aposentadoria')) {
+  } else if (text.includes("longo") || text.includes("aposentadoria")) {
     now.setFullYear(now.getFullYear() + 10)
-  } else if (text.includes('ano')) {
+  } else if (text.includes("ano")) {
     now.setFullYear(now.getFullYear() + 1)
   } else {
     now.setFullYear(now.getFullYear() + 3) // Padrão 3 anos
   }
-  
+
   return now
 }
 
 function getGoalCategory(goalText: string): string {
   const text = goalText.toLowerCase()
-  
-  if (text.includes('casa') || text.includes('imóvel')) return "Imóveis"
-  if (text.includes('carro') || text.includes('veículo')) return "Veículos"
-  if (text.includes('aposentadoria')) return "Aposentadoria"
-  if (text.includes('faculdade') || text.includes('estudo')) return "Educação"
-  if (text.includes('viagem')) return "Lazer"
-  if (text.includes('emergência') || text.includes('reserva')) return "Segurança"
-  if (text.includes('investimento')) return "Investimentos"
-  
+
+  if (text.includes("casa") || text.includes("imóvel")) return "Imóveis"
+  if (text.includes("carro") || text.includes("veículo")) return "Veículos"
+  if (text.includes("aposentadoria")) return "Aposentadoria"
+  if (text.includes("faculdade") || text.includes("estudo")) return "Educação"
+  if (text.includes("viagem")) return "Lazer"
+  if (text.includes("emergência") || text.includes("reserva")) return "Segurança"
+  if (text.includes("investimento")) return "Investimentos"
+
   return "Outros"
 }
 
-async function calculateGoalsProgress(
-  goals: any[], 
-  transactions: any[], 
-  responses: any
-) {
+async function calculateGoalsProgress(goals: any[], transactions: any[], responses: any) {
   // Calcular taxa de poupança real
   const totalIncome = transactions
-    .filter(t => t.type === "INCOME")
+    .filter((t) => t.type === "INCOME")
     .reduce((sum, t) => sum + Number(t.amount), 0)
-    
+
   const totalExpenses = transactions
-    .filter(t => t.type === "EXPENSE")
+    .filter((t) => t.type === "EXPENSE")
     .reduce((sum, t) => sum + Number(t.amount), 0)
-    
+
   const monthlySavings = totalIncome - totalExpenses
   const savingsRate = totalIncome > 0 ? (monthlySavings / totalIncome) * 100 : 0
 
   // Calcular progresso para cada meta
-  const goalsWithProgress = goals.map(goal => {
-    const monthsRemaining = Math.max(1, 
-      Math.ceil((new Date(goal.targetDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24 * 30))
+  const goalsWithProgress = goals.map((goal) => {
+    const monthsRemaining = Math.max(
+      1,
+      Math.ceil(
+        (new Date(goal.targetDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24 * 30)
+      )
     )
-    
+
     // Projeção baseada na poupança atual
     const projectedSavings = monthlySavings * monthsRemaining
     const projectedProgress = Math.min(100, (projectedSavings / Number(goal.targetAmount)) * 100)
-    
+
     // Progresso real (baseado no que já foi economizado)
-    const realProgress = Number(goal.targetAmount) > 0 
-      ? (Number(goal.currentAmount) / Number(goal.targetAmount)) * 100 
-      : 0
+    const realProgress =
+      Number(goal.targetAmount) > 0
+        ? (Number(goal.currentAmount) / Number(goal.targetAmount)) * 100
+        : 0
 
     // Análise de viabilidade baseada no perfil
     const viability = analyzeGoalViability(goal, responses, savingsRate, projectedProgress)
@@ -227,19 +217,24 @@ async function calculateGoalsProgress(
         projected: projectedProgress,
         monthlySavings,
         monthsRemaining,
-        onTrack: projectedProgress >= 100 || realProgress > 0
+        onTrack: projectedProgress >= 100 || realProgress > 0,
       },
-      viability
+      viability,
     }
   })
 
   return goalsWithProgress
 }
 
-function analyzeGoalViability(goal: any, responses: any, savingsRate: number, projectedProgress: number) {
+function analyzeGoalViability(
+  goal: any,
+  responses: any,
+  savingsRate: number,
+  projectedProgress: number
+) {
   const riskProfile = responses.riskProfile?.investmentProfile
   const moneyPriority = responses.financialBehavior?.moneyPriority
-  
+
   let viability = "POSSÍVEL"
   let factors = []
 
@@ -276,19 +271,23 @@ function analyzeGoalViability(goal: any, responses: any, savingsRate: number, pr
 }
 
 function generateGoalsRecommendations(
-  goalsWithProgress: any[], 
-  responses: any, 
+  goalsWithProgress: any[],
+  responses: any,
   transactions: any[]
 ) {
   const recommendations: string[] = []
 
   // Análise geral das metas
   const totalGoals = goalsWithProgress.length
-  const onTrackGoals = goalsWithProgress.filter(g => g.progress.onTrack).length
-  const difficultGoals = goalsWithProgress.filter(g => g.viability.viability.includes("DIFÍCIL")).length
+  const onTrackGoals = goalsWithProgress.filter((g) => g.progress.onTrack).length
+  const difficultGoals = goalsWithProgress.filter((g) =>
+    g.viability.viability.includes("DIFÍCIL")
+  ).length
 
   if (totalGoals === 0) {
-    recommendations.push("🎯 Você não tem metas definidas. Defina metas para ter direção financeira!")
+    recommendations.push(
+      "🎯 Você não tem metas definidas. Defina metas para ter direção financeira!"
+    )
     return recommendations
   }
 
@@ -298,25 +297,31 @@ function generateGoalsRecommendations(
   } else if (onTrackGoals / totalGoals >= 0.7) {
     recommendations.push("👍 Boa parte das suas metas estão bem encaminhadas.")
   } else {
-    recommendations.push("⚠️ Muitas das suas metas precisam de atenção. Revise seus hábitos de poupança.")
+    recommendations.push(
+      "⚠️ Muitas das suas metas precisam de atenção. Revise seus hábitos de poupança."
+    )
   }
 
   // Baseado nas metas difíceis
   if (difficultGoals > 0) {
-    recommendations.push(`🔍 ${difficultGoals} meta(s) podem ser difíceis. Considere ajustar prazos ou valores.`)
+    recommendations.push(
+      `🔍 ${difficultGoals} meta(s) podem ser difíceis. Considere ajustar prazos ou valores.`
+    )
   }
 
   // Baseado no perfil
   if (responses.financialBehavior?.moneyPriority === "GASTA") {
-    recommendations.push("💡 Seu perfil é focado em gastos. Considere mudar prioridades para alcançar metas.")
+    recommendations.push(
+      "💡 Seu perfil é focado em gastos. Considere mudar prioridades para alcançar metas."
+    )
   }
 
   // Baseado na taxa de poupança
   const totalIncome = transactions
-    .filter(t => t.type === "INCOME")
+    .filter((t) => t.type === "INCOME")
     .reduce((sum, t) => sum + Number(t.amount), 0)
   const totalExpenses = transactions
-    .filter(t => t.type === "EXPENSE")
+    .filter((t) => t.type === "EXPENSE")
     .reduce((sum, t) => sum + Number(t.amount), 0)
   const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome) * 100 : 0
 
@@ -325,9 +330,11 @@ function generateGoalsRecommendations(
   }
 
   // Recomendações específicas por meta
-  goalsWithProgress.forEach(goal => {
+  goalsWithProgress.forEach((goal) => {
     if (goal.progress.projected < 50 && goal.viability.viability === "MUITO DIFÍCIL") {
-      recommendations.push(`🎯 A meta "${goal.name}" precisa de ajuste. Considere aumentar prazo ou reduzir valor.`)
+      recommendations.push(
+        `🎯 A meta "${goal.name}" precisa de ajuste. Considere aumentar prazo ou reduzir valor.`
+      )
     }
   })
 

@@ -29,10 +29,14 @@ export default function AnamnesisPage() {
 
   const fetchAnamnesis = async () => {
     try {
-      const response = await fetch("/api/user/anamnesis")
+      console.log("Buscando anamnese...")
+      const response = await fetch(`${window.location.origin}/api/user/anamnesis`)
+      console.log("Status fetch:", response.status)
+
       if (response.ok) {
         const data = await response.json()
-        setAnamnesis(data)
+        console.log("Anamnese encontrada:", data)
+        setAnamnesis(data.anamnesis)
       }
     } catch (error) {
       console.error("Error fetching anamnesis:", error)
@@ -43,7 +47,9 @@ export default function AnamnesisPage() {
 
   const handleFormSubmit = async (formData: any) => {
     try {
-      const response = await fetch("/api/user/anamnesis", {
+      console.log("Enviando anamnese...", formData)
+
+      const response = await fetch(`${window.location.origin}/api/user/anamnesis`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -51,15 +57,23 @@ export default function AnamnesisPage() {
         body: JSON.stringify(formData),
       })
 
+      console.log("Status da resposta:", response.status)
+      console.log("Response ok:", response.ok)
+
       if (response.ok) {
         const data = await response.json()
-        setAnamnesis(data)
+        console.log("Dados recebidos:", data)
+        setAnamnesis(data.anamnesis)
         setShowForm(false)
+        alert("✅ Anámnese salva com sucesso!")
       } else {
-        throw new Error("Failed to save anamnesis")
+        const errorText = await response.text()
+        console.error("Erro na resposta:", errorText)
+        alert(`❌ Erro ao salvar: ${response.status} - ${errorText}`)
       }
     } catch (error) {
       console.error("Error saving anamnesis:", error)
+      alert(`Erro de conexão: ${error instanceof Error ? error.message : "Erro desconhecido"}`)
     }
   }
 
@@ -134,9 +148,7 @@ export default function AnamnesisPage() {
                   <FileText className="h-4 w-4 mr-2" />
                   Ver Respostas Completas
                 </Button>
-                <Button onClick={() => setShowForm(true)}>
-                  Atualizar Anámnese
-                </Button>
+                <Button onClick={() => setShowForm(true)}>Atualizar Anámnese</Button>
               </div>
             </div>
           </CardContent>
@@ -145,9 +157,7 @@ export default function AnamnesisPage() {
         <Card>
           <CardHeader>
             <CardTitle>Anámnese Não Encontrada</CardTitle>
-            <CardDescription>
-              Você ainda não completou o formulário estratégico.
-            </CardDescription>
+            <CardDescription>Você ainda não completou o formulário estratégico.</CardDescription>
           </CardHeader>
           <CardContent>
             <Button onClick={() => setShowForm(true)} className="w-full">

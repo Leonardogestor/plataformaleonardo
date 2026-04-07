@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Upload de Documentos</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .upload-area.dragover {
+            border-color: #007bff;
+            background-color: #f8f9fa;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .document-list {
+            margin-top: 30px;
+        }
+        .document-item {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .status {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status.completed { background: #d4edda; color: #155724; }
+        .status.processing { background: #fff3cd; color: #856404; }
+        .status.failed { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <h1>Test Upload de Documentos</h1>
+    
+    <div class="upload-area" id="uploadArea">
+        <p>Arraste arquivos PDF aqui ou clique para selecionar</p>
+        <input type="file" id="fileInput" accept=".pdf" multiple style="display: none;">
+        <button onclick="document.getElementById('fileInput').click()">Selecionar Arquivos</button>
+    </div>
+
+    <div>
+        <label>Banco: 
+            <select id="bankSelect">
+                <option value="">Selecione...</option>
+                <option value="nubank">Nubank</option>
+                <option value="itau">Itaú</option>
+                <option value="bradesco">Bradesco</option>
+                <option value="santander">Santander</option>
+            </select>
+        </label>
+        
+        <label>Mês: 
+            <select id="monthSelect">
+                <option value="">Selecione...</option>
+                <option value="09">Setembro</option>
+                <option value="10">Outubro</option>
+                <option value="11">Novembro</option>
+            </select>
+        </label>
+        
+        <label>Ano: 
+            <select id="yearSelect">
+                <option value="">Selecione...</option>
+                <option value="2025">2025</option>
+                <option value="2024">2024</option>
+            </select>
+        </label>
+        
+        <button onclick="uploadFiles()">Fazer Upload</button>
+        <button onclick="loadDocuments()">Carregar Documentos</button>
+    </div>
+
+    <div class="document-list" id="documentList">
+        <h3>Documentos Processados</h3>
+        <div id="documents"></div>
+    </div>
+
+    <script>
+        let selectedFiles = [];
+
+        // Drag and drop
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            selectedFiles = Array.from(e.dataTransfer.files);
+            console.log('Files dropped:', selectedFiles);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            selectedFiles = Array.from(e.target.files);
+            console.log('Files selected:', selectedFiles);
+        });
+
+        async function uploadFiles() {
+            const bank = document.getElementById('bankSelect').value;
+            const month = document.getElementById('monthSelect').value;
+            const year = document.getElementById('yearSelect').value;
+
+            if (!bank || !month || !year || selectedFiles.length === 0) {
+                alert('Preencha todos os campos e selecione arquivos');
+                return;
+            }
+
+            const formData = new FormData();
+            selectedFiles.forEach(file => {
+                formData.append('files', file);
+            });
+            formData.append('name', `Extrato ${bank} - ${month}/${year}`);
+
+            try {
+                console.log('Uploading files...');
+                const response = await fetch('/api/documents', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Erro no upload');
+                }
+
+                const result = await response.json();
+                console.log('Upload result:', result);
+                alert(`${result.total || selectedFiles.length} arquivos enviados com sucesso!`);
+                
+                // Load documents after upload
+                loadDocuments();
+                
+                // Clear selection
+                selectedFiles = [];
+                fileInput.value = '';
+                
+            } catch (error) {
+                console.error('Upload error:', error);
+                alert('Erro no upload: ' + error.message);
+            }
+        }
+
+        async function loadDocuments() {
+            try {
+                console.log('Loading documents...');
+                const response = await fetch('/api/documents');
+                
+                if (!response.ok) {
+                    throw new Error('Erro ao carregar documentos');
+                }
+
+                const data = await response.json();
+                console.log('Documents loaded:', data);
+                
+                displayDocuments(data.documents || []);
+                
+            } catch (error) {
+                console.error('Error loading documents:', error);
+                document.getElementById('documents').innerHTML = '<p>Erro ao carregar documentos</p>';
+            }
+        }
+
+        function displayDocuments(documents) {
+            const container = document.getElementById('documents');
+            
+            if (documents.length === 0) {
+                container.innerHTML = '<p>Nenhum documento encontrado</p>';
+                return;
+            }
+
+            container.innerHTML = documents.map(doc => `
+                <div class="document-item">
+                    <h4>${doc.name}</h4>
+                    <p>Arquivo: ${doc.fileName}</p>
+                    <p>Data: ${new Date(doc.createdAt).toLocaleDateString('pt-BR')}</p>
+                    <p>Tamanho: ${doc.fileSize ? (doc.fileSize / 1024 / 1024).toFixed(2) + ' MB' : 'N/A'}</p>
+                    <span class="status ${doc.status.toLowerCase()}">${getStatusText(doc.status)}</span>
+                    ${doc.errorMessage ? `<p style="color: red;">Erro: ${doc.errorMessage}</p>` : ''}
+                    ${doc.extractedText ? `<p>Texto extraído: ${doc.extractedText.slice(0, 100)}...</p>` : ''}
+                </div>
+            `).join('');
+        }
+
+        function getStatusText(status) {
+            switch(status) {
+                case 'COMPLETED': return 'Concluído';
+                case 'PROCESSING': return 'Processando';
+                case 'FAILED': return 'Falhou';
+                default: return status;
+            }
+        }
+
+        // Load documents on page load
+        loadDocuments();
+
+        // Auto-refresh if there are processing documents
+        setInterval(() => {
+            const docs = document.querySelectorAll('.status.processing');
+            if (docs.length > 0) {
+                console.log('Auto-refreshing documents...');
+                loadDocuments();
+            }
+        }, 5000);
+    </script>
+</body>
+</html>

@@ -6,7 +6,7 @@
 "use client"
 
 import { useState } from "react"
-import { toast } from "@/components/ui/use-toast"
+import { toast } from "@/hooks/use-toast"
 
 interface Transaction {
   type: "INCOME" | "EXPENSE"
@@ -35,7 +35,7 @@ export async function processPdfInFrontend(
 
     // 1. Extrair texto do PDF no navegador
     const extractedText = await extractTextFromPdfBrowser(file)
-    
+
     if (!extractedText || extractedText.length < 10) {
       throw new Error("Não foi possível extrair texto do PDF")
     }
@@ -44,7 +44,7 @@ export async function processPdfInFrontend(
 
     // 2. Parse simples de transações
     const transactions = parseTransactionsFromText(extractedText)
-    
+
     if (transactions.length === 0) {
       throw new Error("Nenhuma transação encontrada no PDF")
     }
@@ -64,7 +64,7 @@ export async function processPdfInFrontend(
         transactions: transactions,
         bank: bank,
         month: month,
-        year: year
+        year: year,
       }),
     })
 
@@ -80,14 +80,13 @@ export async function processPdfInFrontend(
       success: true,
       documentId: result.documentId,
       transactionsProcessed: result.transactionsProcessed,
-      transactionsFailed: result.transactionsFailed
+      transactionsFailed: result.transactionsFailed,
     }
-
   } catch (error) {
     console.error("❌ Erro no processamento:", error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Erro desconhecido"
+      error: error instanceof Error ? error.message : "Erro desconhecido",
     }
   }
 }
@@ -95,22 +94,22 @@ export async function processPdfInFrontend(
 async function extractTextFromPdfBrowser(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
-    
+
     reader.onload = async (e) => {
       try {
         const buffer = e.target?.result as ArrayBuffer
-        
+
         // Usar pdf-parse no navegador
-        const pdfParse = (await import("pdf-parse")).default
+        const pdfParse = require("pdf-parse")
         const data = await pdfParse(buffer)
         const text = typeof data?.text === "string" ? data.text : ""
-        
+
         resolve(text.slice(0, 100000).trim())
       } catch (error) {
         reject(error)
       }
     }
-    
+
     reader.onerror = () => reject(new Error("Erro ao ler arquivo"))
     reader.readAsArrayBuffer(file)
   })
@@ -118,49 +117,49 @@ async function extractTextFromPdfBrowser(file: File): Promise<string> {
 
 function parseTransactionsFromText(text: string): Transaction[] {
   const transactions: Transaction[] = []
-  const lines = text.split('\n').filter(line => line.trim().length > 0)
-  
+  const lines = text.split("\n").filter((line) => line.trim().length > 0)
+
   // Padrões simples para detectar transações
   const patterns = [
     /(\d{2}\/\d{2})\s+(.+?)\s+(-?\d+,\d{2})/g, // Data Descrição Valor
     /(\d{2}\/\d{2}\/\d{4})\s+(.+?)\s+(-?\d+,\d{2})/g, // Data completa
     /(\d{2}\.\d{2}\.\d{4})\s+(.+?)\s+(-?\d+,\d{2})/g, // Data com pontos
   ]
-  
+
   for (const line of lines) {
     for (const pattern of patterns) {
       const matches = [...line.matchAll(pattern)]
-      
+
       for (const match of matches) {
         const [, dateStr, description, valueStr] = match
-        
+
         // Converter valor
-        const value = parseFloat(valueStr.replace('.', '').replace(',', '.'))
+        const value = parseFloat(valueStr?.replace(".", "").replace(",", ".") || "0")
         if (isNaN(value)) continue
-        
+
         // Determinar tipo
         const type = value < 0 ? "EXPENSE" : "INCOME"
         const amount = Math.abs(value)
-        
+
         // Converter data
-        let date = dateStr
-        if (dateStr.match(/^\d{2}\/\d{2}$/)) {
+        let date = dateStr || ""
+        if (dateStr?.match(/^\d{2}\/\d{2}$/)) {
           // Adicionar ano atual se só tiver dia/mês
           const year = new Date().getFullYear()
           date = `${dateStr}/${year}`
         }
-        
+
         transactions.push({
           type,
           amount,
-          description: description.trim(),
+          description: description?.trim() || "",
           date,
-          category: "Outros" // Categoria padrão
+          category: "Outros", // Categoria padrão
         })
       }
     }
   }
-  
+
   return transactions
 }
 
@@ -173,18 +172,18 @@ export async function processMultiplePdfs(
   onProgress?: (fileName: string, result: ProcessResult) => void
 ): Promise<ProcessResult[]> {
   const results: ProcessResult[] = []
-  
+
   for (const file of files) {
     const result = await processPdfInFrontend(file, bank, month, year)
     results.push(result)
-    
+
     if (onProgress) {
       onProgress(file.name, result)
     }
-    
+
     // Pequeno delay entre arquivos
-    await new Promise(resolve => setTimeout(resolve, 500))
+    await new Promise((resolve) => setTimeout(resolve, 500))
   }
-  
+
   return results
 }

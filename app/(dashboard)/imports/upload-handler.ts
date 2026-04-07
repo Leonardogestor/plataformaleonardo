@@ -33,7 +33,7 @@ export async function handleMultipleFileUpload(
   try {
     // Criar FormData para upload múltiplo
     const formData = new FormData()
-    files.forEach(file => formData.append("files", file))
+    files.forEach((file) => formData.append("files", file))
     formData.append("name", `Lote ${selectedBank} - ${selectedMonth}/${selectedYear}`)
 
     // Fazer upload real para a API
@@ -52,6 +52,8 @@ export async function handleMultipleFileUpload(
     // Criar documentos para cada arquivo
     uploadResult.documents.forEach((uploadedDoc: any, index: number) => {
       const file = files[index]
+      if (!file) return
+
       const newDoc = {
         id: uploadedDoc.id,
         name: file.name,
@@ -83,7 +85,7 @@ export async function handleMultipleFileUpload(
 
       // Limpar seleção de arquivos
       setFiles([])
-      
+
       // Mudar para view de processamento
       setCurrentView("PROCESSING")
     }

@@ -29,12 +29,12 @@ const anamnesisSchema = z.object({
     birthDate: z.string().min(1, "Data de nascimento é obrigatória"),
   }),
   financialContext: z.object({
-    incomeType: z.enum(["FIXA", "VARIÁVEL", "MISTA"]),
-    financialSituation: z.enum(["ORGANIZADA", "DESORGANIZADA", "CRÍTICA"]),
-    hasDebts: z.enum(["NÃO", "SIM_CONTROLE", "SIM_PREOCUPANTE"]),
+    incomeType: z.enum(["FIXA", "VARIAVEL", "MISTA"]),
+    financialSituation: z.enum(["ORGANIZADA", "DESORGANIZADA", "CRITICA"]),
+    hasDebts: z.enum(["NAO", "SIM_CONTROLE", "SIM_PREOCUPANTE"]),
   }),
   lifeMoment: z.object({
-    careerStage: z.enum(["INÍCIO_CARREIRA", "CRESCIMENTO_PROFISSIONAL", "ESTÁVEL", "TRANSIÇÃO"]),
+    careerStage: z.enum(["INICIO_CARREIRA", "CRESCIMENTO_PROFISSIONAL", "ESTAVEL", "TRANSICAO"]),
     hasDependents: z.boolean(),
   }),
   financialBehavior: z.object({
@@ -55,12 +55,12 @@ const anamnesisSchema = z.object({
     preferredFormat: z.enum(["PDF", "EXCEL_CSV", "IMAGENS", "PAPEL"]),
   }),
   budgetControl: z.object({
-    spendingPattern: z.enum(["MUITO_PREVISÍVEL", "MODERADAMENTE_PREVISÍVEL", "IMPREVISÍVEL"]),
+    spendingPattern: z.enum(["MUITO_PREVISIVEL", "MODERADAMENTE_PREVISIVEL", "IMPREVISIVEL"]),
     budgetHandling: z.enum([
       "SEGUE_RIGOROSAMENTE",
-      "GUIA_FLEXÍVEL",
-      "CRIA_NÃO_SEGUE",
-      "NÃO_FAZ_ORÇAMENTO",
+      "GUIA_FLEXIVEL",
+      "CRIA_NAO_SEGUE",
+      "NAO_FAZ_ORCAMENTO",
     ]),
   }),
   cardsInstallments: z.object({
@@ -68,8 +68,8 @@ const anamnesisSchema = z.object({
     installmentFrequency: z.enum(["NUNCA", "RARAMENTE", "REGULARMENTE", "FREQUENTEMENTE"]),
   }),
   executionCapacity: z.object({
-    willingnessToAdjust: z.enum(["AJUSTA_ALGUNS", "REDUZ_SIGNIFICATIVO", "MANTÉM_TUDO"]),
-    growthPreference: z.enum(["SEGURANÇA", "CRESCIMENTO_MODERADO", "CRESCIMENTO_AGRESSIVO"]),
+    willingnessToAdjust: z.enum(["AJUSTA_ALGUNS", "REDUZ_SIGNIFICATIVO", "MANTEM_TUDO"]),
+    growthPreference: z.enum(["SEGURANCA", "CRESCIMENTO_MODERADO", "CRESCIMENTO_AGRESSIVO"]),
   }),
 })
 
@@ -100,16 +100,16 @@ export function AnamnesisForm({ onSubmit }: AnamnesisFormProps) {
     resolver: zodResolver(anamnesisSchema),
     defaultValues: {
       personalInfo: {
-        name: "",
-        birthDate: "",
+        name: "Usuário Teste",
+        birthDate: "1990-01-01",
       },
       financialContext: {
         incomeType: "FIXA",
         financialSituation: "ORGANIZADA",
-        hasDebts: "NÃO",
+        hasDebts: "NAO",
       },
       lifeMoment: {
-        careerStage: "INÍCIO_CARREIRA",
+        careerStage: "INICIO_CARREIRA",
         hasDependents: false,
       },
       financialBehavior: {
@@ -130,8 +130,8 @@ export function AnamnesisForm({ onSubmit }: AnamnesisFormProps) {
         preferredFormat: "PDF",
       },
       budgetControl: {
-        spendingPattern: "MODERADAMENTE_PREVISÍVEL",
-        budgetHandling: "CRIA_NÃO_SEGUE",
+        spendingPattern: "MODERADAMENTE_PREVISIVEL",
+        budgetHandling: "CRIA_NAO_SEGUE",
       },
       cardsInstallments: {
         cardCount: "0-1",
@@ -1049,7 +1049,15 @@ export function AnamnesisForm({ onSubmit }: AnamnesisFormProps) {
               </Button>
 
               {currentStep === steps.length - 1 ? (
-                <Button type="submit" disabled={isSubmitting}>
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    console.log("Botão Finalizar clicado!")
+                    handleSubmit(form.getValues())
+                  }}
+                >
                   {isSubmitting ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />

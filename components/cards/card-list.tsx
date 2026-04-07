@@ -1,6 +1,6 @@
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useToast } from "@/hooks/use-toast"
 
 type Card = {
@@ -12,24 +12,28 @@ type Card = {
   closeDay: number
   dueDay: number
   brand: string
+  status?: string
+  used?: number
 }
 
-export default function CardList() {
+interface CardListProps {
+  onSelect?: (cardId: string) => void
+}
+
+export default function CardList({ onSelect }: CardListProps = {}) {
   const [cards, setCards] = useState<Card[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const { toast } = useToast()
 
-  useEffect(() => {
-    fetchCards()
-  }, [])
-
-  const fetchCards = async () => {
+  const fetchCards = useCallback(async () => {
     try {
       const response = await fetch("/api/cards")
       if (response.ok) {
         const data = await response.json()
         setCards(data)
       } else {
+        setError("Não foi possível carregar os cartões")
         toast({
           title: "Erro ao buscar cartões",
           description: "Não foi possível carregar seus cartões.",
@@ -38,6 +42,7 @@ export default function CardList() {
       }
     } catch (error) {
       console.error("Erro ao buscar cartões:", error)
+      setError("Erro de conexão")
       toast({
         title: "Erro de conexão",
         description: "Verifique sua conexão com a internet.",
@@ -46,7 +51,11 @@ export default function CardList() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [toast])
+
+  useEffect(() => {
+    fetchCards()
+  }, [fetchCards])
 
   return (
     <div className="space-y-4">
@@ -62,7 +71,11 @@ export default function CardList() {
       ) : (
         <div className="grid md:grid-cols-3 gap-4">
           {cards.map((card) => (
-            <Card key={card.id} className="cursor-pointer group" onClick={() => onSelect(card.id)}>
+            <Card
+              key={card.id}
+              className="cursor-pointer group"
+              onClick={() => onSelect?.(card.id)}
+            >
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>{card.name}</CardTitle>
                 <span
@@ -78,10 +91,10 @@ export default function CardList() {
                     Limite: <b>R$ {card.limit.toLocaleString()}</b>
                   </div>
                   <div>
-                    Utilizado: <b>R$ {card.used.toLocaleString()}</b>
+                    Utilizado: <b>R$ {card.usedLimit.toLocaleString()}</b>
                   </div>
                   <div>
-                    Disponível: <b>R$ {(card.limit - card.used).toLocaleString()}</b>
+                    Disponível: <b>R$ {(card.limit - card.usedLimit).toLocaleString()}</b>
                   </div>
                   <div>Fechamento: dia {card.closeDay}</div>
                   <div>Vencimento: dia {card.dueDay}</div>
