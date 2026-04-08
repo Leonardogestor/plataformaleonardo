@@ -92,56 +92,26 @@ const goalOptions = [
   "Outro",
 ]
 
+const DEFAULT_FORM_VALUES: AnamnesisFormData = {
+  personalInfo: { name: "Usuário Teste", birthDate: "1990-01-01" },
+  financialContext: { incomeType: "FIXA", financialSituation: "ORGANIZADA", hasDebts: "NAO" },
+  lifeMoment: { careerStage: "INICIO_CARREIRA", hasDependents: false },
+  financialBehavior: { moneyHandling: "PLANEJA_ANTES", trackingFrequency: "MENSAL", moneyPriority: "GUARDA_INVESTE" },
+  riskProfile: { investmentProfile: "MODERADO", lossReaction: "ACEITA_MODERADAS" },
+  objectives: { goals: [], hasGoals: false },
+  dataImport: { statementReceipt: "PDF_EMAIL", preferredFormat: "PDF" },
+  budgetControl: { spendingPattern: "MODERADAMENTE_PREVISIVEL", budgetHandling: "CRIA_NAO_SEGUE" },
+  cardsInstallments: { cardCount: "0-1", installmentFrequency: "RARAMENTE" },
+  executionCapacity: { willingnessToAdjust: "AJUSTA_ALGUNS", growthPreference: "CRESCIMENTO_MODERADO" },
+}
+
 export function AnamnesisForm({ onSubmit }: AnamnesisFormProps) {
   const [currentStep, setCurrentStep] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const form = useForm<AnamnesisFormData>({
     resolver: zodResolver(anamnesisSchema),
-    defaultValues: {
-      personalInfo: {
-        name: "Usuário Teste",
-        birthDate: "1990-01-01",
-      },
-      financialContext: {
-        incomeType: "FIXA",
-        financialSituation: "ORGANIZADA",
-        hasDebts: "NAO",
-      },
-      lifeMoment: {
-        careerStage: "INICIO_CARREIRA",
-        hasDependents: false,
-      },
-      financialBehavior: {
-        moneyHandling: "PLANEJA_ANTES",
-        trackingFrequency: "MENSAL",
-        moneyPriority: "GUARDA_INVESTE",
-      },
-      riskProfile: {
-        investmentProfile: "MODERADO",
-        lossReaction: "ACEITA_MODERADAS",
-      },
-      objectives: {
-        goals: [],
-        hasGoals: false,
-      },
-      dataImport: {
-        statementReceipt: "PDF_EMAIL",
-        preferredFormat: "PDF",
-      },
-      budgetControl: {
-        spendingPattern: "MODERADAMENTE_PREVISIVEL",
-        budgetHandling: "CRIA_NAO_SEGUE",
-      },
-      cardsInstallments: {
-        cardCount: "0-1",
-        installmentFrequency: "RARAMENTE",
-      },
-      executionCapacity: {
-        willingnessToAdjust: "AJUSTA_ALGUNS",
-        growthPreference: "CRESCIMENTO_MODERADO",
-      },
-    },
+    defaultValues: DEFAULT_FORM_VALUES,
   })
 
   const steps = [
@@ -1052,7 +1022,28 @@ export function AnamnesisForm({ onSubmit }: AnamnesisFormProps) {
                 <Button
                   type="button"
                   disabled={isSubmitting}
-                  onClick={form.handleSubmit(handleSubmit)}
+                  onClick={async () => {
+                    if (isSubmitting) return
+                    setIsSubmitting(true)
+                    try {
+                      const v = form.getValues()
+                      const data: AnamnesisFormData = {
+                        personalInfo: v.personalInfo ?? DEFAULT_FORM_VALUES.personalInfo,
+                        financialContext: v.financialContext ?? DEFAULT_FORM_VALUES.financialContext,
+                        lifeMoment: v.lifeMoment ?? DEFAULT_FORM_VALUES.lifeMoment,
+                        financialBehavior: v.financialBehavior ?? DEFAULT_FORM_VALUES.financialBehavior,
+                        riskProfile: v.riskProfile ?? DEFAULT_FORM_VALUES.riskProfile,
+                        objectives: v.objectives ?? DEFAULT_FORM_VALUES.objectives,
+                        dataImport: v.dataImport ?? DEFAULT_FORM_VALUES.dataImport,
+                        budgetControl: v.budgetControl ?? DEFAULT_FORM_VALUES.budgetControl,
+                        cardsInstallments: v.cardsInstallments ?? DEFAULT_FORM_VALUES.cardsInstallments,
+                        executionCapacity: v.executionCapacity ?? DEFAULT_FORM_VALUES.executionCapacity,
+                      }
+                      await onSubmit(data)
+                    } finally {
+                      setIsSubmitting(false)
+                    }
+                  }}
                 >
                   {isSubmitting ? (
                     <>
