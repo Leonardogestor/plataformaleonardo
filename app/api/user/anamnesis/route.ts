@@ -209,7 +209,7 @@ function analyzeResponses(responses: any) {
   let riskScore = 0
 
   // Análise do contexto financeiro
-  if (responses.financialContext.financialSituation === "CRÍTICA") {
+  if (responses.financialContext.financialSituation === "CRITICA") {
     score -= 2
   } else if (responses.financialContext.financialSituation === "ORGANIZADA") {
     score += 1
@@ -355,7 +355,7 @@ function generateRecommendations(profileType: string, riskLevel: string, respons
     })
   }
 
-  if (responses.budgetControl.budgetHandling === "NÃO_FAZ_ORÇAMENTO") {
+  if (responses.budgetControl.budgetHandling === "NAO_FAZ_ORCAMENTO") {
     recommendations.push({
       type: "PLANEJAMENTO",
       priority: "ALTA",
@@ -397,7 +397,7 @@ function determineAutomationLevel(responses: any) {
 function determineInterventionLevel(responses: any) {
   let level = "SUAVE"
 
-  if (responses.financialContext.financialSituation === "CRÍTICA") {
+  if (responses.financialContext.financialSituation === "CRITICA") {
     level = "INTENSO"
   } else if (responses.executionCapacity.willingnessToAdjust === "REDUZ_SIGNIFICATIVO") {
     level = "MODERADO"

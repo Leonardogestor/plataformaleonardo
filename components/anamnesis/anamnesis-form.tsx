@@ -255,7 +255,7 @@ export function AnamnesisForm({ onSubmit }: AnamnesisFormProps) {
                         </FormItem>
                         <FormItem className="flex items-center space-x-2">
                           <FormControl>
-                            <RadioGroupItem value="VARIÁVEL" />
+                            <RadioGroupItem value="VARIAVEL" />
                           </FormControl>
                           <FormLabel className="font-normal">
                             Variável - Comissões, freelancers
@@ -300,7 +300,7 @@ export function AnamnesisForm({ onSubmit }: AnamnesisFormProps) {
                         </FormItem>
                         <FormItem className="flex items-center space-x-2">
                           <FormControl>
-                            <RadioGroupItem value="CRÍTICA" />
+                            <RadioGroupItem value="CRITICA" />
                           </FormControl>
                           <FormLabel className="font-normal">Crítica - Muita dificuldade</FormLabel>
                         </FormItem>
@@ -323,7 +323,7 @@ export function AnamnesisForm({ onSubmit }: AnamnesisFormProps) {
                       <div className="space-y-2">
                         <FormItem className="flex items-center space-x-2">
                           <FormControl>
-                            <RadioGroupItem value="NÃO" />
+                            <RadioGroupItem value="NAO" />
                           </FormControl>
                           <FormLabel className="font-normal">Não tenho dívidas</FormLabel>
                         </FormItem>
@@ -365,7 +365,7 @@ export function AnamnesisForm({ onSubmit }: AnamnesisFormProps) {
                       <div className="space-y-2">
                         <FormItem className="flex items-center space-x-2">
                           <FormControl>
-                            <RadioGroupItem value="INÍCIO_CARREIRA" />
+                            <RadioGroupItem value="INICIO_CARREIRA" />
                           </FormControl>
                           <FormLabel className="font-normal">
                             Início de carreira (0-3 anos)
@@ -381,13 +381,13 @@ export function AnamnesisForm({ onSubmit }: AnamnesisFormProps) {
                         </FormItem>
                         <FormItem className="flex items-center space-x-2">
                           <FormControl>
-                            <RadioGroupItem value="ESTÁVEL" />
+                            <RadioGroupItem value="ESTAVEL" />
                           </FormControl>
                           <FormLabel className="font-normal">Estável (10+ anos)</FormLabel>
                         </FormItem>
                         <FormItem className="flex items-center space-x-2">
                           <FormControl>
-                            <RadioGroupItem value="TRANSIÇÃO" />
+                            <RadioGroupItem value="TRANSICAO" />
                           </FormControl>
                           <FormLabel className="font-normal">Transição de carreira</FormLabel>
                         </FormItem>
@@ -773,19 +773,19 @@ export function AnamnesisForm({ onSubmit }: AnamnesisFormProps) {
                       <div className="space-y-2">
                         <FormItem className="flex items-center space-x-2">
                           <FormControl>
-                            <RadioGroupItem value="MUITO_PREVISÍVEL" />
+                            <RadioGroupItem value="MUITO_PREVISIVEL" />
                           </FormControl>
                           <FormLabel className="font-normal">Muito previsível</FormLabel>
                         </FormItem>
                         <FormItem className="flex items-center space-x-2">
                           <FormControl>
-                            <RadioGroupItem value="MODERADAMENTE_PREVISÍVEL" />
+                            <RadioGroupItem value="MODERADAMENTE_PREVISIVEL" />
                           </FormControl>
                           <FormLabel className="font-normal">Moderadamente previsível</FormLabel>
                         </FormItem>
                         <FormItem className="flex items-center space-x-2">
                           <FormControl>
-                            <RadioGroupItem value="IMPREVISÍVEL" />
+                            <RadioGroupItem value="IMPREVISIVEL" />
                           </FormControl>
                           <FormLabel className="font-normal">Imprevisível</FormLabel>
                         </FormItem>
@@ -814,19 +814,19 @@ export function AnamnesisForm({ onSubmit }: AnamnesisFormProps) {
                         </FormItem>
                         <FormItem className="flex items-center space-x-2">
                           <FormControl>
-                            <RadioGroupItem value="GUIA_FLEXÍVEL" />
+                            <RadioGroupItem value="GUIA_FLEXIVEL" />
                           </FormControl>
                           <FormLabel className="font-normal">Uso como guia flexível</FormLabel>
                         </FormItem>
                         <FormItem className="flex items-center space-x-2">
                           <FormControl>
-                            <RadioGroupItem value="CRIA_NÃO_SEGUE" />
+                            <RadioGroupItem value="CRIA_NAO_SEGUE" />
                           </FormControl>
                           <FormLabel className="font-normal">Crio mas não sigo</FormLabel>
                         </FormItem>
                         <FormItem className="flex items-center space-x-2">
                           <FormControl>
-                            <RadioGroupItem value="NÃO_FAZ_ORÇAMENTO" />
+                            <RadioGroupItem value="NAO_FAZ_ORCAMENTO" />
                           </FormControl>
                           <FormLabel className="font-normal">Não faço orçamento</FormLabel>
                         </FormItem>
@@ -957,7 +957,7 @@ export function AnamnesisForm({ onSubmit }: AnamnesisFormProps) {
                         </FormItem>
                         <FormItem className="flex items-center space-x-2">
                           <FormControl>
-                            <RadioGroupItem value="MANTÉM_TUDO" />
+                            <RadioGroupItem value="MANTEM_TUDO" />
                           </FormControl>
                           <FormLabel className="font-normal">Mantenho tudo como está</FormLabel>
                         </FormItem>
@@ -980,7 +980,7 @@ export function AnamnesisForm({ onSubmit }: AnamnesisFormProps) {
                       <div className="space-y-2">
                         <FormItem className="flex items-center space-x-2">
                           <FormControl>
-                            <RadioGroupItem value="SEGURANÇA" />
+                            <RadioGroupItem value="SEGURANCA" />
                           </FormControl>
                           <FormLabel className="font-normal">Segurança primeiro</FormLabel>
                         </FormItem>
