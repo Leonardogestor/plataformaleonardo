@@ -90,7 +90,10 @@
     "tesseract.js": "^5.1.0",
     "xlsx": "^0.18.5",
     "zod": "^3.22.4",
-    "zustand": "^4.5.0"
+    "zustand": "^4.5.0",
+    "autoprefixer": "^10.4.17",
+    "postcss": "^8.4.33",
+    "tailwindcss": "^3.4.1"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",
@@ -100,15 +103,12 @@
     "@types/papaparse": "^5.5.2",
     "@types/react": "^18.2.52",
     "@types/react-dom": "^18.2.18",
-    "autoprefixer": "^10.4.17",
     "clipboardy": "^5.0.2",
     "concurrently": "^9.2.1",
     "eslint": "^8.56.0",
     "eslint-config-next": "14.1.0",
     "jsdom": "^27.4.0",
-    "postcss": "^8.4.33",
     "prisma": "^5.9.1",
-    "tailwindcss": "^3.4.1",
     "tsx": "^4.7.1",
     "typescript": "^5.3.3",
     "vitest": "^4.0.18"
