@@ -15,35 +15,9 @@ import { randomUUID } from "crypto"
 
 const MAX_SIZE = 10 * 1024 * 1024 // 10MB
 
-// 🔥 FORÇADO: Garante que todas as dependências críticas estejam carregadas
-async function ensureCriticalDependencies() {
-  try {
-    // Verifica se o Prisma está conectado
-    await prisma.$connect()
-    console.log("✅ Prisma conectado com sucesso")
-
-    // Verifica se as bibliotecas críticas estão disponíveis
-    const pdfParse = await import("pdf-parse")
-    console.log("✅ pdf-parse disponível")
-
-    return true
-  } catch (error) {
-    console.error("❌ Erro nas dependências críticas:", error)
-    return false
-  }
-}
 
 export async function GET(request: NextRequest) {
   try {
-    // 🔥 FORÇADO: Verifica dependências críticas
-    const depsOk = await ensureCriticalDependencies()
-    if (!depsOk) {
-      return NextResponse.json(
-        { error: "Serviço indisponível - dependências críticas falharam" },
-        { status: 503 }
-      )
-    }
-
     // 1. Autenticação
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
@@ -110,15 +84,6 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // 🔥 FORÇADO: Verifica dependências críticas antes de processar
-    const depsOk = await ensureCriticalDependencies()
-    if (!depsOk) {
-      return NextResponse.json(
-        { error: "Serviço indisponível - dependências críticas falharam" },
-        { status: 503 }
-      )
-    }
-
     // 1. Autenticação
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
