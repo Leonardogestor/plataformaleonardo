@@ -36,5 +36,5 @@
     "forceConsistentCasingInFileNames": true
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", "App.tsx", "mobile", "src"]
+  "exclude": ["node_modules", "App.tsx", "mobile", "src", "__tests__", "**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx", "jest.config.ts", "jest.setup.ts"]
 }
