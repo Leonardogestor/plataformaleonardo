@@ -1027,17 +1027,50 @@ export function AnamnesisForm({ onSubmit }: AnamnesisFormProps) {
                     setIsSubmitting(true)
                     try {
                       const v = form.getValues()
+                      const d = DEFAULT_FORM_VALUES
                       const data: AnamnesisFormData = {
-                        personalInfo: v.personalInfo ?? DEFAULT_FORM_VALUES.personalInfo,
-                        financialContext: v.financialContext ?? DEFAULT_FORM_VALUES.financialContext,
-                        lifeMoment: v.lifeMoment ?? DEFAULT_FORM_VALUES.lifeMoment,
-                        financialBehavior: v.financialBehavior ?? DEFAULT_FORM_VALUES.financialBehavior,
-                        riskProfile: v.riskProfile ?? DEFAULT_FORM_VALUES.riskProfile,
-                        objectives: v.objectives ?? DEFAULT_FORM_VALUES.objectives,
-                        dataImport: v.dataImport ?? DEFAULT_FORM_VALUES.dataImport,
-                        budgetControl: v.budgetControl ?? DEFAULT_FORM_VALUES.budgetControl,
-                        cardsInstallments: v.cardsInstallments ?? DEFAULT_FORM_VALUES.cardsInstallments,
-                        executionCapacity: v.executionCapacity ?? DEFAULT_FORM_VALUES.executionCapacity,
+                        personalInfo: {
+                          name: v.personalInfo?.name ?? d.personalInfo.name,
+                          birthDate: v.personalInfo?.birthDate ?? d.personalInfo.birthDate,
+                        },
+                        financialContext: {
+                          incomeType: v.financialContext?.incomeType ?? d.financialContext.incomeType,
+                          financialSituation: v.financialContext?.financialSituation ?? d.financialContext.financialSituation,
+                          hasDebts: v.financialContext?.hasDebts ?? d.financialContext.hasDebts,
+                        },
+                        lifeMoment: {
+                          careerStage: v.lifeMoment?.careerStage ?? d.lifeMoment.careerStage,
+                          hasDependents: v.lifeMoment?.hasDependents ?? d.lifeMoment.hasDependents,
+                        },
+                        financialBehavior: {
+                          moneyHandling: v.financialBehavior?.moneyHandling ?? d.financialBehavior.moneyHandling,
+                          trackingFrequency: v.financialBehavior?.trackingFrequency ?? d.financialBehavior.trackingFrequency,
+                          moneyPriority: v.financialBehavior?.moneyPriority ?? d.financialBehavior.moneyPriority,
+                        },
+                        riskProfile: {
+                          investmentProfile: v.riskProfile?.investmentProfile ?? d.riskProfile.investmentProfile,
+                          lossReaction: v.riskProfile?.lossReaction ?? d.riskProfile.lossReaction,
+                        },
+                        objectives: {
+                          goals: v.objectives?.goals ?? d.objectives.goals,
+                          hasGoals: v.objectives?.hasGoals ?? d.objectives.hasGoals,
+                        },
+                        dataImport: {
+                          statementReceipt: v.dataImport?.statementReceipt ?? d.dataImport.statementReceipt,
+                          preferredFormat: v.dataImport?.preferredFormat ?? d.dataImport.preferredFormat,
+                        },
+                        budgetControl: {
+                          spendingPattern: v.budgetControl?.spendingPattern ?? d.budgetControl.spendingPattern,
+                          budgetHandling: v.budgetControl?.budgetHandling ?? d.budgetControl.budgetHandling,
+                        },
+                        cardsInstallments: {
+                          cardCount: v.cardsInstallments?.cardCount ?? d.cardsInstallments.cardCount,
+                          installmentFrequency: v.cardsInstallments?.installmentFrequency ?? d.cardsInstallments.installmentFrequency,
+                        },
+                        executionCapacity: {
+                          willingnessToAdjust: v.executionCapacity?.willingnessToAdjust ?? d.executionCapacity.willingnessToAdjust,
+                          growthPreference: v.executionCapacity?.growthPreference ?? d.executionCapacity.growthPreference,
+                        },
                       }
                       await onSubmit(data)
                     } finally {
