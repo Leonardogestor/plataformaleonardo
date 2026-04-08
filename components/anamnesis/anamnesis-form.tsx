@@ -1050,13 +1050,9 @@ export function AnamnesisForm({ onSubmit }: AnamnesisFormProps) {
 
               {currentStep === steps.length - 1 ? (
                 <Button
-                  type="submit"
+                  type="button"
                   disabled={isSubmitting}
-                  onClick={(e) => {
-                    e.preventDefault()
-                    console.log("Botão Finalizar clicado!")
-                    handleSubmit(form.getValues())
-                  }}
+                  onClick={form.handleSubmit(handleSubmit)}
                 >
                   {isSubmitting ? (
                     <>
