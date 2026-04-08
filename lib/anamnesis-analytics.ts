@@ -4,13 +4,17 @@
  */
 
 export interface AnamnesisResponse {
+  personalInfo: {
+    name: string
+    birthDate: string
+  }
   financialContext: {
-    incomeType: 'FIXA' | 'VARIÁVEL' | 'MISTA'
-    financialSituation: 'ORGANIZADA' | 'DESORGANIZADA' | 'CRÍTICA'
-    hasDebts: 'NÃO' | 'SIM_CONTROLE' | 'SIM_PREOCUPANTE'
+    incomeType: 'FIXA' | 'VARIAVEL' | 'MISTA'
+    financialSituation: 'ORGANIZADA' | 'DESORGANIZADA' | 'CRITICA'
+    hasDebts: 'NAO' | 'SIM_CONTROLE' | 'SIM_PREOCUPANTE'
   }
   lifeMoment: {
-    careerStage: 'INÍCIO_CARREIRA' | 'CRESCIMENTO_PROFISSIONAL' | 'ESTÁVEL' | 'TRANSIÇÃO'
+    careerStage: 'INICIO_CARREIRA' | 'CRESCIMENTO_PROFISSIONAL' | 'ESTAVEL' | 'TRANSICAO'
     hasDependents: boolean
   }
   financialBehavior: {
@@ -31,24 +35,16 @@ export interface AnamnesisResponse {
     preferredFormat: 'PDF' | 'EXCEL_CSV' | 'IMAGENS' | 'PAPEL'
   }
   budgetControl: {
-    spendingPattern: 'MUITO_PREVISÍVEL' | 'MODERADAMENTE_PREVISÍVEL' | 'IMPREVISÍVEL'
-    budgetHandling: 'SEGUE_RIGOROSAMENTE' | 'GUIA_FLEXÍVEL' | 'CRIA_NÃO_SEGUE' | 'NÃO_FAZ_ORÇAMENTO'
+    spendingPattern: 'MUITO_PREVISIVEL' | 'MODERADAMENTE_PREVISIVEL' | 'IMPREVISIVEL'
+    budgetHandling: 'SEGUE_RIGOROSAMENTE' | 'GUIA_FLEXIVEL' | 'CRIA_NAO_SEGUE' | 'NAO_FAZ_ORCAMENTO'
   }
   cardsInstallments: {
     cardCount: '0-1' | '2-3' | '4-5' | '+5'
     installmentFrequency: 'NUNCA' | 'RARAMENTE' | 'REGULARMENTE' | 'FREQUENTEMENTE'
   }
   executionCapacity: {
-    willingnessToAdjust: 'AJUSTA_ALGUNS' | 'REDUZ_SIGNIFICATIVO' | 'MANTÉM_TUDO'
-    growthPreference: 'CRESCIMENTO_RÁPIDO' | 'CRESCIMENTO_EQUILIBRADO' | 'SEGURANÇA_ESTABILIDADE'
-    commitmentLevel: number
-  }
-  futureExpectation: {
-    incomeTrend: 'AUMENTAR' | 'PERMANECER_IGUAL' | 'VARIAR_INCERTA'
-  }
-  knowledgeExperience: {
-    investmentKnowledge: 'INICIANTE' | 'INTERMEDIÁRIO' | 'AVANÇADO'
-    investmentTime: 'NÃO_INVESTE' | 'MENOS_1_ANO' | '1-3_ANOS' | '3-5_ANOS' | 'MAIS_5_ANOS'
+    willingnessToAdjust: 'AJUSTA_ALGUNS' | 'REDUZ_SIGNIFICATIVO' | 'MANTEM_TUDO'
+    growthPreference: 'SEGURANCA' | 'CRESCIMENTO_MODERADO' | 'CRESCIMENTO_AGRESSIVO'
   }
 }
 
@@ -59,7 +55,7 @@ export interface AnamnesisAnalysis {
   riskScore: number
   strategies: Strategy[]
   recommendations: Recommendation[]
-  automationLevel: 'BAIXO' | 'MÉDIO' | 'ALTO'
+  automationLevel: 'BAIXO' | 'MEDIO' | 'ALTO'
   interventionIntensity: 'SUAVE' | 'MODERADO' | 'INTENSO'
   insights: Insight[]
   nextSteps: NextStep[]
@@ -67,17 +63,17 @@ export interface AnamnesisAnalysis {
 
 export interface Strategy {
   area: string
-  priority: 'BAIXA' | 'MÉDIA' | 'ALTA'
+  priority: 'BAIXA' | 'MEDIA' | 'ALTA'
   description: string
   actions: string[]
   expectedResults: string[]
   timeframe: string
-  complexity: 'BAIXA' | 'MÉDIA' | 'ALTA'
+  complexity: 'BAIXA' | 'MEDIA' | 'ALTA'
 }
 
 export interface Recommendation {
   type: string
-  priority: 'BAIXA' | 'MÉDIA' | 'ALTA'
+  priority: 'BAIXA' | 'MEDIA' | 'ALTA'
   title: string
   description: string
   benefits: string[]
@@ -105,25 +101,12 @@ export interface NextStep {
  * Análise completa da anámnese com IA avançada
  */
 export function analyzeAnamnesisAdvanced(responses: AnamnesisResponse): AnamnesisAnalysis {
-  // 1. Cálculo de scores
   const scores = calculateDetailedScores(responses)
-  
-  // 2. Determinação de perfil
   const profileType = determineProfileType(scores)
-  
-  // 3. Análise de risco
   const riskAnalysis = analyzeRiskProfile(responses)
-  
-  // 4. Geração de estratégias personalizadas
   const strategies = generateAdvancedStrategies(profileType, riskAnalysis, responses)
-  
-  // 5. Recomendações inteligentes
   const recommendations = generateIntelligentRecommendations(responses, scores)
-  
-  // 6. Insights profundos
   const insights = generateDeepInsights(responses, scores)
-  
-  // 7. Próximos passos
   const nextSteps = generateActionPlan(profileType, riskAnalysis, responses)
 
   return {
@@ -136,7 +119,7 @@ export function analyzeAnamnesisAdvanced(responses: AnamnesisResponse): Anamnesi
     automationLevel: determineAutomationLevel(responses),
     interventionIntensity: determineInterventionLevel(responses, scores),
     insights,
-    nextSteps
+    nextSteps,
   }
 }
 
@@ -146,17 +129,16 @@ function calculateDetailedScores(responses: AnamnesisResponse) {
     behavioral: 0,
     risk: 0,
     execution: 0,
-    knowledge: 0,
-    total: 0
+    total: 0,
   }
 
   // Score financeiro (-3 a +3)
-  if (responses.financialContext.financialSituation === 'CRÍTICA') scores.financial -= 2
+  if (responses.financialContext.financialSituation === 'CRITICA') scores.financial -= 2
   else if (responses.financialContext.financialSituation === 'ORGANIZADA') scores.financial += 1
   else if (responses.financialContext.financialSituation === 'DESORGANIZADA') scores.financial -= 1
 
   if (responses.financialContext.hasDebts === 'SIM_PREOCUPANTE') scores.financial -= 1
-  else if (responses.financialContext.hasDebts === 'NÃO') scores.financial += 1
+  else if (responses.financialContext.hasDebts === 'NAO') scores.financial += 1
 
   // Score comportamental (-3 a +3)
   if (responses.financialBehavior.moneyHandling === 'PLANEJA_ANTES') scores.behavioral += 2
@@ -174,13 +156,10 @@ function calculateDetailedScores(responses: AnamnesisResponse) {
   else if (responses.riskProfile.investmentProfile === 'MODERADO') scores.risk = 2
   else scores.risk = 3
 
-  // Score de execução (1-5)
-  scores.execution = responses.executionCapacity.commitmentLevel
-
-  // Score de conhecimento (1-3)
-  if (responses.knowledgeExperience.investmentKnowledge === 'INICIANTE') scores.knowledge = 1
-  else if (responses.knowledgeExperience.investmentKnowledge === 'INTERMEDIÁRIO') scores.knowledge = 2
-  else scores.knowledge = 3
+  // Score de execução baseado na disposição para ajuste
+  if (responses.executionCapacity.willingnessToAdjust === 'REDUZ_SIGNIFICATIVO') scores.execution = 5
+  else if (responses.executionCapacity.willingnessToAdjust === 'AJUSTA_ALGUNS') scores.execution = 3
+  else scores.execution = 1
 
   scores.total = scores.financial + scores.behavioral
 
@@ -195,9 +174,8 @@ function determineProfileType(scores: any): 'CONTROLE' | 'RECUPERACAO' | 'CRESCI
 
 function analyzeRiskProfile(responses: AnamnesisResponse) {
   let score = 0
-  let factors = []
+  const factors: string[] = []
 
-  // Fator perfil declarado
   if (responses.riskProfile.investmentProfile === 'CONSERVADOR') {
     score += 1
     factors.push('Perfil conservador declarado')
@@ -209,7 +187,6 @@ function analyzeRiskProfile(responses: AnamnesisResponse) {
     factors.push('Perfil agressivo declarado')
   }
 
-  // Fator reação a perdas
   if (responses.riskProfile.lossReaction === 'EVITA_RISCO') {
     score -= 0.5
     factors.push('Aversão a perdas')
@@ -218,29 +195,17 @@ function analyzeRiskProfile(responses: AnamnesisResponse) {
     factors.push('Tolerância a perdas')
   }
 
-  // Fator conhecimento
-  if (responses.knowledgeExperience.investmentKnowledge === 'AVANÇADO') {
-    score += 0.5
-    factors.push('Conhecimento avançado')
-  } else if (responses.knowledgeExperience.investmentKnowledge === 'INICIANTE') {
-    score -= 0.5
-    factors.push('Conhecimento iniciante')
-  }
-
-  // Fator momento de vida
   if (responses.lifeMoment.hasDependents) {
     score -= 0.3
     factors.push('Dependentes financeiros')
   }
 
-  if (responses.lifeMoment.careerStage === 'INÍCIO_CARREIRA') {
+  if (responses.lifeMoment.careerStage === 'INICIO_CARREIRA') {
     score += 0.2
     factors.push('Início de carreira')
   }
 
-  // Normalizar score para 1-3
   const normalizedScore = Math.max(1, Math.min(3, score))
-
   let level: 'CONSERVADOR' | 'MODERADO' | 'AGRESSIVO' = 'CONSERVADOR'
   if (normalizedScore >= 2.3) level = 'AGRESSIVO'
   else if (normalizedScore >= 1.7) level = 'MODERADO'
@@ -250,36 +215,31 @@ function analyzeRiskProfile(responses: AnamnesisResponse) {
     level,
     factors,
     tolerance: calculateRiskTolerance(responses),
-    capacity: calculateRiskCapacity(responses)
+    capacity: calculateRiskCapacity(responses),
   }
 }
 
 function calculateRiskTolerance(responses: AnamnesisResponse): number {
-  let tolerance = 0.5 // base
+  let tolerance = 0.5
 
-  // Reação a perdas
   if (responses.riskProfile.lossReaction === 'EVITA_RISCO') tolerance -= 0.3
   else if (responses.riskProfile.lossReaction === 'BUSCA_RETORNO_RISCO') tolerance += 0.3
 
-  // Experiência
-  if (responses.knowledgeExperience.investmentTime === 'MAIS_5_ANOS') tolerance += 0.2
-  else if (responses.knowledgeExperience.investmentTime === 'NÃO_INVESTE') tolerance -= 0.2
+  if (responses.cardsInstallments.installmentFrequency === 'NUNCA') tolerance += 0.1
+  else if (responses.cardsInstallments.installmentFrequency === 'FREQUENTEMENTE') tolerance -= 0.1
 
   return Math.max(0, Math.min(1, tolerance))
 }
 
 function calculateRiskCapacity(responses: AnamnesisResponse): number {
-  let capacity = 0.5 // base
+  let capacity = 0.5
 
-  // Situação financeira
   if (responses.financialContext.financialSituation === 'ORGANIZADA') capacity += 0.3
-  else if (responses.financialContext.financialSituation === 'CRÍTICA') capacity -= 0.3
+  else if (responses.financialContext.financialSituation === 'CRITICA') capacity -= 0.3
 
-  // Renda
-  if (responses.futureExpectation.incomeTrend === 'AUMENTAR') capacity += 0.2
-  else if (responses.futureExpectation.incomeTrend === 'VARIAR_INCERTA') capacity -= 0.2
+  if (responses.financialContext.incomeType === 'FIXA') capacity += 0.2
+  else if (responses.financialContext.incomeType === 'VARIAVEL') capacity -= 0.1
 
-  // Dependentes
   if (!responses.lifeMoment.hasDependents) capacity += 0.1
 
   return Math.max(0, Math.min(1, capacity))
@@ -292,10 +252,9 @@ function generateAdvancedStrategies(
 ): Strategy[] {
   const strategies: Strategy[] = []
 
-  // Estratégias baseadas no perfil principal
   if (profileType === 'RECUPERACAO') {
     strategies.push({
-      area: 'ESTABILIZAÇÃO FINANCEIRA',
+      area: 'ESTABILIZACAO FINANCEIRA',
       priority: 'ALTA',
       description: 'Recuperação do controle financeiro através de ações emergenciais',
       actions: [
@@ -303,19 +262,18 @@ function generateAdvancedStrategies(
         'Negociar parcelamentos e redução de juros',
         'Criar fluxo de caixa emergencial',
         'Implementar corte de gastos supérfluos',
-        'Buscar fontes de renda complementar'
+        'Buscar fontes de renda complementar',
       ],
       expectedResults: [
         'Redução de 30% nas despesas não essenciais',
         'Economia mínima de 10% da renda',
-        'Plano de quitação de dívidas em 12 meses'
+        'Plano de quitação de dívidas em 12 meses',
       ],
       timeframe: '3-6 meses',
-      complexity: 'ALTA'
+      complexity: 'ALTA',
     })
-
     strategies.push({
-      area: 'RESERVA DE EMERGÊNCIA',
+      area: 'RESERVA DE EMERGENCIA',
       priority: 'ALTA',
       description: 'Construção de fundo de segurança para imprevistos',
       actions: [
@@ -323,59 +281,58 @@ function generateAdvancedStrategies(
         'Criar conta separada para emergência',
         'Automatizar depósitos mensais',
         'Vender bens não utilizados',
-        'Aplicar em renda fixa líquida'
+        'Aplicar em renda fixa líquida',
       ],
       expectedResults: [
         'Reserva inicial de R$ 1.000',
         'Meta completa em 8-12 meses',
-        'Segurança para despesas inesperadas'
+        'Segurança para despesas inesperadas',
       ],
       timeframe: '6-12 meses',
-      complexity: 'MÉDIA'
+      complexity: 'MEDIA',
     })
   } else if (profileType === 'CONTROLE') {
     strategies.push({
-      area: 'OTIMIZAÇÃO DO CONTROLE',
-      priority: 'MÉDIA',
+      area: 'OTIMIZACAO DO CONTROLE',
+      priority: 'MEDIA',
       description: 'Sistema robusto de acompanhamento financeiro',
       actions: [
         'Implementar upload semanal de extratos',
         'Configurar categorização automática',
         'Criar dashboard personalizado',
         'Estabelecer metas por categoria',
-        'Revisar orçamento mensalmente'
+        'Revisar orçamento mensalmente',
       ],
       expectedResults: [
         'Visão 100% das finanças',
         'Economia de 15-20% com otimização',
-        'Decisões baseadas em dados'
+        'Decisões baseadas em dados',
       ],
       timeframe: '1-3 meses',
-      complexity: 'BAIXA'
+      complexity: 'BAIXA',
     })
-
     strategies.push({
       area: 'METAS E OBJETIVOS',
-      priority: 'MÉDIA',
+      priority: 'MEDIA',
       description: 'Estruturação de planejamento financeiro de longo prazo',
       actions: [
         'Definir metas SMART financeiras',
         'Criar plano de ação para cada meta',
         'Acompanhar progresso mensalmente',
         'Ajustar estratégias conforme necessário',
-        'Celebrar conquistas parciais'
+        'Celebrar conquistas parciais',
       ],
       expectedResults: [
         'Clareza nos objetivos financeiros',
         'Motivação aumentada',
-        'Alcance de metas 30% mais rápido'
+        'Alcance de metas 30% mais rápido',
       ],
       timeframe: '3-6 meses',
-      complexity: 'MÉDIA'
+      complexity: 'MEDIA',
     })
   } else {
     strategies.push({
-      area: 'MAXIMIZAÇÃO DE RETORNOS',
+      area: 'MAXIMIZACAO DE RETORNOS',
       priority: 'ALTA',
       description: 'Otimização avançada do portfolio para crescimento acelerado',
       actions: [
@@ -383,42 +340,21 @@ function generateAdvancedStrategies(
         'Diversificar para classes de maior retorno',
         'Implementar estratégias de tax loss harvesting',
         'Rebalancear portfolio trimestralmente',
-        'Explorar oportunidades internacionais'
+        'Explorar oportunidades internacionais',
       ],
       expectedResults: [
         'Retorno adicional de 2-4% ao ano',
         'Portfolio otimizado para perfil',
-        'Risco diversificado e controlado'
+        'Risco diversificado e controlado',
       ],
       timeframe: '6-12 meses',
-      complexity: 'ALTA'
-    })
-
-    strategies.push({
-      area: 'LEVERAGE FINANCEIRO',
-      priority: 'MÉDIA',
-      description: 'Uso estratégico de alavancagem para potencializar ganhos',
-      actions: [
-        'Analisar capacidade de endividamento',
-        'Explorar financiamentos imobiliários',
-        'Considerar investimento com margem',
-        'Avaliar oportunidades de negócio',
-        'Estruturar planejamento sucessório'
-      ],
-      expectedResults: [
-        'Aumento do patrimônio em 25-40%',
-        'Fontes de renda passiva',
-        'Legado financeiro estruturado'
-      ],
-      timeframe: '12-24 meses',
-      complexity: 'ALTA'
+      complexity: 'ALTA',
     })
   }
 
-  // Estratégias baseadas no risco
   if (riskAnalysis.level === 'CONSERVADOR') {
     strategies.push({
-      area: 'PRESERVAÇÃO DE CAPITAL',
+      area: 'PRESERVACAO DE CAPITAL',
       priority: 'ALTA',
       description: 'Estratégias focadas em segurança e liquidez',
       actions: [
@@ -426,15 +362,15 @@ function generateAdvancedStrategies(
         'Diversificar entre Tesouro, CDB e LC',
         'Manter 10% em alta liquidez',
         'Investir 20% em fundos conservadores',
-        'Revisar carteira semestralmente'
+        'Revisar carteira semestralmente',
       ],
       expectedResults: [
         'Preservação do capital inflacionário',
         'Renda previsível e estável',
-        'Liquidez para emergências'
+        'Liquidez para emergências',
       ],
       timeframe: 'Contínuo',
-      complexity: 'BAIXA'
+      complexity: 'BAIXA',
     })
   } else if (riskAnalysis.level === 'MODERADO') {
     strategies.push({
@@ -446,15 +382,15 @@ function generateAdvancedStrategies(
         'Investir 30% em ações de blue chips',
         'Diversificar 20% em fundos multimercado',
         'Explorar 10% em oportunidades alternativas',
-        'Rebalancear quadrimestralmente'
+        'Rebalancear quadrimestralmente',
       ],
       expectedResults: [
         'Retorno acima da inflação + CDI',
         'Risco moderado e controlado',
-        'Potencial de crescimento sólido'
+        'Potencial de crescimento sólido',
       ],
       timeframe: 'Contínuo',
-      complexity: 'MÉDIA'
+      complexity: 'MEDIA',
     })
   } else {
     strategies.push({
@@ -466,15 +402,15 @@ function generateAdvancedStrategies(
         'Investir 50% em ações growth',
         'Diversificar 15% em criptoativos',
         'Explorar 10% em startups/Equity',
-        'Manter 5% para oportunidades pontuais'
+        'Manter 5% para oportunidades pontuais',
       ],
       expectedResults: [
         'Potencial de retorno > 15% ao ano',
         'Portfolio diversificado em alto crescimento',
-        'Exposição a tecnologias disruptivas'
+        'Exposição a tecnologias disruptivas',
       ],
       timeframe: 'Contínuo',
-      complexity: 'ALTA'
+      complexity: 'ALTA',
     })
   }
 
@@ -487,28 +423,27 @@ function generateIntelligentRecommendations(
 ): Recommendation[] {
   const recommendations: Recommendation[] = []
 
-  // Recomendações comportamentais
   if (responses.financialBehavior.trackingFrequency === 'RARAMENTE') {
     recommendations.push({
-      type: 'HÁBITO',
+      type: 'HABITO',
       priority: 'ALTA',
       title: 'Estabelecer Rotina de Acompanhamento',
       description: 'Crie o hábito de revisar suas finanças semanalmente para manter o controle',
       benefits: [
         'Visão clara da situação financeira',
         'Detecção precoce de problemas',
-        'Tomada de decisões mais informada'
+        'Tomada de decisões mais informada',
       ],
       implementation: [
         'Defina dia e horário fixo na semana',
         'Configure lembretes no celular',
         'Use checklist de verificação',
-        'Anote insights e aprendizados'
-      ]
+        'Anote insights e aprendizados',
+      ],
     })
   }
 
-  if (responses.budgetControl.budgetHandling === 'NÃO_FAZ_ORÇAMENTO') {
+  if (responses.budgetControl.budgetHandling === 'NAO_FAZ_ORCAMENTO') {
     recommendations.push({
       type: 'PLANEJAMENTO',
       priority: 'ALTA',
@@ -517,74 +452,68 @@ function generateIntelligentRecommendations(
       benefits: [
         'Controle efetivo dos gastos',
         'Redução de despesas desnecessárias',
-        'Aceleração do alcance de metas'
+        'Aceleração do alcance de metas',
       ],
       implementation: [
         'Analise 3 meses de gastos passados',
         'Defina categorias e limites realistas',
         'Use método 50/30/20 como base',
-        'Ajuste conforme sua realidade'
-      ]
+        'Ajuste conforme sua realidade',
+      ],
     })
   }
 
-  // Recomendações de conhecimento
-  if (responses.knowledgeExperience.investmentKnowledge === 'INICIANTE') {
+  if (scores.financial < 0) {
     recommendations.push({
-      type: 'EDUCAÇÃO',
-      priority: 'MÉDIA',
+      type: 'EDUCACAO',
+      priority: 'MEDIA',
       title: 'Desenvolver Conhecimento Financeiro',
-      description: 'Invista em sua educação financeira para tomar melhores decisões de investimento',
+      description: 'Invista em sua educação financeira para tomar melhores decisões',
       benefits: [
         'Autonomia nas decisões financeiras',
         'Redução de erros comuns',
-        'Maior confiança para investir'
+        'Maior confiança para investir',
       ],
       implementation: [
         'Leia livros básicos de finanças',
         'Faça cursos online gratuitos',
         'Siga especialistas financeiros',
-        'Pratique com pequenos investimentos'
-      ]
+        'Pratique com pequenos investimentos',
+      ],
     })
   }
 
-  // Recomendações de objetivos
-  if (responses.objectives.goals.includes('Não tenho planos')) {
+  if (!responses.objectives.hasGoals || responses.objectives.goals.length === 0) {
     recommendations.push({
       type: 'OBJETIVOS',
-      priority: 'MÉDIA',
+      priority: 'MEDIA',
       title: 'Definir Metas Financeiras',
-      description: 'Estabeleça objetivos claros e mensuráveis para direcionar seus esforços financeiros',
+      description: 'Estabeleça objetivos claros e mensuráveis para direcionar seus esforços',
       benefits: [
         'Foco e motivação aumentados',
         'Planejamento mais eficaz',
-        'Mensuração do progresso'
+        'Mensuração do progresso',
       ],
       implementation: [
         'Use framework SMART',
         'Priorize 3-5 metas principais',
         'Defina prazos realistas',
-        'Revise e ajuste periodicamente'
-      ]
+        'Revise e ajuste periodicamente',
+      ],
     })
   }
 
   return recommendations
 }
 
-function generateDeepInsights(
-  responses: AnamnesisResponse,
-  scores: any
-): Insight[] {
+function generateDeepInsights(responses: AnamnesisResponse, scores: any): Insight[] {
   const insights: Insight[] = []
 
-  // Insight sobre consistência
-  const behaviorConsistency = 
-    (responses.financialBehavior.moneyHandling === 'PLANEJA_ANTES' && 
-     responses.budgetControl.budgetHandling !== 'NÃO_FAZ_ORÇAMENTO') ||
-    (responses.financialBehavior.moneyHandling === 'GASTA_SEM_PLANEJAR' && 
-     responses.budgetControl.budgetHandling === 'NÃO_FAZ_ORÇAMENTO')
+  const behaviorConsistency =
+    (responses.financialBehavior.moneyHandling === 'PLANEJA_ANTES' &&
+      responses.budgetControl.budgetHandling !== 'NAO_FAZ_ORCAMENTO') ||
+    (responses.financialBehavior.moneyHandling === 'GASTA_SEM_PLANEJAR' &&
+      responses.budgetControl.budgetHandling === 'NAO_FAZ_ORCAMENTO')
 
   if (behaviorConsistency) {
     insights.push({
@@ -592,7 +521,7 @@ function generateDeepInsights(
       title: 'Alinhamento Comportamental',
       description: 'Seu comportamento financeiro está alinhado com suas práticas de orçamento',
       impact: 'POSITIVO',
-      confidence: 0.85
+      confidence: 0.85,
     })
   } else {
     insights.push({
@@ -600,31 +529,33 @@ function generateDeepInsights(
       title: 'Incoerência Comportamental',
       description: 'Há desconexão entre como você lida com dinheiro e suas práticas de orçamento',
       impact: 'NEGATIVO',
-      confidence: 0.75
+      confidence: 0.75,
     })
   }
 
-  // Insight sobre risco vs conhecimento
-  if (responses.riskProfile.investmentProfile === 'AGRESSIVO' && 
-      responses.knowledgeExperience.investmentKnowledge === 'INICIANTE') {
+  if (
+    responses.riskProfile.investmentProfile === 'AGRESSIVO' &&
+    responses.financialContext.financialSituation === 'CRITICA'
+  ) {
     insights.push({
       category: 'RISCO',
-      title: 'Risco Acima do Conhecimento',
-      description: 'Sua tolerância ao risco é maior que seu conhecimento de investimentos',
+      title: 'Risco Acima da Capacidade',
+      description: 'Sua tolerância ao risco é maior que sua situação financeira atual permite',
       impact: 'NEGATIVO',
-      confidence: 0.90
+      confidence: 0.9,
     })
   }
 
-  // Insight sobre momento de vida
-  if (responses.lifeMoment.hasDependents && 
-      responses.executionCapacity.willingnessToAdjust === 'MANTÉM_TUDO') {
+  if (
+    responses.lifeMoment.hasDependents &&
+    responses.executionCapacity.willingnessToAdjust === 'MANTEM_TUDO'
+  ) {
     insights.push({
       category: 'RESPONSABILIDADE',
       title: 'Responsabilidade vs Flexibilidade',
       description: 'Com dependentes financeiros, a flexibilidade para ajustar gastos se torna crucial',
       impact: 'NEGATIVO',
-      confidence: 0.80
+      confidence: 0.8,
     })
   }
 
@@ -648,11 +579,10 @@ function generateActionPlan(
         'Listar todas as dívidas com juros',
         'Mapear todas as fontes de renda',
         'Categorizar todos os gastos',
-        'Calcular patrimônio líquido'
+        'Calcular patrimônio líquido',
       ],
-      dependencies: []
+      dependencies: [],
     })
-
     steps.push({
       order: 2,
       title: 'Plano de Emergência',
@@ -662,9 +592,9 @@ function generateActionPlan(
         'Negociar dívidas prioritárias',
         'Cortar gastos não essenciais',
         'Criar fluxo de caixa mínimo',
-        'Buscar renda extra urgente'
+        'Buscar renda extra urgente',
       ],
-      dependencies: ['Diagnóstico Financeiro Completo']
+      dependencies: ['Diagnóstico Financeiro Completo'],
     })
   } else if (profileType === 'CONTROLE') {
     steps.push({
@@ -676,11 +606,10 @@ function generateActionPlan(
         'Configurar upload de extratos',
         'Definir categorias personalizadas',
         'Criar dashboard inicial',
-        'Estabelecer rotina semanal'
+        'Estabelecer rotina semanal',
       ],
-      dependencies: []
+      dependencies: [],
     })
-
     steps.push({
       order: 2,
       title: 'Metas Financeiras',
@@ -690,9 +619,9 @@ function generateActionPlan(
         'Brainstorm de objetivos',
         'Priorizar metas principais',
         'Definir prazos e valores',
-        'Criar plano de ação'
+        'Criar plano de ação',
       ],
-      dependencies: ['Sistema de Controle']
+      dependencies: ['Sistema de Controle'],
     })
   } else {
     steps.push({
@@ -704,11 +633,10 @@ function generateActionPlan(
         'Levantar todos os investimentos',
         'Calcular rentabilidade real',
         'Analisar alocação de ativos',
-        'Identificar oportunidades'
+        'Identificar oportunidades',
       ],
-      dependencies: []
+      dependencies: [],
     })
-
     steps.push({
       order: 2,
       title: 'Estratégia de Otimização',
@@ -718,36 +646,35 @@ function generateActionPlan(
         'Rebalancear portfolio',
         'Diversificar classes de ativos',
         'Implementar tax loss harvesting',
-        'Explorar novas oportunidades'
+        'Explorar novas oportunidades',
       ],
-      dependencies: ['Análise de Portfolio']
+      dependencies: ['Análise de Portfolio'],
     })
   }
 
   return steps
 }
 
-function determineAutomationLevel(responses: AnamnesisResponse): 'BAIXO' | 'MÉDIO' | 'ALTO' {
+function determineAutomationLevel(responses: AnamnesisResponse): 'BAIXO' | 'MEDIO' | 'ALTO' {
   let level = 0
 
-  // Preferência de formato
-  if (responses.dataImport.preferredFormat === 'PDF' || 
-      responses.dataImport.preferredFormat === 'EXCEL_CSV') {
+  if (
+    responses.dataImport.preferredFormat === 'PDF' ||
+    responses.dataImport.preferredFormat === 'EXCEL_CSV'
+  ) {
     level += 1
   }
 
-  // Frequência de acompanhamento
   if (responses.financialBehavior.trackingFrequency === 'TODA_SEMANA') {
     level += 1
   }
 
-  // Conhecimento técnico
-  if (responses.knowledgeExperience.investmentKnowledge === 'AVANÇADO') {
+  if (responses.executionCapacity.willingnessToAdjust === 'REDUZ_SIGNIFICATIVO') {
     level += 1
   }
 
   if (level >= 2) return 'ALTO'
-  if (level >= 1) return 'MÉDIO'
+  if (level >= 1) return 'MEDIO'
   return 'BAIXO'
 }
 
@@ -755,17 +682,14 @@ function determineInterventionLevel(
   responses: AnamnesisResponse,
   scores: any
 ): 'SUAVE' | 'MODERADO' | 'INTENSO' {
-  // Situação crítica requer intervenção intensa
-  if (responses.financialContext.financialSituation === 'CRÍTICA') {
+  if (responses.financialContext.financialSituation === 'CRITICA') {
     return 'INTENSO'
   }
 
-  // Alto comprometimento permite intervenção moderada
-  if (responses.executionCapacity.commitmentLevel >= 4) {
+  if (responses.executionCapacity.willingnessToAdjust === 'REDUZ_SIGNIFICATIVO') {
     return 'MODERADO'
   }
 
-  // Score muito baixo também requer mais intervenção
   if (scores.total <= -2) {
     return 'MODERADO'
   }
