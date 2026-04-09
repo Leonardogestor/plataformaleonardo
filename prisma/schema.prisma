@@ -102,7 +102,7 @@ model Document {
   fileSize        Int?
   fileUrl         String?
   fileKey         String?
-  status          String                    @default("PROCESSING")
+  status          DocumentStatus            @default(PROCESSING)
   errorMessage    String?
   syncLogs        SyncLog[]
   governanceItems GovernanceChecklistItem[]
