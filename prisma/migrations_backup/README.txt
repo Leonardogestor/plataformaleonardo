@@ -1,1 +1,0 @@
-Backup das migrações antigas antes de resetar o histórico. Pode ser removido após o sucesso do reset.
