@@ -8,10 +8,9 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { extractTextFromPdf } from "@/lib/document-extract"
-import { parseStatementByBank } from "@/lib/bank-parsers"
+import { parseStatementByBank, detectBankFromText } from "@/lib/bank-parsers"
 import { importTransactionsFromPdfWithDedup } from "@/lib/transaction-import"
 import { checkDocumentsLimit } from "@/lib/rate-limit"
-import { randomUUID } from "crypto"
 
 const MAX_SIZE = 10 * 1024 * 1024 // 10MB
 
@@ -90,22 +89,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    // 2. Rate Limiting
-    const rateLimitResult = await checkDocumentsLimit(request)
-    if (rateLimitResult.limited) {
-      return NextResponse.json(
-        {
-          error: "Too many requests",
-          message: "Limite de uploads excedido. Tente novamente em alguns minutos.",
-          retryAfter: rateLimitResult.retryAfter,
-        },
-        {
-          status: 429,
-          headers: {
-            "Retry-After": rateLimitResult.retryAfter?.toString() || "60",
+    // 2. Rate Limiting (não-bloqueante — erro interno não derruba o upload)
+    try {
+      const rateLimitResult = await checkDocumentsLimit(request)
+      if (rateLimitResult.limited) {
+        return NextResponse.json(
+          {
+            error: "Too many requests",
+            message: "Limite de uploads excedido. Tente novamente em alguns minutos.",
+            retryAfter: rateLimitResult.retryAfter,
           },
-        }
-      )
+          {
+            status: 429,
+            headers: {
+              "Retry-After": rateLimitResult.retryAfter?.toString() || "60",
+            },
+          }
+        )
+      }
+    } catch (rlError) {
+      console.warn("⚠️ Rate limit check falhou (ignorado):", rlError)
     }
 
     // 3. Receber múltiplos arquivos
@@ -141,18 +144,23 @@ export async function POST(request: NextRequest) {
       files.map((f) => f.name)
     )
 
-    // 🔥 FORÇADO: Criar SyncLog para rastreamento
-    const syncLog = await prisma.syncLog.create({
-      data: {
-        status: "STARTED",
-        startedAt: new Date(),
-      },
-    })
+    // Criar SyncLog para rastreamento (não-bloqueante)
+    let syncLogId: string | null = null
+    try {
+      const syncLog = await prisma.syncLog.create({
+        data: {
+          status: "STARTED",
+          startedAt: new Date(),
+        },
+      })
+      syncLogId = syncLog.id
+    } catch (slError) {
+      console.warn("⚠️ SyncLog creation falhou (ignorado):", slError)
+    }
 
     // 4. Criar múltiplos documentos no banco
     const documents = await Promise.all(
       files.map(async (file) => {
-        // Ler buffer do arquivo uma vez
         const buffer = Buffer.from(await file.arrayBuffer())
 
         const doc = await prisma.document.create({
@@ -168,8 +176,7 @@ export async function POST(request: NextRequest) {
 
         console.log("✅ Documento criado no banco:", doc.id)
 
-        // 🔥 FORÇADO: Processar PDF em background com tracking
-        processPdfWithTracking(doc.id, buffer, file.name, session.user.id, syncLog.id).catch(
+        processPdfWithTracking(doc.id, buffer, file.name, session.user.id, syncLogId).catch(
           (error) => {
             console.error("❌ Erro no processamento:", error)
           }
@@ -181,7 +188,6 @@ export async function POST(request: NextRequest) {
 
     console.log(`📊 ${documents.length} documentos criados e processando...`)
 
-    // 5. 🔥 FORÇADO: Retornar sucesso imediato com informações enriquecidas
     return NextResponse.json(
       {
         documents: documents.map((doc) => ({
@@ -189,12 +195,11 @@ export async function POST(request: NextRequest) {
           name: doc.name,
           status: doc.status,
           message: "PDF recebido e está sendo processado...",
-          syncLogId: syncLog.id,
+          syncLogId,
         })),
         total: documents.length,
-        syncLogId: syncLog.id,
+        syncLogId,
         message: `${documents.length} PDFs recebidos e processando...`,
-        // 🔥 FORÇADO: Informações adicionais
         processingStarted: new Date().toISOString(),
         expectedDuration: "30-60 segundos por PDF",
       },
@@ -202,7 +207,11 @@ export async function POST(request: NextRequest) {
     )
   } catch (error) {
     console.error("❌ Erro geral:", error)
-    return NextResponse.json({ error: "Erro ao processar PDF. Tente novamente." }, { status: 500 })
+    const detail = error instanceof Error ? error.message : String(error)
+    return NextResponse.json(
+      { error: "Erro ao processar PDF. Tente novamente.", detail },
+      { status: 500 }
+    )
   }
 }
 
@@ -212,10 +221,9 @@ async function processPdfWithTracking(
   buffer: Buffer,
   fileName: string,
   userId: string,
-  syncLogId: string
+  syncLogId: string | null
 ) {
   const startTime = Date.now()
-  let transactionsProcessed = 0
 
   try {
     console.log("🔄 Processando PDF com tracking:", documentId)
@@ -269,19 +277,20 @@ async function processPdfWithTracking(
     const result = await importTransactionsFromPdfWithDedup(userId, transactions)
 
     console.log("💾 Transações importadas:", result.success, "Falhas:", result.failed)
-    transactionsProcessed = result.success
 
-    // 7. 🔥 FORÇADO: Atualizar SyncLog com resultados
-    await prisma.syncLog.update({
-      where: { id: syncLogId },
-      data: {
-        status: "COMPLETED",
-        finishedAt: new Date(),
-        durationMs: Date.now() - startTime,
-        transactionsProcessed: result.success,
-        documentId: documentId,
-      },
-    })
+    // 7. Atualizar SyncLog com resultados (só se existir)
+    if (syncLogId) {
+      await prisma.syncLog.update({
+        where: { id: syncLogId },
+        data: {
+          status: "COMPLETED",
+          finishedAt: new Date(),
+          durationMs: Date.now() - startTime,
+          transactionsProcessed: result.success,
+          documentId: documentId,
+        },
+      }).catch(() => {})
+    }
 
     // 8. Atualizar status final do documento
     const finalStatus = result.success > 0 ? "COMPLETED" : "FAILED"
@@ -298,19 +307,21 @@ async function processPdfWithTracking(
     const processingTime = Date.now() - startTime
     console.error("❌ Erro no processamento:", error)
 
-    // 🔥 FORÇADO: Atualizar SyncLog com erro
-    await prisma.syncLog
-      .update({
-        where: { id: syncLogId },
-        data: {
-          status: "FAILED",
-          finishedAt: new Date(),
-          durationMs: processingTime,
-          error: error instanceof Error ? error.message : "Erro desconhecido",
-          documentId: documentId,
-        },
-      })
-      .catch(() => {}) // Ignora erro se SyncLog não existir
+    // Atualizar SyncLog com erro (só se existir)
+    if (syncLogId) {
+      await prisma.syncLog
+        .update({
+          where: { id: syncLogId },
+          data: {
+            status: "FAILED",
+            finishedAt: new Date(),
+            durationMs: processingTime,
+            error: error instanceof Error ? error.message : "Erro desconhecido",
+            documentId: documentId,
+          },
+        })
+        .catch(() => {})
+    }
 
     await prisma.document.update({
       where: { id: documentId },
@@ -321,6 +332,3 @@ async function processPdfWithTracking(
     })
   }
 }
-
-// 🔥 FORÇADO: Importar funções necessárias
-import { detectBankFromText } from "@/lib/bank-parsers"

@@ -5,6 +5,10 @@
   "functions": {
     "app/api/**/*.ts": {
       "maxDuration": 30
+    },
+    "app/api/documents/route.ts": {
+      "maxDuration": 60,
+      "memory": 1024
     }
   },
   "env": {
