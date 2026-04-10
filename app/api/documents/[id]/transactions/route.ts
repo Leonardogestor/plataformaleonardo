@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/db"
+import { DocumentStatus } from "@prisma/client"
 
 /**
  * GET - Busca transações extraídas de um documento processado
@@ -47,18 +48,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     // Se o documento ainda está processando, retornar status
-    if (document.status === "PROCESSING") {
+    if (document.status === DocumentStatus.PROCESSING) {
       return NextResponse.json({
-        status: "PROCESSING",
+        status: DocumentStatus.PROCESSING,
         transactions: [],
         message: "Documento ainda está sendo processado",
       })
     }
 
     // Se o processamento falhou, retornar erro
-    if (document.status === "FAILED") {
+    if (document.status === DocumentStatus.FAILED) {
       return NextResponse.json({
-        status: "FAILED",
+        status: DocumentStatus.FAILED,
         transactions: [],
         error: document.errorMessage || "Falha no processamento do documento",
       })
@@ -111,7 +112,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }))
 
     return NextResponse.json({
-      status: "COMPLETED",
+      status: DocumentStatus.COMPLETED,
       transactions: formattedTransactions,
       summary: {
         total: formattedTransactions.length,

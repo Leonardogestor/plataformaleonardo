@@ -5,6 +5,7 @@
  */
 
 import { prisma } from "@/lib/db"
+import { DocumentStatus } from "@prisma/client"
 import {
   importTransactionsFromPdfWithDedup,
   type NormalizedTransaction,
@@ -58,7 +59,7 @@ export async function processDocumentExcel(documentId: string): Promise<void> {
       await prisma.document.updateMany({
         where: { id: documentId },
         data: {
-          status: "FAILED",
+          status: DocumentStatus.FAILED,
           errorMessage: "Document or file URL not found",
           updatedAt: new Date(),
         },
@@ -72,7 +73,7 @@ export async function processDocumentExcel(documentId: string): Promise<void> {
       data: {
         documentId,
         startedAt,
-        status: "PROCESSING",
+        status: DocumentStatus.PROCESSING,
       },
     })
     syncLogId = logEntry.id
@@ -102,7 +103,7 @@ export async function processDocumentExcel(documentId: string): Promise<void> {
       await prisma.document.update({
         where: { id: documentId },
         data: {
-          status: "FAILED",
+          status: DocumentStatus.FAILED,
           errorMessage: "Could not extract data from Excel/CSV file",
           extractedText: JSON.stringify(jsonData) || null,
           updatedAt: finishedAt,
@@ -114,7 +115,7 @@ export async function processDocumentExcel(documentId: string): Promise<void> {
           finishedAt,
           durationMs,
           transactionsProcessed: 0,
-          status: "FAILED",
+          status: DocumentStatus.FAILED,
           error: "Could not extract data from Excel/CSV file",
         },
       })
@@ -248,14 +249,15 @@ export async function processDocumentExcel(documentId: string): Promise<void> {
     // 🔥 INVALIDAR CACHE DO CLIENTE
     console.log("🗑️ Cache invalidado - cliente precisará recarregar")
 
-    const status = result.failed > 0 && result.success === 0 ? "FAILED" : "COMPLETED"
+    const status =
+      result.failed > 0 && result.success === 0 ? DocumentStatus.FAILED : DocumentStatus.COMPLETED
     const errorMessage = result.errors.length > 0 ? result.errors.slice(0, 3).join("; ") : null
 
     await prisma.document.update({
       where: { id: documentId },
       data: {
         status,
-        errorMessage: status === "FAILED" ? errorMessage : null,
+        errorMessage: status === DocumentStatus.FAILED ? errorMessage : null,
         extractedText: JSON.stringify(jsonData).slice(0, 100_000),
         updatedAt: finishedAt,
       },
@@ -289,7 +291,7 @@ export async function processDocumentExcel(documentId: string): Promise<void> {
     try {
       await prisma.document.updateMany({
         where: { id: documentId },
-        data: { status: "FAILED", errorMessage: message, updatedAt: finishedAt },
+        data: { status: DocumentStatus.FAILED, errorMessage: message, updatedAt: finishedAt },
       })
       if (syncLogId) {
         await prisma.syncLog.update({
@@ -298,7 +300,7 @@ export async function processDocumentExcel(documentId: string): Promise<void> {
             finishedAt,
             durationMs,
             transactionsProcessed: 0,
-            status: "FAILED",
+            status: DocumentStatus.FAILED,
             error: message,
           },
         })
@@ -313,7 +315,7 @@ export async function processDocumentExcel(documentId: string): Promise<void> {
         documentId,
         durationMs,
         transactionsProcessed: 0,
-        status: "FAILED",
+        status: DocumentStatus.FAILED,
         error: message,
       })
     )

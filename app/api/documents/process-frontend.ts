@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/db"
+import { DocumentStatus } from "@prisma/client"
 import { importTransactionsFromPdfWithDedup } from "@/lib/transaction-import"
 import { randomUUID } from "crypto"
 
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
         fileName: fileName,
         mimeType: "application/pdf",
         fileSize: fileSize || 0,
-        status: "PROCESSING",
+        status: DocumentStatus.PROCESSING,
         extractedText: extractedText?.slice(0, 10000) || "",
       },
     })
@@ -76,7 +77,7 @@ export async function POST(request: NextRequest) {
       await configureUserDashboard(session.user.id, anamnesis, enhancedTransactions)
 
       // 7. Atualizar status final
-      const finalStatus = result.success > 0 ? "COMPLETED" : "FAILED"
+      const finalStatus = result.success > 0 ? DocumentStatus.COMPLETED : DocumentStatus.FAILED
       await prisma.document.update({
         where: { id: doc.id },
         data: {
@@ -102,7 +103,7 @@ export async function POST(request: NextRequest) {
       await prisma.document.update({
         where: { id: doc.id },
         data: {
-          status: "FAILED",
+          status: DocumentStatus.FAILED,
           errorMessage: "Erro ao processar transações",
         },
       })

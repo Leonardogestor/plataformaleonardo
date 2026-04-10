@@ -6,11 +6,7 @@
  */
 
 import { prisma } from "@/lib/db"
-import {
-  getPluggyItemStatus,
-  getPluggyAccounts,
-  getPluggyTransactionsPage,
-} from "@/lib/pluggy"
+import { getPluggyItemStatus, getPluggyAccounts, getPluggyTransactionsPage } from "@/lib/pluggy"
 
 /** Default lookback when no lastSyncAt (first sync or reset). 90 days. */
 const DEFAULT_SYNC_DAYS_AGO = 90
@@ -102,7 +98,7 @@ export async function syncItemTransactions(itemId: string): Promise<void> {
       data: {
         itemId,
         startedAt: syncStartedAt,
-        status: "PROCESSING",
+        status: DocumentStatus.PROCESSING,
       },
     })
 
@@ -153,7 +149,12 @@ export async function syncItemTransactions(itemId: string): Promise<void> {
     await prisma.bankConnection.update({
       where: { itemId },
       data: {
-        status: connectionStatus as "ACTIVE" | "LOGIN_ERROR" | "OUTDATED" | "UPDATING" | "DISCONNECTED",
+        status: connectionStatus as
+          | "ACTIVE"
+          | "LOGIN_ERROR"
+          | "OUTDATED"
+          | "UPDATING"
+          | "DISCONNECTED",
         error: errorMsg,
       },
     })
@@ -275,7 +276,7 @@ export async function syncItemTransactions(itemId: string): Promise<void> {
         finishedAt: syncFinishedAt,
         durationMs,
         transactionsProcessed,
-        status: "COMPLETED",
+        status: DocumentStatus.COMPLETED,
       },
     })
     console.info(
@@ -289,9 +290,7 @@ export async function syncItemTransactions(itemId: string): Promise<void> {
     )
   } catch (error) {
     const syncFinishedAt = new Date()
-    const durationMs = syncStartedAt
-      ? syncFinishedAt.getTime() - syncStartedAt.getTime()
-      : 0
+    const durationMs = syncStartedAt ? syncFinishedAt.getTime() - syncStartedAt.getTime() : 0
     try {
       if (syncLog?.id) {
         await prisma.syncLog.update({
@@ -300,7 +299,7 @@ export async function syncItemTransactions(itemId: string): Promise<void> {
             finishedAt: syncFinishedAt,
             durationMs,
             transactionsProcessed: 0,
-            status: "FAILED",
+            status: DocumentStatus.FAILED,
             error: error instanceof Error ? error.message : String(error),
           },
         })
@@ -315,7 +314,7 @@ export async function syncItemTransactions(itemId: string): Promise<void> {
         durationMs,
         accountsProcessed: 0,
         transactionsProcessed: 0,
-        status: "FAILED",
+        status: DocumentStatus.FAILED,
         error: error instanceof Error ? error.message : String(error),
       })
     )

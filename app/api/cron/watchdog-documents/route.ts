@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+import { DocumentStatus } from "@prisma/client"
 
 /**
  * Watchdog: documentos em PROCESSING há mais de 10 minutos viram FAILED.
@@ -38,11 +39,11 @@ export async function GET(request: NextRequest) {
     const cutoff = new Date(Date.now() - STALE_MS)
     const updated = await prisma.document.updateMany({
       where: {
-        status: "PROCESSING",
+        status: DocumentStatus.PROCESSING,
         updatedAt: { lt: cutoff },
       },
       data: {
-        status: "FAILED",
+        status: DocumentStatus.FAILED,
         errorMessage: "Processing timeout (watchdog)",
         updatedAt: new Date(),
       },

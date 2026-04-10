@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+import { DocumentStatus } from "@prisma/client"
 
 const PERIOD_HOURS = 6
 const DEFAULT_THRESHOLD = 10
@@ -55,13 +56,13 @@ export async function GET(request: NextRequest) {
     const [failedDocuments, failedSyncs] = await Promise.all([
       prisma.document.count({
         where: {
-          status: "FAILED",
+          status: DocumentStatus.FAILED,
           updatedAt: { gte: since },
         },
       }),
       prisma.syncLog.count({
         where: {
-          status: "FAILED",
+          status: DocumentStatus.FAILED,
           finishedAt: { gte: since, not: null },
         },
       }),

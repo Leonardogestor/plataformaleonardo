@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
+import { DocumentStatus } from "@prisma/client"
 import { addTransactionProcessingJob } from "@/lib/queue/queue"
 import { pipelineLogger } from "@/lib/utils/logger"
 
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar se já está sendo processado
-    if (document.status === "PROCESSING" && !forceReprocess) {
+    if (document.status === DocumentStatus.PROCESSING && !forceReprocess) {
       return NextResponse.json({ error: "Documento já está sendo processado" }, { status: 409 })
     }
 
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
     await prisma.document.update({
       where: { id: documentId },
       data: {
-        status: "PROCESSING",
+        status: DocumentStatus.PROCESSING,
         updatedAt: new Date(),
       },
     })

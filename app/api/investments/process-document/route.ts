@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/db"
+import { DocumentStatus } from "@prisma/client"
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
         fileName: document.name,
         mimeType: document.type || "application/pdf",
         fileSize: document.size || 0,
-        status: "PROCESSING",
+        status: DocumentStatus.PROCESSING,
         extractedText: "Documento de investimento aguardando processamento",
       },
     })

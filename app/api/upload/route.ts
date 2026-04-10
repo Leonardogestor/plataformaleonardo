@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { generateFileHash } from "@/lib/utils/crypto"
 import { prisma } from "@/lib/db"
+import { DocumentStatus } from "@prisma/client"
 import { addTransactionProcessingJob } from "@/lib/queue/queue"
 import { apiLogger } from "@/lib/utils/logger"
 import { z } from "zod"
@@ -104,7 +105,7 @@ export async function POST(request: NextRequest) {
         fileName: file.name,
         mimeType: file.type,
         fileSize: file.size,
-        status: "PROCESSING",
+        status: DocumentStatus.PROCESSING,
       },
     })
 
@@ -126,7 +127,7 @@ export async function POST(request: NextRequest) {
       await prisma.document.update({
         where: { id: document.id },
         data: {
-          status: "FAILED",
+          status: DocumentStatus.FAILED,
           errorMessage: jobResult.error,
         },
       })
@@ -154,7 +155,7 @@ export async function POST(request: NextRequest) {
       data: {
         fileId: document.id,
         fileName: file.name,
-        status: "PROCESSING",
+        status: DocumentStatus.PROCESSING,
         jobId: jobResult.jobId,
         estimatedWait: jobResult.estimatedWait,
       },

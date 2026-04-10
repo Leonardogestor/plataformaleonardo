@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/db"
+import { DocumentStatus } from "@prisma/client"
 import { extractTextFromPdf } from "@/lib/document-extract"
 import { parseStatementByBank, detectBankFromText } from "@/lib/bank-parsers"
 import { importTransactionsFromPdfWithDedup } from "@/lib/transaction-import"
@@ -112,7 +113,7 @@ export async function POST(request: NextRequest) {
             fileName: file.name,
             mimeType,
             fileSize: file.size,
-            status: "PROCESSING",
+            status: DocumentStatus.PROCESSING,
           },
         })
 
@@ -125,7 +126,7 @@ export async function POST(request: NextRequest) {
           // Não-PDF: salva como COMPLETED direto (sem extração de texto)
           prisma.document.update({
             where: { id: doc.id },
-            data: { status: "COMPLETED" },
+            data: { status: DocumentStatus.COMPLETED },
           }).catch(() => {})
         }
 
@@ -197,14 +198,14 @@ async function processPdfBackground(
     // Sempre marca como COMPLETED — o upload foi bem-sucedido
     await prisma.document.update({
       where: { id: documentId },
-      data: { status: "COMPLETED" },
+      data: { status: DocumentStatus.COMPLETED },
     })
   } catch (error) {
     console.error(`❌ processPdfBackground error (doc ${documentId}):`, error)
     await prisma.document.update({
       where: { id: documentId },
       data: {
-        status: "FAILED",
+        status: DocumentStatus.FAILED,
         errorMessage: error instanceof Error ? error.message : "Erro desconhecido",
       },
     }).catch(() => {})

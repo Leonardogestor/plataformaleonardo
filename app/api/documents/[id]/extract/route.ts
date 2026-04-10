@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/db"
+import { DocumentStatus } from "@prisma/client"
 import { processDocumentPdf } from "@/lib/pdf-processing"
 import { checkDocumentsLimit } from "@/lib/rate-limit"
 
@@ -44,7 +45,7 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
 
     await prisma.document.update({
       where: { id },
-      data: { status: "PROCESSING", errorMessage: null, updatedAt: new Date() },
+      data: { status: DocumentStatus.PROCESSING, errorMessage: null, updatedAt: new Date() },
     })
 
     processDocumentPdf(id).catch((e) => {

@@ -8,6 +8,7 @@ import { parseStatementByBank } from "@/lib/bank-parsers"
 import { importTransactionsFromPdfWithDedup } from "@/lib/transaction-import"
 import { prisma } from "@/lib/db"
 import { logger } from "@/lib/logger"
+import { DocumentStatus } from "@prisma/client"
 
 // Implementação local de withTimeout
 function withTimeout<T>(
@@ -99,7 +100,7 @@ export class CostAwarePDFProcessor {
       }
 
       // 4. Atualizar status para PROCESSING
-      await this.updateDocumentStatus(documentId, "PROCESSING")
+      await this.updateDocumentStatus(documentId, DocumentStatus.PROCESSING)
 
       // 5. Processamento principal com controle de custo
       const result = await this.processPDFMain(documentId, buffer, fileName, userId, cost, warnings)
@@ -111,7 +112,7 @@ export class CostAwarePDFProcessor {
       this.updateUserCosts(userId, cost.total)
 
       if (result.success) {
-        await this.updateDocumentStatus(documentId, "COMPLETED")
+        await this.updateDocumentStatus(documentId, DocumentStatus.COMPLETED)
         logger.pdf("completed", documentId, userId, {
           processingTime,
           transactions: result.transactions,
@@ -149,7 +150,7 @@ export class CostAwarePDFProcessor {
           cost.total = cost.openai + cost.processing
           this.updateUserCosts(userId, cost.total)
 
-          await this.updateDocumentStatus(documentId, "COMPLETED")
+          await this.updateDocumentStatus(documentId, DocumentStatus.COMPLETED)
 
           return {
             ...fallbackResult,
@@ -160,7 +161,7 @@ export class CostAwarePDFProcessor {
           }
         } catch (fallbackError) {
           // Fallback também falhou
-          await this.updateDocumentStatus(documentId, "FAILED", errorMessage)
+          await this.updateDocumentStatus(documentId, DocumentStatus.FAILED, errorMessage)
           logger.error("Both main and fallback processing failed", "pdf", {
             documentId,
             userId,
@@ -179,7 +180,7 @@ export class CostAwarePDFProcessor {
         }
       } else {
         // Erro de custo ou duplicação - não tentar fallback
-        await this.updateDocumentStatus(documentId, "FAILED", errorMessage)
+        await this.updateDocumentStatus(documentId, DocumentStatus.FAILED, errorMessage)
 
         return {
           success: false,
@@ -232,7 +233,7 @@ export class CostAwarePDFProcessor {
       const existingDocCheck = await prisma.document.findFirst({
         where: {
           userId,
-          status: "COMPLETED",
+          status: DocumentStatus.COMPLETED,
           createdAt: {
             gte: new Date(Date.now() - 24 * 60 * 60 * 1000), // Últimas 24h
           },
@@ -476,13 +477,13 @@ export class CostAwarePDFProcessor {
     return transactions.slice(0, 100) // Limitar para não sobrecarregar
   }
 
-  private async updateDocumentStatus(documentId: string, status: string, error?: string) {
+  private async updateDocumentStatus(documentId: string, status: DocumentStatus, error?: string) {
     try {
       await prisma.document.update({
         where: { id: documentId },
         data: {
           status,
-          ...(error && { error }),
+          ...(error && { errorMessage: error }),
           updatedAt: new Date(),
         },
       })
