@@ -99,12 +99,48 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 6. Criar registros no banco e disparar processamento em background
+    // 6. Processar cada arquivo de forma síncrona dentro da request
+    // (Vercel serverless não suporta background tasks — o processo encerra após a resposta)
     const userId = session.user.id
     const createdDocs = await Promise.all(
       files.map(async (file) => {
         const isPdf = file.name.toLowerCase().endsWith(".pdf")
         const mimeType = isPdf ? "application/pdf" : (file.type || "application/octet-stream")
+        const buffer = Buffer.from(await file.arrayBuffer())
+
+        // Tentar extrair texto e transações dentro da request
+        let extractedText: string | null = null
+        let errorMessage: string | null = null
+
+        if (isPdf) {
+          try {
+            const text = await extractTextFromPdf(buffer)
+            if (text && text.length >= 10) {
+              extractedText = text.slice(0, 10000)
+              try {
+                const bank = detectBankFromText(text)
+                const rows = parseStatementByBank(text)
+                if (rows.length > 0) {
+                  const transactions = rows.map((row) => ({
+                    type: row.type,
+                    category: "Outros",
+                    subcategory: null as string | null,
+                    amount: row.amount,
+                    description: row.description,
+                    date: row.date,
+                  }))
+                  await importTransactionsFromPdfWithDedup(userId, transactions)
+                  console.log(`✅ ${file.name}: ${rows.length} transações (banco: ${bank})`)
+                }
+              } catch (parseErr) {
+                console.warn(`⚠️ ${file.name}: parse falhou (ignorado):`, parseErr)
+              }
+            }
+          } catch (extractErr) {
+            console.warn(`⚠️ ${file.name}: extração falhou:`, extractErr)
+            errorMessage = extractErr instanceof Error ? extractErr.message : "Extração falhou"
+          }
+        }
 
         const doc = await prisma.document.create({
           data: {
@@ -113,22 +149,11 @@ export async function POST(request: NextRequest) {
             fileName: file.name,
             mimeType,
             fileSize: file.size,
-            status: DocumentStatus.PROCESSING,
+            status: DocumentStatus.COMPLETED,
+            extractedText,
+            errorMessage,
           },
         })
-
-        if (isPdf) {
-          const buffer = Buffer.from(await file.arrayBuffer())
-          processPdfBackground(doc.id, buffer, file.name, userId).catch((err) => {
-            console.error(`processPdfBackground failed for doc ${doc.id}:`, err)
-          })
-        } else {
-          // Não-PDF: salva como COMPLETED direto (sem extração de texto)
-          prisma.document.update({
-            where: { id: doc.id },
-            data: { status: DocumentStatus.COMPLETED },
-          }).catch(() => {})
-        }
 
         return { id: doc.id, name: doc.name, status: doc.status }
       })
@@ -153,61 +178,3 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function processPdfBackground(
-  documentId: string,
-  buffer: Buffer,
-  fileName: string,
-  userId: string
-) {
-  try {
-    // Extrair texto (já tem try-catch interno, retorna "" se falhar)
-    const text = await extractTextFromPdf(buffer)
-
-    if (text && text.length >= 10) {
-      await prisma.document.update({
-        where: { id: documentId },
-        data: { extractedText: text.slice(0, 10000) },
-      })
-
-      // Tentar parsear transações
-      try {
-        const bank = detectBankFromText(text)
-        const rows = parseStatementByBank(text)
-
-        if (rows.length > 0) {
-          const transactions = rows.map((row) => ({
-            type: row.type,
-            category: "Outros",
-            subcategory: null as string | null,
-            amount: row.amount,
-            description: row.description,
-            date: row.date,
-          }))
-
-          await importTransactionsFromPdfWithDedup(userId, transactions)
-          console.log(`✅ ${fileName}: ${rows.length} transações importadas (banco: ${bank})`)
-        } else {
-          console.log(`ℹ️ ${fileName}: texto extraído mas sem transações reconhecidas`)
-        }
-      } catch (parseErr) {
-        // Falha no parse não deve marcar o documento como FAILED
-        console.warn(`⚠️ ${fileName}: erro ao parsear transações (ignorado):`, parseErr)
-      }
-    }
-
-    // Sempre marca como COMPLETED — o upload foi bem-sucedido
-    await prisma.document.update({
-      where: { id: documentId },
-      data: { status: DocumentStatus.COMPLETED },
-    })
-  } catch (error) {
-    console.error(`❌ processPdfBackground error (doc ${documentId}):`, error)
-    await prisma.document.update({
-      where: { id: documentId },
-      data: {
-        status: DocumentStatus.FAILED,
-        errorMessage: error instanceof Error ? error.message : "Erro desconhecido",
-      },
-    }).catch(() => {})
-  }
-}
