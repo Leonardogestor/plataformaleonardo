@@ -1,5 +1,5 @@
 {
-  "buildCommand": "next build",
+  "buildCommand": "prisma generate && prisma migrate deploy && next build",
   "framework": "nextjs",
   "installCommand": "npm install --force --include=dev",
   "functions": {
