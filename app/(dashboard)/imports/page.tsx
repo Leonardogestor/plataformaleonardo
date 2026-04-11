@@ -45,8 +45,9 @@ export default function ImportsPage() {
       const response = await fetch("/api/documents")
       if (response.ok) {
         const data = await response.json()
-        setProcessedData(data.documents || [])
-        console.log("📊 Documentos carregados:", data)
+        // GET /api/documents retorna array direto
+        setProcessedData(Array.isArray(data) ? data : (data.documents || []))
+        console.log("📊 Documentos carregados:", Array.isArray(data) ? data.length : data)
       }
     } catch (error) {
       console.error("Error loading documents:", error)
