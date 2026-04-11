@@ -7,6 +7,7 @@ import { extractTextFromPdf } from "@/lib/document-extract"
 import { parseStatementByBank, detectBankFromText } from "@/lib/bank-parsers"
 import { importTransactionsFromPdfWithDedup } from "@/lib/transaction-import"
 import { checkDocumentsLimit } from "@/lib/rate-limit"
+import { deleteDocumentBlob } from "@/lib/blob"
 
 const MAX_SIZE = 10 * 1024 * 1024 // 10MB
 
@@ -175,6 +176,36 @@ export async function POST(request: NextRequest) {
       { error: "Erro ao salvar documento. Tente novamente.", detail },
       { status: 500 }
     )
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
+    }
+
+    const { ids } = await request.json().catch(() => ({ ids: null }))
+    const where = ids?.length
+      ? { userId: session.user.id, id: { in: ids as string[] } }
+      : { userId: session.user.id }
+
+    const docs = await prisma.document.findMany({ where, select: { id: true, fileUrl: true, fileKey: true } })
+
+    await Promise.allSettled(
+      docs.map((doc) => {
+        const ref = doc.fileUrl ?? doc.fileKey
+        return ref ? deleteDocumentBlob(ref) : Promise.resolve()
+      })
+    )
+
+    await prisma.document.deleteMany({ where })
+
+    return NextResponse.json({ success: true, deleted: docs.length })
+  } catch (error) {
+    console.error("DELETE /api/documents error:", error)
+    return NextResponse.json({ error: "Erro ao excluir documentos" }, { status: 500 })
   }
 }
 

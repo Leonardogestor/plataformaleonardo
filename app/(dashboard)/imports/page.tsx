@@ -12,7 +12,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Upload, FileText, AlertCircle, RefreshCw } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Upload, FileText, AlertCircle, RefreshCw, Trash2, Download } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 
 export default function ImportsPage() {
@@ -22,6 +28,11 @@ export default function ImportsPage() {
   const [selectedMonth, setSelectedMonth] = useState("")
   const [selectedYear, setSelectedYear] = useState("")
   const [processedData, setProcessedData] = useState<any[]>([])
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [detailsDoc, setDetailsDoc] = useState<any | null>(null)
+  const [transactionsDoc, setTransactionsDoc] = useState<{ doc: any; data: any } | null>(null)
+  const [loadingDetails, setLoadingDetails] = useState<string | null>(null)
+  const [loadingTransactions, setLoadingTransactions] = useState<string | null>(null)
 
   // Load existing documents on page mount
   useEffect(() => {
@@ -57,6 +68,97 @@ export default function ImportsPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       setFiles(Array.from(e.target.files))
+    }
+  }
+
+  const handleVerDetalhes = async (doc: any) => {
+    setLoadingDetails(doc.id)
+    try {
+      const response = await fetch(`/api/documents/${doc.id}`)
+      if (!response.ok) throw new Error()
+      const data = await response.json()
+      setDetailsDoc(data)
+    } catch {
+      toast({ title: "Erro ao carregar detalhes", variant: "destructive" })
+    } finally {
+      setLoadingDetails(null)
+    }
+  }
+
+  const handleVerTransacoes = async (doc: any) => {
+    setLoadingTransactions(doc.id)
+    try {
+      const response = await fetch(`/api/documents/${doc.id}/transactions`)
+      if (!response.ok) throw new Error()
+      const data = await response.json()
+      setTransactionsDoc({ doc, data })
+    } catch {
+      toast({ title: "Erro ao carregar transações", variant: "destructive" })
+    } finally {
+      setLoadingTransactions(null)
+    }
+  }
+
+  const handleExportar = async (doc: any) => {
+    try {
+      const response = await fetch(`/api/documents/${doc.id}/transactions`)
+      if (!response.ok) throw new Error()
+      const data = await response.json()
+      const transactions = data.transactions ?? []
+
+      if (transactions.length === 0) {
+        toast({ title: "Nenhuma transação para exportar", variant: "destructive" })
+        return
+      }
+
+      const header = "Data,Descrição,Categoria,Subcategoria,Valor (R$)"
+      const rows = transactions.map((t: any) =>
+        [
+          t.date,
+          `"${(t.description ?? "").replace(/"/g, '""')}"`,
+          t.category ?? "",
+          t.subcategory ?? "",
+          t.amount.toFixed(2),
+        ].join(",")
+      )
+      const csv = [header, ...rows].join("\n")
+      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `transacoes_${doc.fileName?.replace(/\.[^.]+$/, "") ?? doc.id}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast({ title: `${transactions.length} transações exportadas` })
+    } catch {
+      toast({ title: "Erro ao exportar transações", variant: "destructive" })
+    }
+  }
+
+  const handleDeleteAll = async () => {
+    if (!confirm(`Tem certeza que deseja excluir todos os ${processedData.length} documentos?`)) return
+    try {
+      const response = await fetch("/api/documents", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) })
+      if (!response.ok) throw new Error()
+      setProcessedData([])
+      toast({ title: `${processedData.length} documentos excluídos com sucesso` })
+    } catch {
+      toast({ title: "Erro ao excluir documentos", variant: "destructive" })
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Tem certeza que deseja excluir este documento?")) return
+    setDeletingId(id)
+    try {
+      const response = await fetch(`/api/documents/${id}`, { method: "DELETE" })
+      if (!response.ok) throw new Error("Erro ao excluir")
+      setProcessedData((prev) => prev.filter((doc) => doc.id !== id))
+      toast({ title: "Documento excluído com sucesso" })
+    } catch (error) {
+      toast({ title: "Erro ao excluir documento", variant: "destructive" })
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -250,10 +352,16 @@ export default function ImportsPage() {
                 </CardTitle>
                 <CardDescription>Resultados do processamento dos seus arquivos</CardDescription>
               </div>
-              <Button onClick={loadDocuments} variant="outline" size="sm">
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Atualizar
-              </Button>
+              <div className="flex gap-2">
+                <Button onClick={loadDocuments} variant="outline" size="sm">
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Atualizar
+                </Button>
+                <Button onClick={handleDeleteAll} variant="outline" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Excluir Todos
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -353,18 +461,33 @@ export default function ImportsPage() {
                     </div>
                   )}
 
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline">
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={loadingDetails === doc.id}
+                      onClick={() => handleVerDetalhes(doc)}
+                    >
                       <FileText className="h-4 w-4 mr-1" />
-                      Ver Detalhes
+                      {loadingDetails === doc.id ? "Carregando..." : "Ver Detalhes"}
                     </Button>
                     {doc.status === "COMPLETED" && (
                       <>
-                        <Button size="sm" variant="outline">
-                          📊 Ver Transações
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={loadingTransactions === doc.id}
+                          onClick={() => handleVerTransacoes(doc)}
+                        >
+                          {loadingTransactions === doc.id ? "Carregando..." : "📊 Ver Transações"}
                         </Button>
-                        <Button size="sm" variant="outline">
-                          📥 Exportar
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleExportar(doc)}
+                        >
+                          <Download className="h-4 w-4 mr-1" />
+                          Exportar CSV
                         </Button>
                       </>
                     )}
@@ -373,6 +496,16 @@ export default function ImportsPage() {
                         🔄 Reprocessar
                       </Button>
                     )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="ml-auto text-red-600 hover:text-red-700 hover:bg-red-50"
+                      disabled={deletingId === doc.id}
+                      onClick={() => handleDelete(doc.id)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      {deletingId === doc.id ? "Excluindo..." : "Excluir"}
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -429,6 +562,73 @@ export default function ImportsPage() {
           </ul>
         </CardContent>
       </Card>
+
+      {/* Modal: Ver Detalhes */}
+      <Dialog open={!!detailsDoc} onOpenChange={(open) => !open && setDetailsDoc(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Detalhes do Documento</DialogTitle>
+          </DialogHeader>
+          {detailsDoc && (
+            <div className="space-y-4 text-sm">
+              <div className="grid grid-cols-2 gap-3">
+                <div><span className="text-muted-foreground">Nome:</span><p className="font-medium">{detailsDoc.name}</p></div>
+                <div><span className="text-muted-foreground">Arquivo:</span><p className="font-medium">{detailsDoc.fileName}</p></div>
+                <div><span className="text-muted-foreground">Status:</span><p className="font-medium">{detailsDoc.status}</p></div>
+                <div><span className="text-muted-foreground">Tamanho:</span><p className="font-medium">{detailsDoc.fileSize ? `${(detailsDoc.fileSize / 1024 / 1024).toFixed(2)} MB` : "N/A"}</p></div>
+                <div><span className="text-muted-foreground">Criado em:</span><p className="font-medium">{detailsDoc.createdAt ? new Date(detailsDoc.createdAt).toLocaleString("pt-BR") : "N/A"}</p></div>
+                <div><span className="text-muted-foreground">Transações:</span><p className="font-medium">{detailsDoc.transactionCount ?? 0}</p></div>
+              </div>
+              {detailsDoc.errorMessage && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded text-red-700">
+                  <strong>Erro:</strong> {detailsDoc.errorMessage}
+                </div>
+              )}
+              {detailsDoc.extractedText && (
+                <div>
+                  <p className="text-muted-foreground mb-1">Texto extraído ({detailsDoc.extractedText.length} caracteres):</p>
+                  <div className="p-3 bg-muted rounded text-xs font-mono max-h-48 overflow-y-auto whitespace-pre-wrap">
+                    {detailsDoc.extractedText.slice(0, 1000)}{detailsDoc.extractedText.length > 1000 ? "..." : ""}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Ver Transações */}
+      <Dialog open={!!transactionsDoc} onOpenChange={(open) => !open && setTransactionsDoc(null)}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Transações — {transactionsDoc?.doc?.name}</DialogTitle>
+          </DialogHeader>
+          {transactionsDoc && (
+            <div className="space-y-3">
+              {transactionsDoc.data.transactions?.length === 0 ? (
+                <p className="text-muted-foreground text-sm text-center py-6">Nenhuma transação encontrada para este documento.</p>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground">{transactionsDoc.data.transactions?.length} transação(ões) encontrada(s)</p>
+                  <div className="space-y-2">
+                    {transactionsDoc.data.transactions?.map((t: any) => (
+                      <div key={t.id} className="flex items-center justify-between border rounded p-2 text-sm">
+                        <div>
+                          <p className="font-medium">{t.description}</p>
+                          <p className="text-xs text-muted-foreground">{t.date} · {t.category}</p>
+                        </div>
+                        <span className={t.amount >= 0 ? "text-green-600 font-semibold" : "text-red-600 font-semibold"}>
+                          {t.amount >= 0 ? "+" : ""}R$ {Math.abs(t.amount).toFixed(2)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
