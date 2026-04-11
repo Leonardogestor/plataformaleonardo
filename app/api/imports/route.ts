@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import type { Prisma } from "@prisma/client"
+import { DocumentStatus } from "@prisma/client"
 
 /**
  * GET – List import sessions for the current user
@@ -76,15 +77,17 @@ export async function GET(request: NextRequest) {
         })
 
         // Atualizar status baseado nos documentos
-        const allCompleted = acc[key].documents.every((d: any) => d.status === "COMPLETED")
-        const anyFailed = acc[key].documents.some((d: any) => d.status === "FAILED")
+        const allCompleted = acc[key].documents.every(
+          (d: any) => d.status === DocumentStatus.COMPLETED
+        )
+        const anyFailed = acc[key].documents.some((d: any) => d.status === DocumentStatus.FAILED)
 
         if (allCompleted) {
-          acc[key].status = "COMPLETED" as const
+          acc[key].status = DocumentStatus.COMPLETED
         } else if (anyFailed) {
-          acc[key].status = "FAILED" as const
+          acc[key].status = DocumentStatus.FAILED
         } else {
-          acc[key].status = "PROCESSING" as const
+          acc[key].status = DocumentStatus.PROCESSING
         }
 
         return acc
