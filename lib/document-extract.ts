@@ -6,14 +6,26 @@
 const MAX_EXTRACT_LENGTH = 100_000
 
 export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
+  // Attempt 1: direct require of the lib entry (avoids Vercel/serverless test-file crash)
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const pdfParse = require("pdf-parse/lib/pdf-parse.js") as (b: Buffer) => Promise<{ text?: string }>
+    const data = await pdfParse(buffer)
+    const text = typeof data?.text === "string" ? data.text : ""
+    if (text.trim().length >= 10) return text.slice(0, MAX_EXTRACT_LENGTH).trim()
+  } catch (e) {
+    console.warn("pdf-parse (lib) failed:", e)
+  }
+
+  // Attempt 2: dynamic import fallback
   try {
     const mod = await import("pdf-parse")
-    const pdfParse = (mod as { default?: (b: Buffer) => Promise<{ text?: string }> }).default ?? (mod as (b: Buffer) => Promise<{ text?: string }>)
+    const pdfParse = (mod as { default?: (b: Buffer) => Promise<{ text?: string }> }).default ?? (mod as unknown as (b: Buffer) => Promise<{ text?: string }>)
     const data = await pdfParse(buffer)
     const text = typeof data?.text === "string" ? data.text : ""
     return text.slice(0, MAX_EXTRACT_LENGTH).trim()
   } catch (e) {
-    console.warn("pdf-parse extraction failed:", e)
+    console.warn("pdf-parse (import) failed:", e)
     return ""
   }
 }

@@ -129,28 +129,82 @@ export function parseBradescoStatement(text: string): NormalizedTransactionRow[]
 }
 
 /**
- * Nubank: often table with date, description, value (negative = expense).
+ * Nubank: extrato no formato "DD MMM YYYY Total de entradas/saídas"
+ * com transações em linhas subsequentes: "Descrição ... VALOR" ou VALOR em linha própria.
+ * Exemplo:
+ *   01 SET 2025 Total de entradas + 917,77
+ *   Estorno - Transferência enviada pelo Pix ALELO... 70,00
+ *   Total de saídas - 1.348,97
+ *   Compra no débito IFD*IFOOD CLUB 5,95
  */
 export function parseNubankStatement(text: string): NormalizedTransactionRow[] {
   const rows: NormalizedTransactionRow[] = []
   const lines = text.split(/\n/).map((l) => l.trim()).filter(Boolean)
-  const dateAmountRe = /(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\s+(.+?)\s+([-]?[\d.,]+)\s*$/
-  for (const line of lines) {
-    const m = line.match(dateAmountRe)
-    if (m) {
-      const [, d, mo, y, desc, amountRaw] = m
-      const dateStr = y ? `${d}/${mo}/${y}` : `${d}/${mo}`
-      const amount = parseAmount(amountRaw)
-      if (amount <= 0) continue
-      const isNegative = amountRaw.trim().startsWith("-")
-      rows.push({
-        date: toISODate(dateStr),
-        description: desc.trim().slice(0, 500) || "Transação",
-        amount,
-        type: isNegative ? "EXPENSE" : "INCOME",
-      })
-    }
+
+  const monthMap: Record<string, string> = {
+    JAN: "01", FEV: "02", MAR: "03", ABR: "04", MAI: "05", JUN: "06",
+    JUL: "07", AGO: "08", SET: "09", OUT: "10", NOV: "11", DEZ: "12",
   }
+
+  // Matches: "01 SET 2025" or "01 SET 2025 Total de entradas + 917,77"
+  const dateHeaderRe = /^(\d{1,2})\s+(JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)\s+(\d{4})/i
+  // Matches a line that IS ONLY an amount, e.g. "70,00" or "1.234,56"
+  const onlyAmountRe = /^[\d.]+,\d{2}$/
+  // Matches a line ending with an amount after some text
+  const endsWithAmountRe = /^(.+?)\s+([\d.]+,\d{2})$/
+
+  let currentDate = new Date().toISOString().slice(0, 10)
+  let currentType: "INCOME" | "EXPENSE" = "EXPENSE"
+  let descParts: string[] = []
+
+  const flushPending = (amount: number) => {
+    if (descParts.length === 0) return
+    const description = descParts.join(" ").replace(/\s+/g, " ").trim().slice(0, 500) || "Transação"
+    rows.push({ date: currentDate, description, amount, type: currentType })
+    descParts = []
+  }
+
+  for (const line of lines) {
+    // Skip section total lines, but capture type
+    if (/total de entradas/i.test(line)) { currentType = "INCOME"; descParts = []; continue }
+    if (/total de saídas/i.test(line))   { currentType = "EXPENSE"; descParts = []; continue }
+    // Skip footer/header junk
+    if (/^(saldo|rendimento|extrato gerado|tem alguma|ouvidoria|nu financeira|nu pagamentos|cnpj|atendimento)/i.test(line)) continue
+
+    // Date header → update current date
+    const dateMatch = line.match(dateHeaderRe)
+    if (dateMatch) {
+      const [, day, monthName, year] = dateMatch
+      const month = monthMap[monthName.toUpperCase()] ?? "01"
+      currentDate = `${year}-${month}-${day.padStart(2, "0")}`
+      descParts = []
+      continue
+    }
+
+    // Line is ONLY an amount → close pending description
+    if (onlyAmountRe.test(line)) {
+      const amount = parseAmount(line)
+      if (amount > 0) flushPending(amount)
+      continue
+    }
+
+    // Line ends with an amount (description + amount on same line)
+    const endMatch = line.match(endsWithAmountRe)
+    if (endMatch) {
+      const [, desc, amountRaw] = endMatch
+      const amount = parseAmount(amountRaw)
+      if (amount > 0) {
+        // Flush any pending multi-line desc first (attach this desc too)
+        descParts.push(desc.trim())
+        flushPending(amount)
+        continue
+      }
+    }
+
+    // Otherwise accumulate as part of a multi-line description
+    descParts.push(line)
+  }
+
   return rows
 }
 
