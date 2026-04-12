@@ -2,7 +2,6 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
-  serverExternalPackages: ['pdf-parse'],
   images: {
     domains: ['localhost'],
   },
@@ -10,6 +9,7 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: '10mb',
     },
+    serverComponentsExternalPackages: ['pdf-parse'],
   },
   // Otimizações de performance
   webpack: (config, { isServer }) => {
