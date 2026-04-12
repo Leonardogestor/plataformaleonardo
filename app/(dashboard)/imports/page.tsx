@@ -18,7 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Upload, FileText, AlertCircle, RefreshCw, Trash2, Download } from "lucide-react"
+import { Upload, FileText, AlertCircle, RefreshCw, Trash2, Download, Pencil } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 
 export default function ImportsPage() {
@@ -33,6 +33,9 @@ export default function ImportsPage() {
   const [transactionsDoc, setTransactionsDoc] = useState<{ doc: any; data: any } | null>(null)
   const [loadingDetails, setLoadingDetails] = useState<string | null>(null)
   const [loadingTransactions, setLoadingTransactions] = useState<string | null>(null)
+  const [renamingDoc, setRenamingDoc] = useState<{ id: string; name: string } | null>(null)
+  const [renameValue, setRenameValue] = useState("")
+  const [savingRename, setSavingRename] = useState(false)
 
   // Load existing documents on page mount
   useEffect(() => {
@@ -68,6 +71,33 @@ export default function ImportsPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       setFiles(Array.from(e.target.files))
+    }
+  }
+
+  const openRename = (doc: any) => {
+    setRenamingDoc({ id: doc.id, name: doc.name })
+    setRenameValue(doc.name)
+  }
+
+  const handleRename = async () => {
+    if (!renamingDoc || !renameValue.trim()) return
+    setSavingRename(true)
+    try {
+      const response = await fetch(`/api/documents/${renamingDoc.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: renameValue.trim() }),
+      })
+      if (!response.ok) throw new Error()
+      setProcessedData((prev) =>
+        prev.map((d) => (d.id === renamingDoc.id ? { ...d, name: renameValue.trim() } : d))
+      )
+      setRenamingDoc(null)
+      toast({ title: "Nome atualizado com sucesso" })
+    } catch {
+      toast({ title: "Erro ao renomear documento", variant: "destructive" })
+    } finally {
+      setSavingRename(false)
     }
   }
 
@@ -370,7 +400,16 @@ export default function ImportsPage() {
                 <div key={doc.id || index} className="border rounded-lg p-4">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex-1">
-                      <h4 className="font-semibold text-lg">{doc.name}</h4>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-semibold text-lg">{doc.name}</h4>
+                        <button
+                          onClick={() => openRename(doc)}
+                          className="text-muted-foreground hover:text-foreground transition-colors"
+                          title="Renomear"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                       <p className="text-sm text-muted-foreground">{doc.fileName}</p>
                     </div>
                     <span
@@ -606,7 +645,14 @@ export default function ImportsPage() {
           {transactionsDoc && (
             <div className="space-y-3">
               {transactionsDoc.data.transactions?.length === 0 ? (
-                <p className="text-muted-foreground text-sm text-center py-6">Nenhuma transação encontrada para este documento.</p>
+                <div className="py-6 space-y-3">
+                  <p className="text-center text-muted-foreground text-sm">Nenhuma transação encontrada para este documento.</p>
+                  {!transactionsDoc.doc.extractedText && (
+                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
+                      <strong>Por quê?</strong> O texto deste PDF não pôde ser extraído automaticamente — o arquivo provavelmente é baseado em imagem (escaneado) ou está protegido. O parser só funciona em PDFs com texto digital. Para importar as transações, exporte o extrato diretamente do app/site do banco no formato PDF digital ou CSV.
+                    </div>
+                  )}
+                </div>
               ) : (
                 <>
                   <p className="text-sm text-muted-foreground">{transactionsDoc.data.transactions?.length} transação(ões) encontrada(s)</p>
@@ -627,6 +673,33 @@ export default function ImportsPage() {
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Renomear */}
+      <Dialog open={!!renamingDoc} onOpenChange={(open) => !open && setRenamingDoc(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Renomear documento</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="rename-input">Nome</Label>
+              <Input
+                id="rename-input"
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleRename()}
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setRenamingDoc(null)}>Cancelar</Button>
+              <Button onClick={handleRename} disabled={savingRename || !renameValue.trim()}>
+                {savingRename ? "Salvando..." : "Salvar"}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
