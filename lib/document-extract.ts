@@ -7,13 +7,22 @@ const MAX_EXTRACT_LENGTH = 100_000
 
 export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
   try {
-    const mod = await import("pdf-parse")
-    const pdfParse = (mod as { default?: (b: Buffer) => Promise<{ text?: string }> }).default ?? (mod as unknown as (b: Buffer) => Promise<{ text?: string }>)
-    const data = await pdfParse(buffer)
-    const text = typeof data?.text === "string" ? data.text : ""
-    return text.slice(0, MAX_EXTRACT_LENGTH).trim()
+    // pdfjs-dist works reliably in Vercel serverless (no test-file side effects)
+    const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs")
+    const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer) })
+    const pdf = await loadingTask.promise
+    const parts: string[] = []
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i)
+      const content = await page.getTextContent()
+      const pageText = content.items
+        .map((item: { str?: string }) => item.str ?? "")
+        .join(" ")
+      parts.push(pageText)
+    }
+    return parts.join("\n").slice(0, MAX_EXTRACT_LENGTH).trim()
   } catch (e) {
-    console.warn("pdf-parse extraction failed:", e)
+    console.warn("pdfjs-dist extraction failed:", e)
     return ""
   }
 }
