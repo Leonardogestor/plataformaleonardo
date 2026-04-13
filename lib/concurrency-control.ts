@@ -1,3 +1,4 @@
+import { DocumentStatus } from "@prisma/client"
 /**
  * Controle de Concorrência - Anti-Caos
  * Fila simples, limites e priorização real
@@ -293,7 +294,7 @@ class ConcurrencyController {
 
   // Verificar status de tarefa
   getTaskStatus(taskId: string): {
-    status: "queued" | "processing" | "completed" | "failed" | "not_found"
+    status: DocumentStatus | "queued" | "processing" | "completed" | "failed" | "not_found"
     queueType?: string
     workerId?: number
   } {
@@ -301,14 +302,14 @@ class ConcurrencyController {
     for (const [queueType, queue] of this.queues) {
       const found = queue.find((task) => task.id === taskId)
       if (found) {
-        return { status: "queued", queueType }
+        return { status: DocumentStatus.PROCESSING, queueType }
       }
     }
 
     // Verificar se está processando
     for (const [queueType, processing] of this.processing) {
       if (processing.has(taskId)) {
-        return { status: "processing", queueType }
+        return { status: DocumentStatus.PROCESSING, queueType }
       }
     }
 

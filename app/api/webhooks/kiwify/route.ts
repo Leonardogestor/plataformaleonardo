@@ -1,3 +1,4 @@
+import { DocumentStatus } from "@prisma/client"
 import { NextRequest, NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/db"
@@ -117,7 +118,7 @@ async function isEventProcessed(eventId: string): Promise<boolean> {
       select: { id: true, status: true },
     })
 
-    return existing?.status === "completed"
+    return existing?.status === DocumentStatus.COMPLETED
   } catch (error) {
     logSafe.error("Failed to check event processing status", error)
     // Fail safe - assume not processed to avoid missing events
@@ -144,7 +145,7 @@ async function markEventProcessed(
       await prisma.processedWebhookEvent.update({
         where: { id: existing.id },
         data: {
-          status: "completed",
+          status: DocumentStatus.COMPLETED,
           userId,
           orderId,
           subscriptionId,
@@ -158,7 +159,7 @@ async function markEventProcessed(
         data: {
           eventId,
           eventType,
-          status: "completed",
+          status: DocumentStatus.COMPLETED,
           userId,
           orderId,
           subscriptionId,
@@ -188,7 +189,7 @@ async function markEventFailed(
       await prisma.processedWebhookEvent.update({
         where: { id: existing.id },
         data: {
-          status: "failed",
+          status: DocumentStatus.FAILED,
           errorMessage,
         },
       })
@@ -198,7 +199,7 @@ async function markEventFailed(
         data: {
           eventId,
           eventType,
-          status: "failed",
+          status: DocumentStatus.FAILED,
           errorMessage,
         },
       })

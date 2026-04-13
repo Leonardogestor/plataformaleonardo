@@ -15,6 +15,7 @@ export interface NormalizedTransaction {
   description: string
   date: string // ISO date
   accountId?: string | null
+  confidence?: number // compatível com AI parser
 }
 
 export interface ImportTransactionsResult {

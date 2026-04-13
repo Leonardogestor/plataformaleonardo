@@ -638,41 +638,108 @@ export default function ImportsPage() {
 
       {/* Modal: Ver Transações */}
       <Dialog open={!!transactionsDoc} onOpenChange={(open) => !open && setTransactionsDoc(null)}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Transações — {transactionsDoc?.doc?.name}</DialogTitle>
           </DialogHeader>
-          {transactionsDoc && (
-            <div className="space-y-3">
-              {transactionsDoc.data.transactions?.length === 0 ? (
-                <div className="py-6 space-y-3">
+          {transactionsDoc && (() => {
+            const txs: any[] = transactionsDoc.data.transactions ?? []
+            const totalEntradas = txs.filter((t) => t.amount >= 0).reduce((s, t) => s + Math.abs(t.amount), 0)
+            const totalSaidas = txs.filter((t) => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0)
+            const saldo = totalEntradas - totalSaidas
+
+            if (txs.length === 0) {
+              return (
+                <div className="py-8 space-y-4">
                   <p className="text-center text-muted-foreground text-sm">Nenhuma transação encontrada para este documento.</p>
                   {!transactionsDoc.doc.extractedText && (
-                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
-                      <strong>Por quê?</strong> O texto deste PDF não pôde ser extraído automaticamente — o arquivo provavelmente é baseado em imagem (escaneado) ou está protegido. O parser só funciona em PDFs com texto digital. Para importar as transações, exporte o extrato diretamente do app/site do banco no formato PDF digital ou CSV.
+                    <div className="p-4 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800 space-y-2">
+                      <p><strong>Por quê?</strong> O texto deste PDF não pôde ser extraído automaticamente.</p>
+                      <p>O arquivo pode ser baseado em imagem (escaneado) ou protegido contra cópia. O parser funciona apenas em PDFs com texto digital.</p>
+                      <p><strong>Solução:</strong> Exporte o extrato diretamente do app/site do banco como <strong>CSV</strong> ou como PDF digital (não escaneado), depois faça o upload novamente.</p>
                     </div>
                   )}
                 </div>
-              ) : (
-                <>
-                  <p className="text-sm text-muted-foreground">{transactionsDoc.data.transactions?.length} transação(ões) encontrada(s)</p>
-                  <div className="space-y-2">
-                    {transactionsDoc.data.transactions?.map((t: any) => (
-                      <div key={t.id} className="flex items-center justify-between border rounded p-2 text-sm">
-                        <div>
-                          <p className="font-medium">{t.description}</p>
-                          <p className="text-xs text-muted-foreground">{t.date} · {t.category}</p>
-                        </div>
-                        <span className={t.amount >= 0 ? "text-green-600 font-semibold" : "text-red-600 font-semibold"}>
-                          {t.amount >= 0 ? "+" : ""}R$ {Math.abs(t.amount).toFixed(2)}
-                        </span>
-                      </div>
-                    ))}
+              )
+            }
+
+            return (
+              <div className="flex flex-col gap-4 min-h-0">
+                {/* Resumo */}
+                <div className="grid grid-cols-3 gap-3 shrink-0">
+                  <div className="rounded-lg border p-3 text-center">
+                    <p className="text-xs text-muted-foreground mb-1">Total Entradas</p>
+                    <p className="text-lg font-bold text-green-600">R$ {totalEntradas.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
                   </div>
-                </>
-              )}
-            </div>
-          )}
+                  <div className="rounded-lg border p-3 text-center">
+                    <p className="text-xs text-muted-foreground mb-1">Total Saídas</p>
+                    <p className="text-lg font-bold text-red-600">R$ {totalSaidas.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  <div className="rounded-lg border p-3 text-center">
+                    <p className="text-xs text-muted-foreground mb-1">Saldo</p>
+                    <p className={`text-lg font-bold ${saldo >= 0 ? "text-green-600" : "text-red-600"}`}>
+                      R$ {saldo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Tabela */}
+                <div className="overflow-auto flex-1 rounded-lg border">
+                  <table className="w-full text-sm border-collapse">
+                    <thead className="sticky top-0 bg-muted z-10">
+                      <tr>
+                        <th className="text-left px-3 py-2 font-semibold border-b whitespace-nowrap">Data</th>
+                        <th className="text-left px-3 py-2 font-semibold border-b">Descrição</th>
+                        <th className="text-left px-3 py-2 font-semibold border-b whitespace-nowrap">Categoria</th>
+                        <th className="text-left px-3 py-2 font-semibold border-b whitespace-nowrap">Subcategoria</th>
+                        <th className="text-right px-3 py-2 font-semibold border-b whitespace-nowrap">Valor (R$)</th>
+                        <th className="text-center px-3 py-2 font-semibold border-b whitespace-nowrap">Tipo</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {txs.map((t: any, i: number) => (
+                        <tr key={t.id ?? i} className={i % 2 === 0 ? "bg-background" : "bg-muted/30"}>
+                          <td className="px-3 py-2 font-mono text-xs whitespace-nowrap border-b">
+                            {t.date ? new Date(t.date + "T00:00:00").toLocaleDateString("pt-BR") : "—"}
+                          </td>
+                          <td className="px-3 py-2 border-b max-w-xs">
+                            <span className="block truncate" title={t.description}>{t.description || "—"}</span>
+                          </td>
+                          <td className="px-3 py-2 border-b capitalize whitespace-nowrap">
+                            {t.category || "—"}
+                          </td>
+                          <td className="px-3 py-2 border-b text-muted-foreground capitalize whitespace-nowrap">
+                            {t.subcategory || "—"}
+                          </td>
+                          <td className={`px-3 py-2 border-b text-right font-semibold whitespace-nowrap ${t.amount >= 0 ? "text-green-600" : "text-red-600"}`}>
+                            {t.amount >= 0 ? "+" : ""}
+                            {Math.abs(t.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="px-3 py-2 border-b text-center">
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${t.amount >= 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                              {t.amount >= 0 ? "Entrada" : "Saída"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="sticky bottom-0 bg-muted font-semibold">
+                      <tr>
+                        <td colSpan={4} className="px-3 py-2 border-t text-right text-xs uppercase tracking-wide text-muted-foreground">
+                          {txs.length} transações
+                        </td>
+                        <td className={`px-3 py-2 border-t text-right whitespace-nowrap ${saldo >= 0 ? "text-green-600" : "text-red-600"}`}>
+                          {saldo >= 0 ? "+" : ""}
+                          {saldo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="border-t" />
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            )
+          })()}
         </DialogContent>
       </Dialog>
 

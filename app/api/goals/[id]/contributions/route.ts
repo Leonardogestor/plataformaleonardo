@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { z } from "zod"
+import { DocumentStatus } from "@prisma/client"
 
 const contributionSchema = z.object({
   amount: z.number().positive("Valor deve ser positivo"),
@@ -10,10 +11,7 @@ const contributionSchema = z.object({
   note: z.string().optional(),
 })
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
@@ -54,7 +52,7 @@ export async function POST(
     if (Number(updatedGoal.currentAmount) >= Number(updatedGoal.targetAmount)) {
       await prisma.goal.update({
         where: { id: params.id },
-        data: { status: "COMPLETED" },
+        data: { status: DocumentStatus.COMPLETED },
       })
     }
 
@@ -68,10 +66,7 @@ export async function POST(
   }
 }
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {

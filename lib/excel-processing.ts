@@ -160,28 +160,32 @@ export async function processDocumentExcel(documentId: string): Promise<void> {
         const aiResult = await hybridParseTransactions(JSON.stringify(jsonData, null, 2), "excel")
 
         if (aiResult.transactions.length > 0) {
-          transactions = aiResult.transactions.map((t) => ({
-            type: t.type,
-            category: t.category,
-            amount: t.amount,
-            description: t.description,
-            date: t.date,
-          }))
+          transactions = aiResult.transactions
+            .filter((t) => t.type === "INCOME" || t.type === "EXPENSE")
+            .map((t) => ({
+              type: t.type,
+              category: t.category,
+              amount: t.amount,
+              description: t.description,
+              date: t.date,
+            }))
           parsingMethod = "ai_fallback"
           console.info(`AI parsing recovered ${transactions.length} transactions`)
         }
       } else {
         // Refine traditional parsing with AI
-        const refinedResult = await refineTransactionsWithAI(
-          transactions.map((t) => ({
-            type: t.type,
+        // Filtra TRANSFER, pois o AI/refinador só aceita INCOME/EXPENSE
+        const filteredForAI = transactions
+          .filter((t) => t.type === "INCOME" || t.type === "EXPENSE")
+          .map((t) => ({
+            type: t.type as "INCOME" | "EXPENSE",
             date: t.date,
             description: t.description,
             amount: t.amount,
             category: t.category,
             confidence: 0.8,
           }))
-        )
+        const refinedResult = await refineTransactionsWithAI(filteredForAI)
 
         if (refinedResult.summary.confidence > 0.7) {
           transactions = refinedResult.transactions.map((t) => ({
@@ -198,13 +202,15 @@ export async function processDocumentExcel(documentId: string): Promise<void> {
       console.warn(`Traditional Excel parsing failed, trying AI parsing:`, error)
       const aiResult = await hybridParseTransactions(JSON.stringify(jsonData, null, 2), "excel")
 
-      transactions = aiResult.transactions.map((t) => ({
-        type: t.type,
-        category: t.category,
-        amount: t.amount,
-        description: t.description,
-        date: t.date,
-      }))
+      transactions = aiResult.transactions
+        .filter((t) => t.type === "INCOME" || t.type === "EXPENSE")
+        .map((t) => ({
+          type: t.type,
+          category: t.category,
+          amount: t.amount,
+          description: t.description,
+          date: t.date,
+        }))
       parsingMethod = "ai_only"
     }
 

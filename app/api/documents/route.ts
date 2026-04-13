@@ -4,8 +4,9 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { DocumentStatus } from "@prisma/client"
 import { extractTextFromPdf } from "@/lib/document-extract"
-import { parseStatementByBank, detectBankFromText } from "@/lib/bank-parsers"
+import { detectBankFromText } from "@/lib/bank-parsers"
 import { importTransactionsFromPdfWithDedup } from "@/lib/transaction-import"
+import { parseTransactionsWithAI } from "@/lib/ai-transaction-parser"
 import { checkDocumentsLimit } from "@/lib/rate-limit"
 import { deleteDocumentBlob } from "@/lib/blob"
 
@@ -120,21 +121,21 @@ export async function POST(request: NextRequest) {
               extractedText = text.slice(0, 10000)
               try {
                 const bank = detectBankFromText(text)
-                const rows = parseStatementByBank(text)
-                if (rows.length > 0) {
-                  const transactions = rows.map((row) => ({
-                    type: row.type,
-                    category: "Outros",
+                const aiResult = await parseTransactionsWithAI(text, "pdf", bank)
+                if (aiResult.transactions.length > 0) {
+                  const transactions = aiResult.transactions.map((t) => ({
+                    type: t.type as "INCOME" | "EXPENSE",
+                    category: t.category,
                     subcategory: null as string | null,
-                    amount: row.amount,
-                    description: row.description,
-                    date: row.date,
+                    amount: t.amount,
+                    description: t.description,
+                    date: t.date,
                   }))
                   await importTransactionsFromPdfWithDedup(userId, transactions)
-                  console.log(`✅ ${file.name}: ${rows.length} transações (banco: ${bank})`)
+                  console.log(`✅ ${file.name}: ${transactions.length} transações via AI (banco: ${bank})`)
                 }
               } catch (parseErr) {
-                console.warn(`⚠️ ${file.name}: parse falhou (ignorado):`, parseErr)
+                console.warn(`⚠️ ${file.name}: parse AI falhou (ignorado):`, parseErr)
               }
             }
           } catch (extractErr) {

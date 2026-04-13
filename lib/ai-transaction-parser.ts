@@ -1,18 +1,18 @@
 /**
- * AI-powered transaction parser for unstructured financial data
- * Temporarily simplified for deployment
+ * AI-powered transaction parser for Brazilian bank statements.
+ * Sends extracted PDF/Excel text to OpenAI and returns structured transactions.
+ * Works with any bank format — no regex required.
  */
 
 import { z } from "zod"
 
-// Schema for structured output
 const transactionSchema = z.object({
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
-  description: z.string().min(1, "Description cannot be empty"),
-  amount: z.number().positive("Amount must be positive"),
-  type: z.enum(["INCOME", "EXPENSE", "TRANSFER"]),
-  category: z.string().min(1, "Category cannot be empty"),
-  confidence: z.number().min(0).max(1), // Confidence score
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  description: z.string().min(1),
+  amount: z.number().positive(),
+  type: z.enum(["INCOME", "EXPENSE"]),
+  category: z.string().min(1),
+  confidence: z.number().min(0).max(1),
 })
 
 const aiParserResponseSchema = z.object({
@@ -28,13 +28,99 @@ const aiParserResponseSchema = z.object({
 export type ParsedTransaction = z.infer<typeof transactionSchema>
 export type AIParserResponse = z.infer<typeof aiParserResponseSchema>
 
-// Additional exports for compatibility
-export function hybridParseTransactions(
-  dataString: string,
-  sourceType: "csv" | "pdf" | "excel" | "text" | "ocr" = "text"
-): Promise<AIParserResponse> {
-  return parseTransactionsWithAI(dataString, sourceType)
+const SYSTEM_PROMPT = `Você é um especialista em extrair transações de extratos bancários brasileiros.
+Sua tarefa é analisar o texto de um extrato e retornar TODAS as transações individuais em JSON estruturado.
+
+REGRAS:
+- Ignore cabeçalhos, rodapés, totais diários (ex: "Total de entradas + 917,77"), saldos e resumos
+- Capture APENAS transações individuais com valor próprio
+- type: "INCOME" para entradas (recebimento, transferência recebida, estorno, resgate RDB, reembolso)
+- type: "EXPENSE" para saídas (compra, transferência enviada, pagamento de fatura, aplicação RDB, Pix enviado)
+- Transferências entre contas próprias: use "EXPENSE" para saída e "INCOME" para entrada
+- Datas no extrato Nubank aparecem como "01 SET 2025", "04 JAN 2026" etc — converta para YYYY-MM-DD
+- A data de cada transação é a data do dia em que ela aparece no extrato
+- amount: sempre positivo (número), nunca negativo
+- Valores no formato brasileiro: "1.234,56" → 1234.56
+- description: combine o tipo da transação com a descrição do beneficiário/estabelecimento
+- category: classifique em uma das categorias: Alimentação, Transporte, Saúde, Moradia, Lazer, Educação, Vestuário, Supermercado, Farmácia, Investimento, Renda, Transferência, Outros`
+
+function buildUserPrompt(text: string, bankHint?: string): string {
+  return `${bankHint ? `Banco detectado: ${bankHint}\n\n` : ""}Texto do extrato bancário:
+
+${text}
+
+Retorne um JSON com TODAS as transações encontradas neste extrato. Formato:
+{
+  "transactions": [
+    {
+      "date": "YYYY-MM-DD",
+      "description": "Descrição clara da transação",
+      "amount": 123.45,
+      "type": "INCOME" ou "EXPENSE",
+      "category": "Categoria",
+      "confidence": 0.95
+    }
+  ],
+  "summary": {
+    "totalProcessed": número de transações encontradas,
+    "successful": número de transações com confiança >= 0.7,
+    "confidence": confiança média geral,
+    "notes": "observações sobre o extrato"
+  }
+}`
 }
+
+/**
+ * Parse bank statement text using OpenAI.
+ * Falls back to regex parser if AI is unavailable.
+ */
+export async function parseTransactionsWithAI(
+  text: string,
+  _sourceType: "csv" | "pdf" | "excel" | "text" | "ocr" = "text",
+  bankHint?: string,
+  _existingCategories: string[] = [],
+  _enablePreprocessing: boolean = true,
+  _enableQualityScoring: boolean = true
+): Promise<AIParserResponse> {
+  const apiKey = process.env.OPENAI_API_KEY
+  if (!apiKey) {
+    console.warn("OPENAI_API_KEY not set — falling back to regex parser")
+    return parseTransactionsFallback(text)
+  }
+
+  // Limit text length to avoid token limits
+  const truncated = text.slice(0, 12000)
+
+  try {
+    const OpenAI = await import("openai").then((m) => m.default)
+    const openai = new OpenAI({ apiKey })
+
+    const completion = await openai.chat.completions.create({
+      model: process.env.AI_MODEL || "gpt-4o-mini",
+      temperature: 0.1,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: buildUserPrompt(truncated, bankHint) },
+      ],
+    })
+
+    const raw = completion.choices[0]?.message?.content
+    if (!raw) throw new Error("Empty response from OpenAI")
+
+    const parsed = JSON.parse(raw)
+    const validated = aiParserResponseSchema.parse(parsed)
+
+    console.log(`✅ AI parser: ${validated.transactions.length} transactions extracted`)
+    return validated
+  } catch (error) {
+    console.error("AI parsing failed:", error)
+    return parseTransactionsFallback(text)
+  }
+}
+
+// Alias for compatibility
+export const hybridParseTransactions = parseTransactionsWithAI
 
 export function refineTransactionsWithAI(
   transactions: ParsedTransaction[]
@@ -45,206 +131,57 @@ export function refineTransactionsWithAI(
       totalProcessed: transactions.length,
       successful: transactions.length,
       confidence: 0.8,
-      notes: "Refined with AI (temporarily disabled)",
     },
   })
 }
 
 /**
- * Parse transactions using AI (temporarily disabled)
- */
-export async function parseTransactionsWithAI(
-  dataString: string,
-  sourceType: "csv" | "pdf" | "excel" | "text" | "ocr" = "text",
-  bankHint?: string,
-  existingCategories: string[] = [],
-  enablePreprocessing: boolean = true,
-  enableQualityScoring: boolean = true
-): Promise<AIParserResponse> {
-  try {
-    // Import OpenAI dynamically
-    const OpenAI = await import("openai").then((mod) => mod.default)
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    })
-
-    // Preprocess data if enabled
-    let processedData = dataString
-    if (enablePreprocessing) {
-      processedData = preprocessData(dataString, sourceType)
-    }
-
-    // Create prompt for transaction extraction
-    const prompt = createTransactionExtractionPrompt(
-      processedData,
-      sourceType,
-      bankHint,
-      existingCategories
-    )
-
-    // Call OpenAI API
-    const completion = await openai.chat.completions.create({
-      model: process.env.AI_MODEL || "gpt-4o-mini",
-      temperature: parseFloat(process.env.AI_TEMPERATURE || "0.1"),
-      messages: [
-        {
-          role: "system",
-          content:
-            "Você é um especialista em extrair dados financeiros de documentos bancários. Extraia transações com precisão e retorne no formato JSON especificado.",
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      response_format: { type: "json_object" },
-    })
-
-    const response = completion.choices[0]?.message?.content
-    if (!response) {
-      throw new Error("No response from AI")
-    }
-
-    // Parse and validate response
-    const parsed = JSON.parse(response)
-    const validated = aiParserResponseSchema.parse(parsed)
-
-    // Apply quality scoring if enabled
-    if (enableQualityScoring) {
-      validated.transactions = validated.transactions.map((tx) => ({
-        ...tx,
-        confidence: calculateConfidenceScore(tx, processedData),
-      }))
-    }
-
-    return validated
-  } catch (error: any) {
-    console.error("AI parsing failed:", error)
-
-    // Fallback to basic parsing
-    return parseTransactionsFallback(dataString, sourceType)
-  }
-}
-
-// Helper functions
-function preprocessData(dataString: string, sourceType: string): string {
-  // Clean and normalize data based on source type
-  return dataString
-    .replace(/\s+/g, " ")
-    .replace(/[^\w\s.,-\/]/g, "")
-    .trim()
-}
-
-function createTransactionExtractionPrompt(
-  data: string,
-  sourceType: string,
-  bankHint?: string,
-  existingCategories: string[] = []
-): string {
-  return `
-Extraia as transações do seguinte conteúdo de ${sourceType}:
-
-${data}
-
-${bankHint ? `Dica: Este documento parece ser do banco: ${bankHint}` : ""}
-
-${existingCategories.length > 0 ? `Categorias existentes: ${existingCategories.join(", ")}` : ""}
-
-Retorne um JSON com esta estrutura:
-{
-  "transactions": [
-    {
-      "date": "YYYY-MM-DD",
-      "description": "descrição da transação",
-      "amount": 123.45,
-      "type": "INCOME" | "EXPENSE" | "TRANSFER",
-      "category": "categoria",
-      "confidence": 0.95
-    }
-  ],
-  "summary": {
-    "totalProcessed": número,
-    "successful": número,
-    "confidence": 0.90,
-    "notes": "observações"
-  }
-}
-
-Regras:
-- Datas devem estar no formato YYYY-MM-DD
-- Valores devem ser números positivos
-- INCOME para receitas, EXPENSE para despesas, TRANSFER para transferências
-- Seja preciso com valores e descrições
-  `
-}
-
-function calculateConfidenceScore(transaction: any, originalData: string): number {
-  // Simple confidence calculation based on data quality
-  let score = 0.5
-
-  // Check if description exists in original data
-  if (originalData.toLowerCase().includes(transaction.description.toLowerCase())) {
-    score += 0.2
-  }
-
-  // Check date format
-  if (/^\d{4}-\d{2}-\d{2}$/.test(transaction.date)) {
-    score += 0.15
-  }
-
-  // Check amount is reasonable
-  if (transaction.amount > 0 && transaction.amount < 1000000) {
-    score += 0.15
-  }
-
-  return Math.min(score, 1.0)
-}
-
-/**
- * Simple fallback parser for basic transaction extraction
+ * Simple regex fallback when OpenAI is unavailable.
  */
 export function parseTransactionsFallback(
   dataString: string,
-  sourceType: "csv" | "pdf" | "excel" | "text" | "ocr" = "text"
+  _sourceType: "csv" | "pdf" | "excel" | "text" | "ocr" = "text"
 ): AIParserResponse {
-  const lines = dataString.split("\n").filter((line) => line.trim())
+  const lines = dataString.split("\n").filter((l) => l.trim())
   const transactions: ParsedTransaction[] = []
 
-  // Simple regex-based parsing for common formats
-  for (const line of lines) {
-    // Try to match common transaction patterns
-    const dateMatch = line.match(/\d{4}-\d{2}-\d{2}|\d{2}\/\d{2}\/\d{4}/)
-    const amountMatch = line.match(/R?\$?\s*(\d+[.,]\d{2})/)
-
-    if (dateMatch && amountMatch) {
-      const date = dateMatch[0].includes("/")
-        ? dateMatch[0].split("/").reverse().join("-")
-        : dateMatch[0]
-
-      const amount = parseFloat(amountMatch[1]?.replace(",", ".") || "0")
-      const description = line
-        .replace(dateMatch[0] || "", "")
-        .replace(amountMatch[0] || "", "")
-        .trim()
-
-      transactions.push({
-        date,
-        description: description || "Transação",
-        amount,
-        type: amount > 0 ? "EXPENSE" : "INCOME",
-        category: "Outros",
-        confidence: 0.5,
-      })
-    }
+  const monthMap: Record<string, string> = {
+    JAN: "01", FEV: "02", MAR: "03", ABR: "04", MAI: "05", JUN: "06",
+    JUL: "07", AGO: "08", SET: "09", OUT: "10", NOV: "11", DEZ: "12",
   }
+
+  // Try to import bank parsers
+  try {
+    const { parseStatementByBank, detectBankFromText } = require("./bank-parsers")
+    const bank = detectBankFromText(dataString)
+    const rows = parseStatementByBank(dataString)
+    if (rows.length > 0) {
+      return {
+        transactions: rows.map((r: any) => ({
+          date: r.date,
+          description: r.description,
+          amount: r.amount,
+          type: r.type as "INCOME" | "EXPENSE",
+          category: "Outros",
+          confidence: 0.6,
+        })),
+        summary: {
+          totalProcessed: rows.length,
+          successful: rows.length,
+          confidence: 0.6,
+          notes: `Fallback: banco ${bank}`,
+        },
+      }
+    }
+  } catch {}
 
   return {
     transactions,
     summary: {
-      totalProcessed: transactions.length,
-      successful: transactions.length,
-      confidence: transactions.length > 0 ? 0.5 : 0,
-      notes: "Parsed using fallback method",
+      totalProcessed: 0,
+      successful: 0,
+      confidence: 0,
+      notes: "Nenhuma transação encontrada pelo parser fallback",
     },
   }
 }

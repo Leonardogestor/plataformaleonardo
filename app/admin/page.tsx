@@ -52,10 +52,44 @@ const ESTATISTICAS = {
   backupsAtivos: true,
 }
 
+type UserWithAccounts = {
+  id: string
+  name: string
+  email: string
+  createdAt: string
+  accounts: {
+    id: string
+    name: string
+    balance: number
+    createdAt: string
+  }[]
+}
+
 export default function AdminPage() {
   const { toast } = useToast()
   const [flags, setFlags] = useState({ onboarding: true, tooltips: true, exportacoes: true })
   const [loading, setLoading] = useState(false)
+  const [users, setUsers] = useState<UserWithAccounts[]>([])
+  const [usersLoading, setUsersLoading] = useState(false)
+  const [usersError, setUsersError] = useState<string | null>(null)
+  // Buscar todos os usuários e contas ao carregar
+  useEffect(() => {
+    const fetchUsers = async () => {
+      setUsersLoading(true)
+      setUsersError(null)
+      try {
+        const res = await fetch("/api/admin/users-and-accounts")
+        if (!res.ok) throw new Error("Falha ao buscar usuários")
+        const data = await res.json()
+        setUsers(data.users)
+      } catch (err: any) {
+        setUsersError(err.message || "Erro ao buscar usuários")
+      } finally {
+        setUsersLoading(false)
+      }
+    }
+    fetchUsers()
+  }, [])
 
   // Controle de acesso
   useEffect(() => {
@@ -100,6 +134,50 @@ export default function AdminPage() {
 
   return (
     <div className="max-w-5xl mx-auto py-8 space-y-8">
+            {/* 0️⃣ CLIENTES E CONTAS */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Clientes e Contas</CardTitle>
+                <CardDescription>Visualize todos os clientes cadastrados e suas contas.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {usersLoading && <div>Carregando usuários...</div>}
+                {usersError && <div className="text-red-600">{usersError}</div>}
+                {!usersLoading && !usersError && (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full border text-sm">
+                      <thead>
+                        <tr className="bg-gray-100">
+                          <th className="p-2 border">Nome</th>
+                          <th className="p-2 border">Email</th>
+                          <th className="p-2 border">Criado em</th>
+                          <th className="p-2 border">Contas</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {users.map((user) => (
+                          <tr key={user.id} className="hover:bg-gray-50">
+                            <td className="p-2 border font-medium">{user.name}</td>
+                            <td className="p-2 border">{user.email}</td>
+                            <td className="p-2 border">{new Date(user.createdAt).toLocaleDateString()}</td>
+                            <td className="p-2 border">
+                              <ul className="list-disc ml-4">
+                                {user.accounts.length === 0 && <li className="text-gray-400">Nenhuma conta</li>}
+                                {user.accounts.map((acc) => (
+                                  <li key={acc.id}>
+                                    <span className="font-semibold">{acc.name}</span> (R$ {acc.balance.toLocaleString("pt-BR", { minimumFractionDigits: 2 })})
+                                  </li>
+                                ))}
+                              </ul>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
       <h1 className="text-4xl font-bold mb-2">Painel Administrativo</h1>
       <p className="text-muted-foreground mb-6 text-lg">
         Governança, saúde e ajustes globais do sistema. Acesso restrito a administradores.

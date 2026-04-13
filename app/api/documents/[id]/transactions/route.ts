@@ -5,7 +5,9 @@ import { prisma } from "@/lib/db"
 import { DocumentStatus } from "@prisma/client"
 
 /**
- * GET - Busca transações extraídas de um documento processado
+ * GET - Busca transações associadas a um documento processado.
+ * Estratégia: todas as transações com externalTransactionId "pdf:" importadas
+ * dentro de um intervalo de ±5 minutos do upload do documento.
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -16,30 +18,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const { id } = await params
 
-    // Verificar se o documento existe e pertence ao usuário
     const document = await prisma.document.findFirst({
-      where: {
-        id,
-        userId: session.user.id,
-      },
+      where: { id, userId: session.user.id },
       select: {
         id: true,
         status: true,
         errorMessage: true,
         extractedText: true,
-        syncLogs: {
-          where: { documentId: id },
-          orderBy: { createdAt: "desc" },
-          take: 1,
-          select: {
-            id: true,
-            status: true,
-            transactionsProcessed: true,
-            error: true,
-            startedAt: true,
-            finishedAt: true,
-          },
-        },
+        createdAt: true,
       },
     })
 
@@ -47,7 +33,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: "Documento não encontrado" }, { status: 404 })
     }
 
-    // Se o documento ainda está processando, retornar status
     if (document.status === DocumentStatus.PROCESSING) {
       return NextResponse.json({
         status: DocumentStatus.PROCESSING,
@@ -56,7 +41,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       })
     }
 
-    // Se o processamento falhou, retornar erro
     if (document.status === DocumentStatus.FAILED) {
       return NextResponse.json({
         status: DocumentStatus.FAILED,
@@ -65,49 +49,42 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       })
     }
 
-    // Buscar transações associadas a este documento
-    // Vamos buscar transações importadas de PDF mais recentes do usuário
-    // usando uma janela de tempo maior (7 dias) para garantir que encontramos todas
-    const sevenDaysAgo = new Date()
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+    // Janela de ±5 min ao redor do upload para capturar as transações geradas sincronamente
+    const windowStart = new Date(document.createdAt.getTime() - 5 * 60 * 1000)
+    const windowEnd = new Date(document.createdAt.getTime() + 5 * 60 * 1000)
 
-    const transactions = await prisma.transaction.findMany({
+    let transactions = await prisma.transaction.findMany({
       where: {
         userId: session.user.id,
-        createdAt: { gte: sevenDaysAgo }, // Janela de 7 dias
-        externalTransactionId: { startsWith: "pdf:" }, // Importadas de PDF
+        externalTransactionId: { startsWith: "pdf:" },
+        createdAt: { gte: windowStart, lte: windowEnd },
       },
-      orderBy: { createdAt: "desc" },
-      take: 1000, // Limitar para não sobrecarregar
+      orderBy: { date: "asc" },
+      take: 2000,
     })
 
-    // Se não encontrar transações, tentar com janela maior (30 dias)
-    let finalTransactions = transactions
+    // Fallback: se não encontrou na janela apertada, expande para 30 dias
     if (transactions.length === 0) {
-      const thirtyDaysAgo = new Date()
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-
-      finalTransactions = await prisma.transaction.findMany({
+      const thirtyDaysAgo = new Date(document.createdAt.getTime() - 30 * 24 * 60 * 60 * 1000)
+      const thirtyDaysAfter = new Date(document.createdAt.getTime() + 30 * 24 * 60 * 60 * 1000)
+      transactions = await prisma.transaction.findMany({
         where: {
           userId: session.user.id,
-          createdAt: { gte: thirtyDaysAgo },
           externalTransactionId: { startsWith: "pdf:" },
+          createdAt: { gte: thirtyDaysAgo, lte: thirtyDaysAfter },
         },
-        orderBy: { createdAt: "desc" },
-        take: 1000,
+        orderBy: { date: "asc" },
+        take: 2000,
       })
     }
 
-    // Formatar as transações para o formato esperado pelo frontend
-    const formattedTransactions = finalTransactions.map((t) => ({
+    const formattedTransactions = transactions.map((t) => ({
       id: t.id,
-      date: t.date.toISOString().split("T")[0], // YYYY-MM-DD
+      date: t.date.toISOString().split("T")[0],
       description: t.description,
       amount: t.type === "INCOME" ? Math.abs(Number(t.amount)) : -Math.abs(Number(t.amount)),
-      category: t.category?.toLowerCase() || "outros",
+      category: t.category || "outros",
       subcategory: t.subcategory || "",
-      originalCategory: t.category?.toLowerCase() || "outros",
-      confidence: 0.8, // Valor padrão já que não temos no modelo Transaction
       documentId: id,
     }))
 
@@ -116,10 +93,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       transactions: formattedTransactions,
       summary: {
         total: formattedTransactions.length,
-        processed: document.syncLogs[0]?.transactionsProcessed || 0,
-        processingTime: document.syncLogs[0]?.finishedAt
-          ? document.syncLogs[0].finishedAt.getTime() - document.syncLogs[0].startedAt.getTime()
-          : null,
+        income: formattedTransactions.filter((t) => t.amount >= 0).reduce((s, t) => s + t.amount, 0),
+        expense: formattedTransactions.filter((t) => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0),
       },
     })
   } catch (error) {

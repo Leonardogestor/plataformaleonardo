@@ -6,10 +6,20 @@
 const MAX_EXTRACT_LENGTH = 100_000
 
 export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
+  // Method 1: pdfjs-dist with worker disabled (serverless-safe)
   try {
-    // pdfjs-dist works reliably in Vercel serverless (no test-file side effects)
     const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs")
-    const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer) })
+    // Disable worker — required for Node.js serverless (Vercel), otherwise hangs
+    if (pdfjsLib.GlobalWorkerOptions) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = ""
+    }
+    const loadingTask = pdfjsLib.getDocument({
+      data: new Uint8Array(buffer),
+      useWorkerFetch: false,
+      isEvalSupported: false,
+      useSystemFonts: true,
+      disableFontFace: true,
+    })
     const pdf = await loadingTask.promise
     const parts: string[] = []
     for (let i = 1; i <= pdf.numPages; i++) {
@@ -20,11 +30,26 @@ export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
         .join(" ")
       parts.push(pageText)
     }
-    return parts.join("\n").slice(0, MAX_EXTRACT_LENGTH).trim()
+    const text = parts.join("\n").slice(0, MAX_EXTRACT_LENGTH).trim()
+    if (text.length >= 10) return text
+    console.warn("pdfjs-dist extracted empty text, trying pdf-parse fallback")
   } catch (e) {
     console.warn("pdfjs-dist extraction failed:", e)
-    return ""
   }
+
+  // Method 2: pdf-parse v2 (no test-file side-effects in this version)
+  try {
+    const pdfParseModule = await import("pdf-parse")
+    const pdfParse = pdfParseModule.default ?? pdfParseModule
+    const data = await pdfParse(buffer)
+    const text = (data?.text ?? "").slice(0, MAX_EXTRACT_LENGTH).trim()
+    if (text.length >= 10) return text
+    console.warn("pdf-parse extracted empty text")
+  } catch (e) {
+    console.warn("pdf-parse extraction failed:", e)
+  }
+
+  return ""
 }
 
 export async function extractTextFromExcel(buffer: Buffer): Promise<string> {

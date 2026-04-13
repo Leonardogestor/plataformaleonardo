@@ -1,3 +1,4 @@
+import { DocumentStatus } from "@prisma/client"
 import { prisma } from "@/lib/db"
 import { KiwifyWebhookEvent, KiwifyWebhookData } from "@/types/kiwify"
 import bcrypt from "bcryptjs"
@@ -28,7 +29,7 @@ export class KiwifyBusinessLogic {
         data: {
           eventId: event.id,
           eventType: event.event,
-          status: "processing",
+          status: DocumentStatus.PROCESSING,
           metadata: event.data as any,
         },
       })
@@ -54,7 +55,7 @@ export class KiwifyBusinessLogic {
       await prisma.processedWebhookEvent.update({
         where: { eventId: event.id },
         data: {
-          status: result.success ? "completed" : "failed",
+          status: result.success ? DocumentStatus.COMPLETED : DocumentStatus.FAILED,
           errorMessage: result.success ? null : result.message,
           userId: result.userId,
           orderId: event.data.order_id,
@@ -71,7 +72,7 @@ export class KiwifyBusinessLogic {
         await prisma.processedWebhookEvent.update({
           where: { eventId: event.id },
           data: {
-            status: "failed",
+            status: DocumentStatus.FAILED,
             errorMessage: error instanceof Error ? error.message : "Unknown error",
           },
         })

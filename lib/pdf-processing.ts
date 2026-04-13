@@ -150,16 +150,17 @@ export async function processDocumentPdf(documentId: string): Promise<void> {
         }
       } else {
         // Refine traditional parsing with AI
-        const refinedResult = await refineTransactionsWithAI(
-          transactions.map((t) => ({
-            type: t.type,
+        const filteredForAI = transactions
+          .filter((t) => t.type === "INCOME" || t.type === "EXPENSE")
+          .map((t) => ({
+            type: t.type as "INCOME" | "EXPENSE",
             date: t.date,
             description: t.description,
             amount: t.amount,
             category: t.category,
             confidence: 0.8,
           }))
-        )
+        const refinedResult = await refineTransactionsWithAI(filteredForAI)
 
         if (refinedResult.summary.confidence > 0.7) {
           transactions = refinedResult.transactions.map((t) => ({

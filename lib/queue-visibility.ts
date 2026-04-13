@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { DocumentStatus } from "@prisma/client"
 
 /**
  * Visibilidade de Fila - Feedback Real para Operações em Fila
@@ -9,7 +10,7 @@ export interface QueueItem {
   id: string
   userId: string
   type: "pdf" | "ai" | "sync" | "upload"
-  status: "queued" | "processing" | "completed" | "failed"
+  status: DocumentStatus | "queued" | "processing" | "completed" | "failed"
   createdAt: number
   startedAt?: number
   estimatedDuration: number // ms
@@ -94,7 +95,7 @@ class QueueVisibilityManager {
     const item = queue.find((item) => item.id === itemId)
     if (!item) return
 
-    item.status = "processing"
+    item.status = DocumentStatus.PROCESSING
     item.startedAt = Date.now()
     item.progress = 0
 
@@ -123,7 +124,7 @@ class QueueVisibilityManager {
     const item = queue.find((item) => item.id === itemId)
     if (!item) return
 
-    item.status = "completed"
+    item.status = DocumentStatus.COMPLETED
     item.progress = 100
 
     // Registrar no histórico
@@ -158,7 +159,7 @@ class QueueVisibilityManager {
     const item = queue.find((item) => item.id === itemId)
     if (!item) return
 
-    item.status = "failed"
+    item.status = DocumentStatus.FAILED
 
     // Remover da fila após um tempo
     setTimeout(() => {
@@ -213,9 +214,9 @@ class QueueVisibilityManager {
     const queue = this.queues.get(type) || []
 
     const queued = queue.filter((item) => item.status === "queued").length
-    const processing = queue.filter((item) => item.status === "processing").length
-    const completed = queue.filter((item) => item.status === "completed").length
-    const failed = queue.filter((item) => item.status === "failed").length
+    const processing = queue.filter((item) => item.status === DocumentStatus.PROCESSING).length
+    const completed = queue.filter((item) => item.status === DocumentStatus.COMPLETED).length
+    const failed = queue.filter((item) => item.status === DocumentStatus.FAILED).length
 
     const avgWaitTime = this.calculateAverageWaitTime(type)
     const processingSpeed = this.getProcessingSpeed(type)
@@ -341,7 +342,7 @@ class QueueVisibilityManager {
         // Atualizar progresso para itens em processamento
         this.queues.forEach((queue, type) => {
           queue.forEach((item) => {
-            if (item.status === "processing" && item.startedAt) {
+            if (item.status === DocumentStatus.PROCESSING && item.startedAt) {
               const elapsed = Date.now() - item.startedAt
               const progress = Math.min(100, (elapsed / item.estimatedDuration) * 100)
 
@@ -419,7 +420,7 @@ export function enqueueWithVisibility<T>(
           const queue = queueVisibility["queues"].get(type)
           const item = queue?.find((item) => item.id === id)
 
-          if (item && item.status === "processing") {
+          if (item && item.status === DocumentStatus.PROCESSING) {
             const elapsed = Date.now() - (item.startedAt || item.createdAt)
             const progress = Math.min(100, (elapsed / (options.estimatedDuration || 30000)) * 100)
             queueVisibility.updateProgress(id, type, progress)
