@@ -21,9 +21,34 @@ import {
 import { Upload, FileText, AlertCircle, RefreshCw, Trash2, Download, Pencil } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 
+/** Extrai texto de um PDF diretamente no browser usando pdfjs-dist. */
+async function extractPdfTextInBrowser(file: File): Promise<string> {
+  try {
+    const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs")
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs"
+    const arrayBuffer = await file.arrayBuffer()
+    const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) })
+    const pdf = await loadingTask.promise
+    const parts: string[] = []
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i)
+      const content = await page.getTextContent()
+      const pageText = (content.items as Array<{ str?: string }>)
+        .map((item) => item.str ?? "")
+        .join(" ")
+      parts.push(pageText)
+    }
+    return parts.join("\n").trim()
+  } catch (e) {
+    console.warn("Extração client-side falhou:", e)
+    return ""
+  }
+}
+
 export default function ImportsPage() {
   const [files, setFiles] = useState<File[]>([])
   const [uploading, setUploading] = useState(false)
+  const [uploadStatus, setUploadStatus] = useState("")
   const [selectedBank, setSelectedBank] = useState("")
   const [selectedMonth, setSelectedMonth] = useState("")
   const [selectedYear, setSelectedYear] = useState("")
@@ -211,6 +236,22 @@ export default function ImportsPage() {
       })
       formData.append("name", `Extrato ${selectedBank} - ${selectedMonth}/${selectedYear}`)
 
+      // Extrair texto dos PDFs direto no browser (evita falhas de extração no servidor)
+      for (const file of files) {
+        if (file.name.toLowerCase().endsWith(".pdf")) {
+          setUploadStatus(`Extraindo texto de ${file.name}...`)
+          const text = await extractPdfTextInBrowser(file)
+          if (text.length >= 10) {
+            formData.append(`extractedText_${file.name}`, text)
+            console.log(`✅ ${file.name}: ${text.length} chars extraídos no browser`)
+          } else {
+            console.warn(`⚠️ ${file.name}: texto vazio na extração client-side`)
+          }
+        }
+      }
+
+      setUploadStatus("Enviando e processando transações...")
+
       const response = await fetch("/api/documents", {
         method: "POST",
         body: formData,
@@ -248,6 +289,7 @@ export default function ImportsPage() {
       })
     } finally {
       setUploading(false)
+      setUploadStatus("")
     }
   }
 
@@ -358,7 +400,7 @@ export default function ImportsPage() {
           )}
 
           <Button onClick={handleUpload} disabled={uploading} className="w-full">
-            {uploading ? "Processando..." : "Importar Arquivos"}
+            {uploading ? (uploadStatus || "Processando...") : "Importar Arquivos"}
           </Button>
         </CardContent>
       </Card>

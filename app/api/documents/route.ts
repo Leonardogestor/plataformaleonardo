@@ -116,7 +116,17 @@ export async function POST(request: NextRequest) {
 
         if (isPdf) {
           try {
-            const text = await extractTextFromPdf(buffer)
+            // Prioridade 1: texto pré-extraído no browser (mais confiável)
+            const clientText = formData.get(`extractedText_${file.name}`)
+            let text: string = typeof clientText === "string" && clientText.length >= 10
+              ? clientText
+              : ""
+
+            // Prioridade 2: extração server-side como fallback
+            if (!text) {
+              text = await extractTextFromPdf(buffer)
+            }
+
             if (text && text.length >= 10) {
               extractedText = text.slice(0, 10000)
               try {
