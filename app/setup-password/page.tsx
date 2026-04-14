@@ -12,6 +12,8 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
 
+export const dynamic = "force-dynamic"
+
 const setupPasswordSchema = z
   .object({
     password: z.string().min(6, "A senha deve ter pelo menos 6 caracteres").max(100),
