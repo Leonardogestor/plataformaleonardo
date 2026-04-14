@@ -1,5 +1,6 @@
 "use client"
 
+import { Suspense } from "react"
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
@@ -11,8 +12,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-
-export const dynamic = "force-dynamic"
 
 const setupPasswordSchema = z
   .object({
@@ -26,7 +25,7 @@ const setupPasswordSchema = z
 
 type SetupPasswordFormData = z.infer<typeof setupPasswordSchema>
 
-export default function SetupPasswordPage() {
+function SetupPasswordContent() {
   const searchParams = useSearchParams()
   const token = useMemo(() => searchParams.get("token") || "", [searchParams])
   const { toast } = useToast()
@@ -207,5 +206,13 @@ export default function SetupPasswordPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function SetupPasswordPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center">Carregando...</div>}>
+      <SetupPasswordContent />
+    </Suspense>
   )
 }

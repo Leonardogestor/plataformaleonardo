@@ -7,21 +7,28 @@
 const MAX_EXTRACT_LENGTH = 100_000
 
 export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
+  console.log(`[PDF] Iniciando extração de PDF (${buffer.length} bytes)`)
+
   // FORCE-MODE: Attempt 1 - pdfjs-dist (optimized for serverless)
   let text = ""
   try {
-    const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs")
-    if (pdfjsLib.GlobalWorkerOptions) {
-      pdfjsLib.GlobalWorkerOptions.workerSrc = ""
-    }
+    console.log(`[PDF] Tentando pdfjs-dist...`)
+    // Use the correct import for Node.js
+    const pdfjsLib = require("pdfjs-dist/legacy/build/pdf.js")
+    console.log(`[PDF] pdfjs-dist (require) importado com sucesso`)
+
     const loadingTask = pdfjsLib.getDocument({
-      data: new Uint8Array(buffer),
+      data: buffer,
       useWorkerFetch: false,
       isEvalSupported: false,
       useSystemFonts: true,
       disableFontFace: true,
     })
+    console.log(`[PDF] getDocument() chamado`)
+
     const pdf = await loadingTask.promise
+    console.log(`[PDF] PDF carregado com ${pdf.numPages} páginas`)
+
     const parts: string[] = []
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i)
@@ -29,46 +36,62 @@ export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
       const pageText = (content.items ?? [])
         .map((item: any) => item.str ?? "")
         .join(" ")
+      console.log(`[PDF] Página ${i}: ${pageText.length} chars`)
       parts.push(pageText)
     }
     text = parts.join("\n").trim()
     if (text.length >= 10) {
-      console.info(`[PDF] pdfjs-dist OK: ${text.length} chars`)
+      console.info(`[PDF] ✅ pdfjs-dist OK: ${text.length} chars`)
       return text.slice(0, MAX_EXTRACT_LENGTH)
+    } else {
+      console.warn(`[PDF] pdfjs-dist retornou texto muito curto: ${text.length} chars`)
     }
   } catch (e) {
-    console.warn(`[PDF] pdfjs-dist failed: ${e instanceof Error ? e.message : String(e)}`)
+    console.warn(`[PDF] ❌ pdfjs-dist falhou: ${e instanceof Error ? e.message : String(e)}`)
+    console.warn(e)
   }
 
   // FORCE-MODE: Attempt 2 - pdf-parse default export (more robust)
   try {
-    const pdfParseModule = await import("pdf-parse")
-    const pdfParse = pdfParseModule.default ?? pdfParseModule
+    console.log(`[PDF] Tentando pdf-parse (attempt 1)...`)
+    const pdfParse = require("pdf-parse")
+    console.log(`[PDF] pdf-parse (require) importado`)
+
     const pdfData = await pdfParse(buffer)
     text = (pdfData?.text ?? "").trim()
+    console.log(`[PDF] pdf-parse retornou ${text.length} chars`)
+
     if (text.length >= 10) {
-      console.info(`[PDF] pdf-parse OK: ${text.length} chars`)
+      console.info(`[PDF] ✅ pdf-parse OK: ${text.length} chars`)
       return text.slice(0, MAX_EXTRACT_LENGTH)
+    } else {
+      console.warn(`[PDF] pdf-parse retornou texto muito curto: ${text.length} chars`)
     }
   } catch (e) {
-    console.warn(`[PDF] pdf-parse attempt 1 failed: ${e instanceof Error ? e.message : String(e)}`)
+    console.warn(`[PDF] ❌ pdf-parse attempt 1 falhou: ${e instanceof Error ? e.message : String(e)}`)
+    console.warn(e)
   }
 
   // FORCE-MODE: Attempt 3 - retry pdf-parse with buffer clone
   try {
-    const pdfParseModule = await import("pdf-parse")
-    const pdfParse = pdfParseModule.default ?? pdfParseModule
+    console.log(`[PDF] Tentando pdf-parse com buffer clonado (attempt 2)...`)
+    const pdfParse = require("pdf-parse")
     const pdfData = await pdfParse(Buffer.from(buffer))
     text = (pdfData?.text ?? "").trim()
+    console.log(`[PDF] pdf-parse (cloned) retornou ${text.length} chars`)
+
     if (text.length >= 10) {
-      console.info(`[PDF] pdf-parse (cloned) OK: ${text.length} chars`)
+      console.info(`[PDF] ✅ pdf-parse (cloned) OK: ${text.length} chars`)
       return text.slice(0, MAX_EXTRACT_LENGTH)
+    } else {
+      console.warn(`[PDF] pdf-parse (cloned) retornou texto muito curto: ${text.length} chars`)
     }
   } catch (e) {
-    console.warn(`[PDF] pdf-parse attempt 2 failed: ${e instanceof Error ? e.message : String(e)}`)
+    console.warn(`[PDF] ❌ pdf-parse attempt 2 falhou: ${e instanceof Error ? e.message : String(e)}`)
+    console.warn(e)
   }
 
-  console.error(`[PDF] ALL METHODS FAILED - returning empty string`)
+  console.error(`[PDF] ❌ TODOS OS MÉTODOS FALHARAM - retornando string vazia`)
   return ""
 }
 
