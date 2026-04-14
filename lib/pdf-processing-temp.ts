@@ -6,11 +6,7 @@
 import { prisma } from "@/lib/db"
 import { DocumentStatus } from "@prisma/client"
 import { extractTextFromPdf } from "@/lib/document-extract"
-import {
-  parseStatementByBank,
-  detectBankFromText,
-  type NormalizedTransactionRow,
-} from "@/lib/bank-parsers"
+import { detectBankFromText } from "@/lib/bank-parsers"
 import {
   importTransactionsFromPdfWithDedup,
   type NormalizedTransaction,
@@ -19,16 +15,6 @@ import { hybridParseTransactions, refineTransactionsWithAI } from "@/lib/ai-tran
 
 const DEFAULT_CATEGORY = "Outros"
 const MAX_TRANSACTIONS_PER_DOCUMENT = 5000
-
-function toNormalized(t: NormalizedTransactionRow): NormalizedTransaction {
-  return {
-    type: t.type,
-    category: DEFAULT_CATEGORY,
-    amount: t.amount,
-    description: t.description,
-    date: t.date,
-  }
-}
 
 /**
  * Processa um PDF diretamente do buffer (sem salvar no Blob Storage)
@@ -86,71 +72,12 @@ export async function processPdfFromBuffer(documentId: string, buffer: Buffer): 
       },
     })
 
-    // Processar transações (mesma lógica do processamento original)
+    // Processar transações usando apenas o parser de IA (OpenAI)
     let transactions: NormalizedTransaction[] = []
-    let parsingMethod = "traditional"
-
-    try {
-      const rows = parseStatementByBank(text)
-      if (rows.length > MAX_TRANSACTIONS_PER_DOCUMENT) {
-        console.info(
-          JSON.stringify({
-            type: "pdf_processing",
-            documentId,
-            message: "Transaction limit exceeded",
-            totalRows: rows.length,
-            limit: MAX_TRANSACTIONS_PER_DOCUMENT,
-          })
-        )
-      }
-      const capped = rows.slice(0, MAX_TRANSACTIONS_PER_DOCUMENT)
-      transactions = capped.map(toNormalized)
-
-      if (transactions.length === 0) {
-        console.info(
-          `Traditional parsing returned ${transactions.length} transactions, trying AI fallback`
-        )
-        const aiResult = await hybridParseTransactions(text, "pdf")
-
-        if (aiResult.transactions.length > 0) {
-          transactions = aiResult.transactions.map((t) => ({
-            type: t.type,
-            category: t.category,
-            amount: t.amount,
-            description: t.description,
-            date: t.date,
-          }))
-          parsingMethod = "ai_fallback"
-          console.info(`AI parsing recovered ${transactions.length} transactions`)
-        }
-      } else {
-        const filteredForAI = transactions
-          .filter((t) => t.type === "INCOME" || t.type === "EXPENSE")
-          .map((t) => ({
-            type: t.type as "INCOME" | "EXPENSE",
-            date: t.date,
-            description: t.description,
-            amount: t.amount,
-            category: t.category,
-            confidence: 0.8,
-          }))
-        const refinedResult = await refineTransactionsWithAI(filteredForAI)
-
-        if (refinedResult.summary.confidence > 0.7) {
-          transactions = refinedResult.transactions.map((t) => ({
-            type: t.type,
-            category: t.category,
-            amount: t.amount,
-            description: t.description,
-            date: t.date,
-          }))
-          parsingMethod = "ai_refined"
-        }
-      }
-    } catch (error) {
-      console.warn(`Traditional parsing failed, trying AI parsing:`, error)
-      const aiResult = await hybridParseTransactions(text, "pdf")
-
+    let parsingMethod = "ai_only"
+    const bank = detectBankFromText(text)
+    const aiResult = await hybridParseTransactions(text, "pdf", bank)
+    if (aiResult.transactions.length > 0) {
       transactions = aiResult.transactions.map((t) => ({
         type: t.type,
         category: t.category,
@@ -159,6 +86,9 @@ export async function processPdfFromBuffer(documentId: string, buffer: Buffer): 
         date: t.date,
       }))
       parsingMethod = "ai_only"
+      console.info(`AI parsing (forçado) retornou ${transactions.length} transações`)
+    } else {
+      console.warn("AI parsing não encontrou transações.")
     }
 
     // Buscar o documento para obter o userId

@@ -24,6 +24,9 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     const doc = await prisma.document.findFirst({
       where: { id, userId: session.user.id },
       include: {
+        transactions: {
+          select: { id: true },
+        },
         syncLogs: {
           where: { documentId: id },
           orderBy: { createdAt: "desc" },
@@ -41,10 +44,10 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: "Documento não encontrado" }, { status: 404 })
     }
 
-    // Adicionar transactionCount do SyncLog mais recente
+    // Preferir contagem real de transações vinculadas ao documento
     const response = {
       ...doc,
-      transactionCount: doc.syncLogs[0]?.transactionsProcessed || 0,
+      transactionCount: doc.transactions.length,
       syncStatus: doc.syncLogs[0]?.status || null,
       syncError: doc.syncLogs[0]?.error || null,
     }

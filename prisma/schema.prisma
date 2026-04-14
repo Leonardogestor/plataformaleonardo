@@ -79,6 +79,7 @@ model User {
   transactions           Transaction[]
   subscriptions          Subscription[]
   featureAccess          FeatureAccess[]
+  passwordSetupTokens    PasswordSetupToken[]
   anamnesis              UserAnamnesis?
   rawTransactions        RawTransaction[]
   parsedTransactions     ParsedTransaction[]
@@ -105,6 +106,7 @@ model Document {
   status          DocumentStatus            @default(PROCESSING)
   errorMessage    String?
   syncLogs        SyncLog[]
+  transactions    Transaction[]
   governanceItems GovernanceChecklistItem[]
   user            User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -200,6 +202,7 @@ model Account {
 model Transaction {
   id                    String            @id @default(uuid())
   userId                String
+  documentId            String?
   date                  DateTime
   description           String
   amount                Decimal           @db.Decimal(15, 2)
@@ -219,11 +222,13 @@ model Transaction {
   status                String?           @default("ACTIVE")
   account               Account?          @relation(fields: [accountId], references: [id])
   card                  Card?             @relation(fields: [cardId], references: [id])
+  document              Document?         @relation(fields: [documentId], references: [id])
   installmentGroup      InstallmentGroup? @relation(fields: [installmentGroupId], references: [id])
   user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, date, amount, description])
   @@index([userId])
+  @@index([documentId])
   @@index([accountId])
   @@index([cardId])
   @@index([date])
@@ -534,6 +539,22 @@ model ProcessedWebhookEvent {
   @@index([eventType])
   @@index([status])
   @@map("processed_webhook_events")
+}
+
+model PasswordSetupToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  email     String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([email])
+  @@index([expiresAt])
+  @@map("password_setup_tokens")
 }
 
 enum SubscriptionStatus {

@@ -1,8 +1,10 @@
 import { DocumentStatus } from "@prisma/client"
 import { NextRequest, NextResponse } from "next/server"
+import crypto from "crypto"
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/db"
 import { Prisma } from "@prisma/client"
+import { issuePasswordSetup } from "@/lib/access-onboarding"
 
 interface KiwifyWebhookEvent {
   event: "order_paid" | "subscription_renewed" | "subscription_canceled"
@@ -33,9 +35,6 @@ interface KiwifyWebhookEvent {
   id: string
   created_at: string
 }
-
-const TEMP_PASSWORD_ENV = "KIWIFY_TEMP_PASSWORD"
-const DEFAULT_TEMP_PASSWORD = "Alterar@123"
 
 // Production-safe logging (no sensitive data)
 const logSafe = {
@@ -228,9 +227,9 @@ async function findOrCreateUser(
       return { user: existing, created: false }
     }
 
-    // Create new user with retry logic
-    const tempPassword = process.env[TEMP_PASSWORD_ENV] ?? DEFAULT_TEMP_PASSWORD
-    const hashedPassword = await bcrypt.hash(tempPassword, 10)
+    // New Kiwify users receive a secure setup link instead of sharing a fixed password.
+    const randomPassword = crypto.randomBytes(32).toString("hex")
+    const hashedPassword = await bcrypt.hash(randomPassword, 10)
 
     const newUser = await prisma.user.create({
       data: {
@@ -386,7 +385,13 @@ async function updateFeatureAccess(
 // BUSINESS LOGIC WITH TRANSACTIONS
 async function processOrderPaid(
   data: any
-): Promise<{ success: boolean; message: string; userId?: string }> {
+): Promise<{
+  success: boolean
+  message: string
+  userId?: string
+  accessIssued?: boolean
+  accessEmailSent?: boolean
+}> {
   const { customer, product, subscription_id, order_id } = data
 
   if (!customer?.email) {
@@ -394,13 +399,15 @@ async function processOrderPaid(
   }
 
   let userId: string | undefined
+  let userWasCreated = false
 
   try {
     // ATOMIC TRANSACTION
-    const result = await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx) => {
       // Find or create user
-      const { user } = await findOrCreateUser(customer.email, customer.name)
+      const { user, created } = await findOrCreateUser(customer.email, customer.name)
       userId = user.id
+      userWasCreated = created
 
       // Calculate subscription period
       let currentPeriodEnd: Date | undefined
@@ -434,6 +441,25 @@ async function processOrderPaid(
       return { userId: user.id }
     })
 
+    let accessEmailSent: boolean | undefined
+    if (userWasCreated && userId) {
+      try {
+        const accessDelivery = await issuePasswordSetup({
+          userId,
+          email: customer.email,
+          name: customer.name || "Cliente",
+        })
+        accessEmailSent = accessDelivery.delivered
+        logSafe.info("Access setup issued after order payment", {
+          userId,
+          delivered: accessDelivery.delivered,
+          provider: accessDelivery.provider,
+        })
+      } catch (accessError) {
+        logSafe.error("Failed to issue password setup after order payment", accessError)
+      }
+    }
+
     logSafe.info("Order paid processed successfully", {
       userId,
       orderId: order_id,
@@ -445,6 +471,8 @@ async function processOrderPaid(
       success: true,
       message: "Order processed successfully",
       userId,
+      accessIssued: userWasCreated,
+      accessEmailSent,
     }
   } catch (error) {
     logSafe.error("Failed to process order paid", error)
@@ -457,7 +485,13 @@ async function processOrderPaid(
 
 async function processSubscriptionRenewed(
   data: any
-): Promise<{ success: boolean; message: string; userId?: string }> {
+): Promise<{
+  success: boolean
+  message: string
+  userId?: string
+  accessIssued?: boolean
+  accessEmailSent?: boolean
+}> {
   const { customer, subscription_id } = data
 
   if (!customer?.email) {
@@ -465,12 +499,14 @@ async function processSubscriptionRenewed(
   }
 
   let userId: string | undefined
+  let userWasCreated = false
 
   try {
-    const result = await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx) => {
       // Find existing user
-      const { user } = await findOrCreateUser(customer.email, customer.name)
+      const { user, created } = await findOrCreateUser(customer.email, customer.name)
       userId = user.id
+      userWasCreated = created
 
       // Calculate new period end
       const now = new Date()
@@ -492,6 +528,25 @@ async function processSubscriptionRenewed(
       return { userId: user.id }
     })
 
+    let accessEmailSent: boolean | undefined
+    if (userWasCreated && userId) {
+      try {
+        const accessDelivery = await issuePasswordSetup({
+          userId,
+          email: customer.email,
+          name: customer.name || "Cliente",
+        })
+        accessEmailSent = accessDelivery.delivered
+        logSafe.info("Access setup issued after subscription renewal", {
+          userId,
+          delivered: accessDelivery.delivered,
+          provider: accessDelivery.provider,
+        })
+      } catch (accessError) {
+        logSafe.error("Failed to issue password setup after subscription renewal", accessError)
+      }
+    }
+
     logSafe.info("Subscription renewed successfully", {
       userId,
       subscriptionId: subscription_id,
@@ -501,6 +556,8 @@ async function processSubscriptionRenewed(
       success: true,
       message: "Subscription renewed successfully",
       userId,
+      accessIssued: userWasCreated,
+      accessEmailSent,
     }
   } catch (error) {
     logSafe.error("Failed to process subscription renewal", error)
@@ -618,7 +675,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Process based on event type
-    let result: { success: boolean; message: string; userId?: string }
+    let result: {
+      success: boolean
+      message: string
+      userId?: string
+      accessIssued?: boolean
+      accessEmailSent?: boolean
+    }
 
     switch (eventType) {
       case "order_paid":
@@ -634,12 +697,28 @@ export async function POST(request: NextRequest) {
         logSafe.warn("Unknown event type", { eventType })
         // Legacy handling - create user account only
         const name = extractName(body)
-        const { user } = await findOrCreateUser(email, name)
+        const { user, created } = await findOrCreateUser(email, name)
+
+        let accessEmailSent: boolean | undefined
+        if (created) {
+          try {
+            const accessDelivery = await issuePasswordSetup({
+              userId: user.id,
+              email,
+              name,
+            })
+            accessEmailSent = accessDelivery.delivered
+          } catch (accessError) {
+            logSafe.error("Failed to issue password setup for legacy event", accessError)
+          }
+        }
 
         result = {
           success: true,
           message: "Account processed (legacy)",
           userId: user.id,
+          accessIssued: created,
+          accessEmailSent,
         }
         break
     }

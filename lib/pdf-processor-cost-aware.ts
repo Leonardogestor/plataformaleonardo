@@ -4,7 +4,7 @@
  */
 
 import { extractTextFromPdf } from "@/lib/document-extract"
-import { parseStatementByBank } from "@/lib/bank-parsers"
+
 import { importTransactionsFromPdfWithDedup } from "@/lib/transaction-import"
 import { prisma } from "@/lib/db"
 import { logger } from "@/lib/logger"
@@ -356,33 +356,32 @@ export class CostAwarePDFProcessor {
           })
         }
 
-        // 2. Parse do extrato
-        const bankData = parseStatementByBank(text)
+        // 2. Parse do extrato usando IA (OpenAI)
+        const { hybridParseTransactions } = await import("@/lib/ai-transaction-parser")
+        const { detectBankFromText } = await import("@/lib/bank-parsers")
+        const bank = detectBankFromText(text)
+        const aiResult = await hybridParseTransactions(text, "pdf", bank)
 
-        if (!bankData || bankData.length === 0) {
-          throw new Error("Nenhuma transação encontrada no PDF")
+        if (!aiResult.transactions || aiResult.transactions.length === 0) {
+          throw new Error("Nenhuma transação encontrada no PDF (IA)")
         }
 
         // Limitar número de transações para controlar custo
-        const limitedBankData = bankData.length > 500 ? bankData.slice(0, 500) : bankData
-
-        // Converter para NormalizedTransaction adicionando category padrão
-        const normalizedTransactions = limitedBankData.map((row) => ({
-          ...row,
-          category: "Outros", // Categoria padrão para transações de PDF
-          subcategory: undefined,
-        }))
+        const limitedTransactions =
+          aiResult.transactions.length > 500
+            ? aiResult.transactions.slice(0, 500)
+            : aiResult.transactions
 
         // 3. Importação com deduplicação
         const result = await withTimeout(
-          () => importTransactionsFromPdfWithDedup(userId, normalizedTransactions),
+          () => importTransactionsFromPdfWithDedup(userId, limitedTransactions),
           20000, // 20s para importação
           "Timeout na importação de transações"
         )
 
         return {
           success: true,
-          transactions: result.success || bankData.length,
+          transactions: result.success || limitedTransactions.length,
           processingTime: Date.now() - startTime,
         }
       },

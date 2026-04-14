@@ -46,13 +46,26 @@ export async function POST(request: Request) {
       { status: 201 }
     )
   } catch (error) {
+    // Log detalhado no console
+    console.error("[register][POST] Erro ao criar usuário:", error)
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: error.errors[0]?.message ?? "Dados inválidos" },
         { status: 400 }
       )
     }
-
-    return NextResponse.json({ error: "Erro ao criar usuário" }, { status: 500 })
+    // Retorna mensagem de erro detalhada para facilitar debug (em produção, prefira não expor detalhes)
+    let errorMessage = "Erro ao criar usuário"
+    let errorDetails: string | undefined = undefined
+    if (error instanceof Error) {
+      errorMessage = error.message
+      errorDetails = error.stack
+    } else if (typeof error === "string") {
+      errorMessage = error
+    }
+    return NextResponse.json(
+      { error: errorMessage, details: errorDetails || error },
+      { status: 500 }
+    )
   }
 }

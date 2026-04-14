@@ -1,15 +1,16 @@
 // @ts-nocheck
 /**
- * Extração de texto de documentos (OCR/PDF/Excel) para indexação e busca.
+ * Extração confiável de texto para PDFs:
+ * Tenta pdfjs-dist PRIMEIRO (mais rápido), fallback para pdf-parse (mais robusto).
  */
 
 const MAX_EXTRACT_LENGTH = 100_000
 
 export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
-  // Method 1: pdfjs-dist with worker disabled (serverless-safe)
+  // FORCE-MODE: Attempt 1 - pdfjs-dist (optimized for serverless)
+  let text = ""
   try {
     const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs")
-    // Disable worker — required for Node.js serverless (Vercel), otherwise hangs
     if (pdfjsLib.GlobalWorkerOptions) {
       pdfjsLib.GlobalWorkerOptions.workerSrc = ""
     }
@@ -25,30 +26,95 @@ export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i)
       const content = await page.getTextContent()
-      const pageText = content.items
-        .map((item: { str?: string }) => item.str ?? "")
-        .join(" ")
+      const pageText = (content.items ?? []).map((item: any) => item.str ?? "").join(" ")
       parts.push(pageText)
     }
-    const text = parts.join("\n").slice(0, MAX_EXTRACT_LENGTH).trim()
-    if (text.length >= 10) return text
-    console.warn("pdfjs-dist extracted empty text, trying pdf-parse fallback")
+    text = parts.join("\n").trim()
+    if (text.length >= 10) {
+      console.info(`[PDF] pdfjs-dist OK: ${text.length} chars`)
+      return text.slice(0, MAX_EXTRACT_LENGTH)
+    }
   } catch (e) {
-    console.warn("pdfjs-dist extraction failed:", e)
+    console.warn(`[PDF] pdfjs-dist failed: ${e instanceof Error ? e.message : String(e)}`)
   }
 
-  // Method 2: pdf-parse v2 (no test-file side-effects in this version)
+  // FORCE-MODE: Attempt 2 - pdf-parse (more robust, handles difficult PDFs)
+  try {
+    const pdfParse = await import("pdf-parse/lib/pdf.js/v1.10.100/build/pdf.js")
+    const pdfData = await pdfParse.default(buffer)
+    text = (pdfData?.text ?? "").trim()
+    if (text.length >= 10) {
+      console.info(`[PDF] pdf-parse OK: ${text.length} chars`)
+      return text.slice(0, MAX_EXTRACT_LENGTH)
+    }
+  } catch (e) {
+    console.warn(`[PDF] pdf-parse attempt 1 failed: ${e instanceof Error ? e.message : String(e)}`)
+  }
+
+  // FORCE-MODE: Attempt 3 - pdf-parse default export
   try {
     const pdfParseModule = await import("pdf-parse")
     const pdfParse = pdfParseModule.default ?? pdfParseModule
-    const data = await pdfParse(buffer)
-    const text = (data?.text ?? "").slice(0, MAX_EXTRACT_LENGTH).trim()
-    if (text.length >= 10) return text
-    console.warn("pdf-parse extracted empty text")
+    const pdfData = await pdfParse(buffer)
+    text = (pdfData?.text ?? "").trim()
+    if (text.length >= 10) {
+      console.info(`[PDF] pdf-parse (default) OK: ${text.length} chars`)
+      return text.slice(0, MAX_EXTRACT_LENGTH)
+    }
   } catch (e) {
-    console.warn("pdf-parse extraction failed:", e)
+    console.warn(`[PDF] pdf-parse attempt 2 failed: ${e instanceof Error ? e.message : String(e)}`)
   }
 
+  console.error(`[PDF] ALL METHODS FAILED - returning empty string`)
+  return ""
+}
+
+export async function extractTextFromExcel(buffer: Buffer): Promise<string> {
+  try {
+    const XLSX = await import("xlsx")
+    const workbook = XLSX.read(buffer, { type: "buffer", raw: true })
+    const parts: string[] = []
+    for (const name of workbook.SheetNames) {
+      const sheet = workbook.Sheets[name]
+      if (sheet) {
+        const text = XLSX.utils.sheet_to_txt(sheet, { blankrows: false, strip: true })
+        if (text) parts.push(`[${name}]\n${text}`)
+      }
+    }
+    return parts.join("\n\n").slice(0, MAX_EXTRACT_LENGTH).trim()
+  } catch (e) {
+    console.warn("xlsx extraction failed:", e)
+    return ""
+  }
+}
+
+export async function extractTextFromImage(buffer: Buffer): Promise<string> {
+  try {
+    const Tesseract = await import("tesseract.js")
+    const { data } = await Tesseract.recognize(buffer, "por+eng", {
+      logger: () => {},
+    })
+    const text = data?.text ?? ""
+    return text.slice(0, MAX_EXTRACT_LENGTH).trim()
+  } catch (e) {
+    console.warn("tesseract.js OCR failed:", e)
+    return ""
+  }
+}
+
+export async function extractTextFromFile(buffer: Buffer, mimeType: string): Promise<string> {
+  if (mimeType === "application/pdf") {
+    return extractTextFromPdf(buffer)
+  }
+  if (
+    mimeType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+    mimeType === "application/vnd.ms-excel"
+  ) {
+    return extractTextFromExcel(buffer)
+  }
+  if (mimeType === "image/jpeg" || mimeType === "image/png") {
+    return extractTextFromImage(buffer)
+  }
   return ""
 }
 

@@ -4,9 +4,6 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { DocumentStatus } from "@prisma/client"
 import { extractTextFromPdf } from "@/lib/document-extract"
-import { detectBankFromText } from "@/lib/bank-parsers"
-import { importTransactionsFromPdfWithDedup } from "@/lib/transaction-import"
-import { parseTransactionsWithAI } from "@/lib/ai-transaction-parser"
 import { checkDocumentsLimit } from "@/lib/rate-limit"
 import { deleteDocumentBlob } from "@/lib/blob"
 
@@ -78,14 +75,9 @@ export async function POST(request: NextRequest) {
     }
 
     // 4. Coletar arquivos — aceita campo "file" (singular) ou "files" (múltiplos)
-    const rawFiles = [
-      ...formData.getAll("file"),
-      ...formData.getAll("files"),
-    ]
+    const rawFiles = [...formData.getAll("file"), ...formData.getAll("files")]
 
-    const files: File[] = rawFiles.filter(
-      (f): f is File => f instanceof File && f.size > 0
-    )
+    const files: File[] = rawFiles.filter((f): f is File => f instanceof File && f.size > 0)
 
     if (files.length === 0) {
       return NextResponse.json({ error: "Nenhum arquivo válido enviado." }, { status: 400 })
@@ -107,7 +99,7 @@ export async function POST(request: NextRequest) {
     const createdDocs = await Promise.all(
       files.map(async (file) => {
         const isPdf = file.name.toLowerCase().endsWith(".pdf")
-        const mimeType = isPdf ? "application/pdf" : (file.type || "application/octet-stream")
+        const mimeType = isPdf ? "application/pdf" : file.type || "application/octet-stream"
         const buffer = Buffer.from(await file.arrayBuffer())
 
         // Tentar extrair texto e transações dentro da request
@@ -116,37 +108,11 @@ export async function POST(request: NextRequest) {
 
         if (isPdf) {
           try {
-            // Prioridade 1: texto pré-extraído no browser (mais confiável)
-            const clientText = formData.get(`extractedText_${file.name}`)
-            let text: string = typeof clientText === "string" && clientText.length >= 10
-              ? clientText
-              : ""
-
-            // Prioridade 2: extração server-side como fallback
-            if (!text) {
-              text = await extractTextFromPdf(buffer)
-            }
+            // Server-side extraction only (client-side removed for reliability)
+            const text = await extractTextFromPdf(buffer)
 
             if (text && text.length >= 10) {
               extractedText = text.slice(0, 10000)
-              try {
-                const bank = detectBankFromText(text)
-                const aiResult = await parseTransactionsWithAI(text, "pdf", bank)
-                if (aiResult.transactions.length > 0) {
-                  const transactions = aiResult.transactions.map((t) => ({
-                    type: t.type as "INCOME" | "EXPENSE",
-                    category: t.category,
-                    subcategory: null as string | null,
-                    amount: t.amount,
-                    description: t.description,
-                    date: t.date,
-                  }))
-                  await importTransactionsFromPdfWithDedup(userId, transactions)
-                  console.log(`✅ ${file.name}: ${transactions.length} transações via AI (banco: ${bank})`)
-                }
-              } catch (parseErr) {
-                console.warn(`⚠️ ${file.name}: parse AI falhou (ignorado):`, parseErr)
-              }
             }
           } catch (extractErr) {
             console.warn(`⚠️ ${file.name}: extração falhou:`, extractErr)
@@ -202,7 +168,10 @@ export async function DELETE(request: NextRequest) {
       ? { userId: session.user.id, id: { in: ids as string[] } }
       : { userId: session.user.id }
 
-    const docs = await prisma.document.findMany({ where, select: { id: true, fileUrl: true, fileKey: true } })
+    const docs = await prisma.document.findMany({
+      where,
+      select: { id: true, fileUrl: true, fileKey: true },
+    })
 
     await Promise.allSettled(
       docs.map((doc) => {
@@ -219,4 +188,3 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "Erro ao excluir documentos" }, { status: 500 })
   }
 }
-

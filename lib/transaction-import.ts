@@ -14,6 +14,7 @@ export interface NormalizedTransaction {
   amount: number
   description: string
   date: string // ISO date
+  documentId?: string | null
   accountId?: string | null
   confidence?: number // compatível com AI parser
 }
@@ -61,6 +62,7 @@ export async function importTransactionsFromPdfWithDedup(
         where: { externalTransactionId: externalId },
         create: {
           userId,
+          documentId: t.documentId ?? null,
           type: t.type,
           category: t.category,
           subcategory: t.subcategory ?? null,
@@ -72,6 +74,7 @@ export async function importTransactionsFromPdfWithDedup(
           externalTransactionId: externalId,
         },
         update: {
+          documentId: t.documentId ?? null,
           amount: t.amount,
           description: t.description,
           category: t.category,
@@ -108,6 +111,7 @@ export async function importTransactionsForUser(
         await tx.transaction.create({
           data: {
             userId,
+            documentId: t.documentId ?? null,
             type: t.type,
             category: t.category,
             subcategory: t.subcategory ?? null,
