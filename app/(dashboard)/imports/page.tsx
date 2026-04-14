@@ -66,6 +66,35 @@ export default function ImportsPage() {
     return () => clearInterval(interval)
   }, [processedData])
 
+  // Auto-import when document is completed
+  useEffect(() => {
+    const completedButNotImported = processedData.find(
+      (doc) => doc.status === "COMPLETED" && !doc.autoImported
+    )
+
+    if (!completedButNotImported) return
+
+    const autoImport = async () => {
+      try {
+        const res = await fetch(`/api/documents/${completedButNotImported.id}/import`, {
+          method: "POST",
+        })
+        const data = await res.json()
+
+        if (res.ok) {
+          // Redireciona automaticamente para transações
+          window.location.href = "/transactions"
+        }
+      } catch (e) {
+        console.error("Auto-import error:", e)
+      }
+    }
+
+    // Aguarda 1 segundo antes de importar
+    const timer = setTimeout(autoImport, 1000)
+    return () => clearTimeout(timer)
+  }, [processedData])
+
   const loadDocuments = async () => {
     try {
       const response = await fetch("/api/documents")
