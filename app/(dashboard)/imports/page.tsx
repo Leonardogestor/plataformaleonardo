@@ -21,30 +21,46 @@ export default function ImportsPage() {
   // Importar transaÃ§Ãµes do documento para a tela de transaÃ§Ãµes
   const handleImportarParaTransacao = async (doc: any) => {
     try {
+      toast({
+        title: "Importando...",
+        description: "Aguarde enquanto processamos as transações",
+      })
+
       const importRes = await fetch(`/api/documents/${doc.id}/import`, {
         method: "POST",
       })
+
       const result = await importRes.json()
+      console.log("Import response:", { status: importRes.status, ok: importRes.ok, result })
+
       if (!importRes.ok) {
-        throw new Error(result.error || "Falha ao importar documento")
+        throw new Error(result.error || `Falha na importação (${importRes.status})`)
       }
+
       if (result.results?.alreadyImported) {
         toast({
           title: "Documento já importado",
           description: `${result.results.importedCount ?? 0} transações já estão vinculadas a este documento.`,
         })
-        window.location.href = "/transactions"
+        setTimeout(() => {
+          window.location.href = "/transactions"
+        }, 1000)
         return
       }
+
       toast({
         title: `${result.results?.success ?? 0} transações importadas!`,
-        description: "Redirecionando...",
+        description: "Redirecionando para transações...",
       })
-      window.location.href = "/transactions"
+
+      setTimeout(() => {
+        window.location.href = "/transactions"
+      }, 1000)
     } catch (error) {
+      console.error("Import error:", error)
       toast({
         title: "Erro ao importar transações",
-        description: error instanceof Error ? error.message : undefined,
+        description: error instanceof Error ? error.message : String(error),
         variant: "destructive",
       })
     }
