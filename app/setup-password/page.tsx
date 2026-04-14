@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast"
 
 export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 const setupPasswordSchema = z
   .object({
