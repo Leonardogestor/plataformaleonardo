@@ -105,6 +105,7 @@ export async function POST(request: NextRequest) {
         // Tentar extrair texto e transações dentro da request
         let extractedText: string | null = null
         let errorMessage: string | null = null
+        let status: DocumentStatus = DocumentStatus.COMPLETED
 
         if (isPdf) {
           try {
@@ -113,10 +114,15 @@ export async function POST(request: NextRequest) {
 
             if (text && text.length >= 10) {
               extractedText = text.slice(0, 10000)
+            } else {
+              // Extraction returned empty or very short text - mark as FAILED
+              status = DocumentStatus.FAILED
+              errorMessage = "Não foi possível extrair texto do PDF. Verifique se o documento tem texto legível (não é uma imagem/varredura)."
             }
           } catch (extractErr) {
             console.warn(`⚠️ ${file.name}: extração falhou:`, extractErr)
-            errorMessage = extractErr instanceof Error ? extractErr.message : "Extração falhou"
+            status = DocumentStatus.FAILED
+            errorMessage = extractErr instanceof Error ? extractErr.message : "Falha na extração de PDF"
           }
         }
 
@@ -127,7 +133,7 @@ export async function POST(request: NextRequest) {
             fileName: file.name,
             mimeType,
             fileSize: file.size,
-            status: DocumentStatus.COMPLETED,
+            status,
             extractedText,
             errorMessage,
           },

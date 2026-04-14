@@ -13,12 +13,11 @@ export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
   let text = ""
   try {
     console.log(`[PDF] Tentando pdfjs-dist...`)
-    // Use the correct import for Node.js
-    const pdfjsLib = require("pdfjs-dist/legacy/build/pdf.js")
-    console.log(`[PDF] pdfjs-dist (require) importado com sucesso`)
+    const pdfjs = await import("pdfjs-dist")
+    console.log(`[PDF] pdfjs-dist importado com sucesso`)
 
-    const loadingTask = pdfjsLib.getDocument({
-      data: buffer,
+    const loadingTask = pdfjs.getDocument({
+      data: new Uint8Array(buffer),
       useWorkerFetch: false,
       isEvalSupported: false,
       useSystemFonts: true,
@@ -48,16 +47,16 @@ export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
     }
   } catch (e) {
     console.warn(`[PDF] ❌ pdfjs-dist falhou: ${e instanceof Error ? e.message : String(e)}`)
-    console.warn(e)
   }
 
-  // FORCE-MODE: Attempt 2 - pdf-parse default export (more robust)
+  // FORCE-MODE: Attempt 2 - pdf-parse
   try {
-    console.log(`[PDF] Tentando pdf-parse (attempt 1)...`)
-    const pdfParse = require("pdf-parse")
-    console.log(`[PDF] pdf-parse (require) importado`)
+    console.log(`[PDF] Tentando pdf-parse...`)
+    const pdfParse = await import("pdf-parse")
+    const parseFn = pdfParse.default || pdfParse
+    console.log(`[PDF] pdf-parse importado`)
 
-    const pdfData = await pdfParse(buffer)
+    const pdfData = await parseFn(buffer)
     text = (pdfData?.text ?? "").trim()
     console.log(`[PDF] pdf-parse retornou ${text.length} chars`)
 
@@ -68,15 +67,15 @@ export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
       console.warn(`[PDF] pdf-parse retornou texto muito curto: ${text.length} chars`)
     }
   } catch (e) {
-    console.warn(`[PDF] ❌ pdf-parse attempt 1 falhou: ${e instanceof Error ? e.message : String(e)}`)
-    console.warn(e)
+    console.warn(`[PDF] ❌ pdf-parse falhou: ${e instanceof Error ? e.message : String(e)}`)
   }
 
   // FORCE-MODE: Attempt 3 - retry pdf-parse with buffer clone
   try {
-    console.log(`[PDF] Tentando pdf-parse com buffer clonado (attempt 2)...`)
-    const pdfParse = require("pdf-parse")
-    const pdfData = await pdfParse(Buffer.from(buffer))
+    console.log(`[PDF] Tentando pdf-parse com buffer clonado...`)
+    const pdfParse = await import("pdf-parse")
+    const parseFn = pdfParse.default || pdfParse
+    const pdfData = await parseFn(Buffer.from(buffer))
     text = (pdfData?.text ?? "").trim()
     console.log(`[PDF] pdf-parse (cloned) retornou ${text.length} chars`)
 
@@ -87,8 +86,7 @@ export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
       console.warn(`[PDF] pdf-parse (cloned) retornou texto muito curto: ${text.length} chars`)
     }
   } catch (e) {
-    console.warn(`[PDF] ❌ pdf-parse attempt 2 falhou: ${e instanceof Error ? e.message : String(e)}`)
-    console.warn(e)
+    console.warn(`[PDF] ❌ pdf-parse (cloned) falhou: ${e instanceof Error ? e.message : String(e)}`)
   }
 
   console.error(`[PDF] ❌ TODOS OS MÉTODOS FALHARAM - retornando string vazia`)
