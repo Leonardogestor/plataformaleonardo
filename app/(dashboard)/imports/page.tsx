@@ -19,60 +19,18 @@ import { toast } from "@/hooks/use-toast"
 
 export default function ImportsPage() {
   // Importar transaÃ§Ãµes do documento para a tela de transaÃ§Ãµes
-  const handleImportarParaTransacao = async (doc: any) => {
-    console.log("🔵 handleImportarParaTransacao called with doc:", doc)
-
-    if (!doc?.id) {
-      console.error("❌ Doc sem ID:", doc)
-      alert("Erro: documento sem ID")
-      return
-    }
-
+  const handleImportarParaTransacao = async (docId: string) => {
     try {
-      console.log("📤 Iniciando import para documento:", doc.id)
-      toast({
-        title: "Importando...",
-        description: "Aguarde enquanto processamos as transações",
-      })
+      const res = await fetch(`/api/documents/${docId}/import`, { method: "POST" })
+      const data = await res.json()
 
-      const importRes = await fetch(`/api/documents/${doc.id}/import`, {
-        method: "POST",
-      })
-
-      console.log("📥 Import response status:", importRes.status)
-      const result = await importRes.json()
-      console.log("Import response:", { status: importRes.status, ok: importRes.ok, result })
-
-      if (!importRes.ok) {
-        throw new Error(result.error || `Falha na importação (${importRes.status})`)
-      }
-
-      if (result.results?.alreadyImported) {
-        toast({
-          title: "Documento já importado",
-          description: `${result.results.importedCount ?? 0} transações já estão vinculadas a este documento.`,
-        })
-        setTimeout(() => {
-          window.location.href = "/transactions"
-        }, 1000)
-        return
-      }
-
-      toast({
-        title: `${result.results?.success ?? 0} transações importadas!`,
-        description: "Redirecionando para transações...",
-      })
-
-      setTimeout(() => {
+      if (res.ok) {
         window.location.href = "/transactions"
-      }, 1000)
-    } catch (error) {
-      console.error("❌ Import error:", error)
-      toast({
-        title: "Erro ao importar transações",
-        description: error instanceof Error ? error.message : String(error),
-        variant: "destructive",
-      })
+      } else {
+        alert(`Erro: ${data.error}`)
+      }
+    } catch (e) {
+      alert(`Erro na requisição: ${e}`)
     }
   }
   const [files, setFiles] = useState<File[]>([])
@@ -623,7 +581,7 @@ export default function ImportsPage() {
                         <Button
                           size="sm"
                           variant="default"
-                          onClick={() => handleImportarParaTransacao(doc)}
+                          onClick={() => handleImportarParaTransacao(doc.id)}
                         >
                           <Upload className="h-4 w-4 mr-1" />
                           IMPORTAR PARA TRANSAÃ‡ÃƒO
