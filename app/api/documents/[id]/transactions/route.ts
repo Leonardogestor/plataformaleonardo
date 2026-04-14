@@ -8,14 +8,14 @@ import { parseTransactionsWithAI } from "@/lib/ai-transaction-parser"
 
 /**
  * GET - Busca transacoes associadas a um documento processado.
- * Prioriza vinculo explicito por documentId, mantem fallback legado por janela de tempo
- * e, se ainda necessario, reconstr�i uma previa a partir do texto extraido.
+ * Prioriza vínculo explícito por documentId, mantém fallback legado por janela de tempo
+ * e, se ainda necessário, reconstrói uma prévia a partir do texto extraído.
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Nao autorizado" }, { status: 401 })
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
     const { id } = await params
@@ -32,14 +32,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     })
 
     if (!document) {
-      return NextResponse.json({ error: "Documento nao encontrado" }, { status: 404 })
+      return NextResponse.json({ error: "Documento não encontrado" }, { status: 404 })
     }
 
     if (document.status === DocumentStatus.PROCESSING) {
       return NextResponse.json({
         status: DocumentStatus.PROCESSING,
         transactions: [],
-        message: "Documento ainda esta sendo processado",
+        message: "Documento ainda está sendo processado",
       })
     }
 
@@ -108,7 +108,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           documentId: id,
         }))
       } catch (parseError) {
-        console.warn("Falha ao reconstruir transacoes a partir do texto extraido:", parseError)
+        console.warn("Falha ao reconstruir transações a partir do texto extraído:", parseError)
       }
     }
 
@@ -123,7 +123,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       },
     })
   } catch (error) {
-    console.error("Erro ao buscar transacoes do documento:", error)
-    return NextResponse.json({ error: "Erro ao buscar transacoes do documento" }, { status: 500 })
+    console.error("Erro ao buscar transações do documento:", error)
+    return NextResponse.json({ error: "Erro ao buscar transações do documento" }, { status: 500 })
   }
 }
