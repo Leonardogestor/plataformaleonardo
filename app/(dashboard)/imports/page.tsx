@@ -20,7 +20,16 @@ import { toast } from "@/hooks/use-toast"
 export default function ImportsPage() {
   // Importar transaÃ§Ãµes do documento para a tela de transaÃ§Ãµes
   const handleImportarParaTransacao = async (doc: any) => {
+    console.log("🔵 handleImportarParaTransacao called with doc:", doc)
+
+    if (!doc?.id) {
+      console.error("❌ Doc sem ID:", doc)
+      alert("Erro: documento sem ID")
+      return
+    }
+
     try {
+      console.log("📤 Iniciando import para documento:", doc.id)
       toast({
         title: "Importando...",
         description: "Aguarde enquanto processamos as transações",
@@ -30,6 +39,7 @@ export default function ImportsPage() {
         method: "POST",
       })
 
+      console.log("📥 Import response status:", importRes.status)
       const result = await importRes.json()
       console.log("Import response:", { status: importRes.status, ok: importRes.ok, result })
 
@@ -57,7 +67,7 @@ export default function ImportsPage() {
         window.location.href = "/transactions"
       }, 1000)
     } catch (error) {
-      console.error("Import error:", error)
+      console.error("❌ Import error:", error)
       toast({
         title: "Erro ao importar transações",
         description: error instanceof Error ? error.message : String(error),
