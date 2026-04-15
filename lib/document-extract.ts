@@ -64,18 +64,33 @@ export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
 export async function extractTextFromExcel(buffer: Buffer): Promise<string> {
   try {
     const XLSX = await import("xlsx")
-    const workbook = XLSX.read(buffer, { type: "buffer", raw: true })
-    const parts: string[] = []
-    for (const name of workbook.SheetNames) {
-      const sheet = workbook.Sheets[name]
-      if (sheet) {
-        const text = XLSX.utils.sheet_to_txt(sheet, { blankrows: false, strip: true })
-        if (text) parts.push(`[${name}]\n${text}`)
+
+    // Tenta ler como workbook (XLSX/XLS) primeiro
+    try {
+      const workbook = XLSX.read(buffer, { type: "buffer", raw: true })
+      const parts: string[] = []
+      for (const name of workbook.SheetNames) {
+        const sheet = workbook.Sheets[name]
+        if (sheet) {
+          const text = XLSX.utils.sheet_to_txt(sheet, { blankrows: false, strip: true })
+          if (text) parts.push(`[${name}]\n${text}`)
+        }
       }
+      const result = parts.join("\n\n").slice(0, MAX_EXTRACT_LENGTH).trim()
+      if (result.length > 0) return result
+    } catch (xlsxError) {
+      console.warn("XLSX parsing failed, trying CSV:", xlsxError)
     }
-    return parts.join("\n\n").slice(0, MAX_EXTRACT_LENGTH).trim()
+
+    // Se falhar, tenta como CSV
+    const text = buffer.toString("utf-8")
+    if (text.trim().length > 0) {
+      return text.slice(0, MAX_EXTRACT_LENGTH).trim()
+    }
+
+    return ""
   } catch (e) {
-    console.warn("xlsx extraction failed:", e)
+    console.warn("Excel/CSV extraction failed:", e)
     return ""
   }
 }
