@@ -2,11 +2,7 @@ import { pipelineLogger } from "@/lib/utils/logger"
 import { prisma } from "@/lib/db"
 import { DocumentStatus } from "@prisma/client"
 import { extractTextFromPdf, extractTextFromExcel } from "@/lib/document-extract"
-import {
-  parseTransactionsWithAI,
-  convertToNormalizedTransaction,
-} from "@/lib/ai-transaction-parser"
-import { detectBankFromText } from "@/lib/bank-parsers"
+import { parseTransactionsWithAI, convertToNormalizedTransaction } from "@/lib/ai-transaction-parser"
 import { importTransactionsFromPdfWithDedup } from "@/lib/transaction-import"
 
 export interface ProcessDocumentJobData {
@@ -141,11 +137,10 @@ export async function processDocumentJob(
       textLength: extractedText.length,
     })
 
-    // 6. Detectar banco e fazer parsing com IA
-    const bank = detectBankFromText(extractedText)
-    pipelineLogger.info("Bank detected", { fileId: data.fileId, bank })
+    // 6. Parser: de texto bruto para transações normalizadas
+    pipelineLogger.info("Parsing transactions", { fileId: data.fileId })
 
-    const aiResult = await parseTransactionsWithAI(extractedText, "pdf", bank)
+    const aiResult = await parseTransactionsWithAI(extractedText, "pdf")
 
     if (!aiResult.transactions || aiResult.transactions.length === 0) {
       const finishedAt = new Date()
