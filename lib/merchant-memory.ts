@@ -37,16 +37,16 @@ export function getMerchantKey(description: string): string {
 
   // Return first meaningful token or combination of first two
   if (words.length === 1) {
-    return words[0]
+    return words[0]!
   }
 
   // Check for specific patterns
-  const combined = words[0]
+  const combined = words[0]!
   if (combined.includes("ifood") || combined.includes("uber") || combined.includes("spotify")) {
     return combined
   }
 
-  return words[0]
+  return words[0]!
 }
 
 export function normalizeMerchantName(description: string): string {
