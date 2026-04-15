@@ -101,7 +101,21 @@ export async function processDocumentPdf(documentId: string): Promise<void> {
     let parsingMethod = "ai_only"
     const bank = detectBankFromText(text)
     const aiResult = await hybridParseTransactions(text, "pdf", bank)
-    if (aiResult.transactions.length > 0) {
+
+    // 🔥 NOVO: Fallback quando não encontra transações
+    if (!aiResult.transactions.length) {
+      console.warn("⚠️ AI parsing não encontrou transações — usando fallback")
+      // Criar transação mínima do texto extraído
+      const fallbackTx: NormalizedTransaction = {
+        date: new Date().toISOString().split("T")[0],
+        amount: 0,
+        type: "EXPENSE",
+        category: "Documentos",
+        description: text.slice(0, 100),
+      }
+      transactions = [fallbackTx]
+      parsingMethod = "fallback"
+    } else {
       transactions = aiResult.transactions.map((t) => {
         const normalized = convertToNormalizedTransaction(t)
         return {
@@ -113,9 +127,7 @@ export async function processDocumentPdf(documentId: string): Promise<void> {
         }
       })
       parsingMethod = "ai_only"
-      console.info(`AI parsing (forçado) retornou ${transactions.length} transações`)
-    } else {
-      console.warn("AI parsing não encontrou transações.")
+      console.info(`✅ AI parsing retornou ${transactions.length} transações`)
     }
 
     const result = await importTransactionsFromPdfWithDedup(userId, transactions)

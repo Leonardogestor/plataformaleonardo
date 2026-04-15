@@ -47,12 +47,9 @@ export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
     const text = parts.join("\n").trim()
     console.log(`[PDF] ✅ SUCESSO! Total: ${text.length} caracteres`)
 
-    if (text.length >= 10) {
-      return text.slice(0, MAX_EXTRACT_LENGTH)
-    } else {
-      console.warn(`[PDF] ⚠️ Texto extraído muito curto: ${text.length} chars`)
-      return "" // Pode ser PDF vazio ou protegido
-    }
+    // ✅ NOVO: Aceita QUALQUER texto, mesmo que curto
+    // O fallback vai cuidar de PDFs vazios
+    return text
   } catch (e) {
     console.error(
       `[PDF] ❌ Falha na extração: ${e instanceof Error ? e.message : String(e)}`

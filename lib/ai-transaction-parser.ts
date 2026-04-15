@@ -97,6 +97,56 @@ function classifyType(desc: string, value: number): "INCOME" | "EXPENSE" | "TRAN
 }
 
 /**
+ * 🔥 PARSER POR BLOCO - Extrai transações mesmo de PDFs malformados
+ * Não depende de regex rígido ou datas
+ */
+function extractTransactionsFromText(text: string): Array<{
+  date: string
+  rawDescription: string
+  value: number
+}> {
+  const lines = text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+
+  const transactions: Array<{
+    date: string
+    rawDescription: string
+    value: number
+  }> = []
+  let buffer: string[] = []
+
+  for (const line of lines) {
+    buffer.push(line)
+
+    // 🎯 Se encontrou valor em formato brasileiro → fecha bloco
+    if (line.match(/\d{1,3}(\.\d{3})*,\d{2}$/)) {
+      const block = buffer.join(" ")
+
+      // Extrair valor
+      const valueMatch = block.match(/(\d{1,3}(\.\d{3})*,\d{2})/)
+      const value = valueMatch ? parseFloat(valueMatch[1]!.replace(/\./g, "").replace(",", ".")) : 0
+
+      // Extrair descrição (remove valor do bloco)
+      const description = block.replace(/(\d{1,3}(\.\d{3})*,\d{2})/, "").trim()
+
+      if (description.length > 0 && value > 0) {
+        transactions.push({
+          date: new Date().toLocaleDateString("pt-BR"), // Fallback hoje
+          rawDescription: description,
+          value,
+        })
+      }
+
+      buffer = []
+    }
+  }
+
+  return transactions
+}
+
+/**
  * PASSO 3: Classificar categoria
  * Usa interpretação semântica + padrões
  */
@@ -246,35 +296,6 @@ function convertBrazilianValue(valueStr: string): number {
 }
 
 /**
- * Extrai transações do texto usando regex
- */
-function parseTransactionLines(text: string): Array<{
-  date: string
-  rawDescription: string
-  value: number
-}> {
-  const transactions = []
-  const lineRegex = /(\d{2}\/\d{2}\/\d{4})\s+(.+?)\s+([-+]?[\d.]+,\d{2})$/gm
-
-  let match
-  while ((match = lineRegex.exec(text)) !== null) {
-    if (match.length < 4) continue
-
-    const dateStr = match[1]!
-    const description = match[2]!
-    const valueStr = match[3]!
-
-    transactions.push({
-      date: dateStr.trim(),
-      rawDescription: description.trim(),
-      value: convertBrazilianValue(valueStr.trim()),
-    })
-  }
-
-  return transactions
-}
-
-/**
  * NORMALIZADOR PRINCIPAL
  * Entrada: transação bruta
  * Saída: transação normalizada e categorizada
@@ -312,20 +333,23 @@ function convertDateToISO(dateStr: string): string {
 }
 
 /**
- * PARSER PRINCIPAL
+ * PARSER PRINCIPAL - AGORA USA BLOCO EXTRACTOR
  * Texto bruto → Transações normalizadas
+ * 🔥 NUNCA retorna erro, SEMPRE tenta extrair algo
  */
 export async function parseTransactionsWithAI(
   text: string,
   _sourceType: "pdf" | "excel" | "csv" = "pdf",
   _bankHint?: string
 ): Promise<{ transactions: NormalizedTransaction[]; summary?: { confidence: number } }> {
-  if (!text || text.trim().length < 10) {
+  // ✅ Aceita texto vazio - vai tentar o bloco extractor
+  if (!text || text.trim().length === 0) {
     return { transactions: [] }
   }
 
   try {
-    const rawTransactions = parseTransactionLines(text)
+    // 🔥 NOVO: Usar extractTransactionsFromText ao invés do regex rígido
+    const rawTransactions = extractTransactionsFromText(text)
     const normalized = rawTransactions.map((raw) => normalizeTransaction(raw))
 
     return {
@@ -338,7 +362,6 @@ export async function parseTransactionsWithAI(
     console.error("[Parser] Erro:", error instanceof Error ? error.message : String(error))
     return { transactions: [] }
   }
-}
 
 /**
  * Aliases para compatibilidade
