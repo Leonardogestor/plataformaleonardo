@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
         error: "Erro ao processar arquivo",
         message: error instanceof Error ? error.message : "Erro desconhecido",
         fallback: true,
-        format: "error"
+        format: "error",
       },
       { status: 500 }
     )

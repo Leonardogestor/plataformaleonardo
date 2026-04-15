@@ -40,7 +40,10 @@ export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
           console.log(`[PDF]   Página ${i}: ${pageText.length} chars`)
         }
       } catch (pageErr) {
-        console.warn(`[PDF] ⚠️ Erro na página ${i}:`, pageErr instanceof Error ? pageErr.message : "desconhecido")
+        console.warn(
+          `[PDF] ⚠️ Erro na página ${i}:`,
+          pageErr instanceof Error ? pageErr.message : "desconhecido"
+        )
       }
     }
 
@@ -51,9 +54,7 @@ export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
     // O fallback vai cuidar de PDFs vazios
     return text
   } catch (e) {
-    console.error(
-      `[PDF] ❌ Falha na extração: ${e instanceof Error ? e.message : String(e)}`
-    )
+    console.error(`[PDF] ❌ Falha na extração: ${e instanceof Error ? e.message : String(e)}`)
     return ""
   }
 }

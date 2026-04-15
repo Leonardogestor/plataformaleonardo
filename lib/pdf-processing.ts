@@ -12,7 +12,11 @@ import {
   importTransactionsFromPdfWithDedup,
   type NormalizedTransaction,
 } from "@/lib/transaction-import"
-import { hybridParseTransactions, refineTransactionsWithAI, convertToNormalizedTransaction } from "@/lib/ai-transaction-parser"
+import {
+  hybridParseTransactions,
+  refineTransactionsWithAI,
+  convertToNormalizedTransaction,
+} from "@/lib/ai-transaction-parser"
 
 const DEFAULT_CATEGORY = "Outros"
 
