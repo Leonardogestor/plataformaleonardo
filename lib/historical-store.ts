@@ -16,7 +16,7 @@ export interface CategoryStatistics {
 }
 
 export interface LongTermPattern {
-  type: "recurring" | "transfer" | "cluster"
+  type: "recurring" | "transfers" | "cluster"
   category?: string
   avgValue: number
   frequency: number
@@ -117,7 +117,7 @@ export class HistoricalStore {
 
   addPattern(
     userId: string,
-    patternType: "recurring" | "transfer" | "cluster",
+    patternType: "recurring" | "transfers" | "cluster",
     pattern: LongTermPattern
   ): void {
     const profile = this.getOrCreateProfile(userId)
@@ -127,7 +127,7 @@ export class HistoricalStore {
 
   getPatterns(
     userId: string,
-    patternType?: "recurring" | "transfer" | "cluster"
+    patternType?: "recurring" | "transfers" | "cluster"
   ): LongTermPattern[] {
     const profile = this.getProfile(userId)
     if (!profile) return []
@@ -143,7 +143,7 @@ export class HistoricalStore {
     ]
   }
 
-  clearPatterns(userId: string, patternType: "recurring" | "transfer" | "cluster"): void {
+  clearPatterns(userId: string, patternType: "recurring" | "transfers" | "cluster"): void {
     const profile = this.getOrCreateProfile(userId)
     profile.patterns[patternType] = []
     this.updateProfile(userId, profile)
