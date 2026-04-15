@@ -88,9 +88,10 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
     if (!document.extractedText || document.extractedText.trim().length < 10) {
       // 🛡️ SAFE ENGINE FALLBACK: Force create transaction from document metadata
       try {
-        const dateStr = `${String(document.createdAt.getDate()).padStart(2, "0")}/${String(
-          document.createdAt.getMonth() + 1
-        ).padStart(2, "0")}/${document.createdAt.getFullYear()}`
+        const today = new Date()
+        const dateStr = `${String(today.getDate()).padStart(2, "0")}/${String(
+          today.getMonth() + 1
+        ).padStart(2, "0")}/${today.getFullYear()}`
 
         const safeTx = processSafe({
           date: dateStr,
@@ -109,7 +110,7 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
             category: safeTx.category,
             amount: safeTx.value,
             description: safeTx.description,
-            date: new Date(dateStr.split("/").reverse().join("-")),
+            date: today,
             isPending: safeTx.reviewRequired,
           },
         })

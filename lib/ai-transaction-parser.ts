@@ -362,6 +362,7 @@ export async function parseTransactionsWithAI(
     console.error("[Parser] Erro:", error instanceof Error ? error.message : String(error))
     return { transactions: [] }
   }
+}
 
 /**
  * Aliases para compatibilidade

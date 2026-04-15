@@ -30,7 +30,7 @@ export function applyUserCorrection(
   // Update merchant memory
   if (merchantKey) {
     if (merchantKey in merchantMemory) {
-      const entry = merchantMemory[merchantKey]
+      const entry = merchantMemory[merchantKey]!
 
       // Boost confidence when user corrects
       entry.category = correctionData.correctedCategory
@@ -80,7 +80,7 @@ export function getCorrectionStats(corrections: Correction[]): Record<
     const key = `${correction.merchantKey}_${correction.originalCategory}_${correction.correctedCategory}`
 
     if (key in stats) {
-      stats[key].count += 1
+      stats[key]!.count += 1
     } else {
       stats[key] = {
         merchantKey: correction.merchantKey,
@@ -137,7 +137,7 @@ export function rollbackCorrection(
 
   // Adjust confidence if needed
   if (correction.merchantKey in merchantMemory) {
-    const entry = merchantMemory[correction.merchantKey]
+    const entry = merchantMemory[correction.merchantKey]!
     entry.confidence = Math.max(entry.confidence - 0.1, 0.3)
     entry.usageCount = Math.max(entry.usageCount - 1, 0)
   }

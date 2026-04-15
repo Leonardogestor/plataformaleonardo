@@ -35,12 +35,12 @@ function getMerchantFromDescription(description: string): string {
 }
 
 function parseDate(dateStr: string): Date {
-  const [day, month, year] = dateStr.split("/").map(Number)
+  const [day, month, year] = dateStr.split("/").map(Number) as [number, number, number]
   return new Date(year, month - 1, day)
 }
 
 function getDateKey(date: Date): string {
-  return date.toISOString().split("T")[0]
+  return date.toISOString().split("T")[0]!
 }
 
 function getTimeKey(date: Date): string {
@@ -69,22 +69,22 @@ export function groupByTime(
   )
 
   const windows: TimeWindow[] = []
-  let currentWindow: ContextualTransaction[] = [sorted[0]]
-  let windowStart = parseDate(sorted[0].date)
+  let currentWindow: ContextualTransaction[] = [sorted[0]!]
+  let windowStart = parseDate(sorted[0]!.date)
 
   for (let i = 1; i < sorted.length; i++) {
-    const currentDate = parseDate(sorted[i].date)
+    const currentDate = parseDate(sorted[i]!.date)
     const timeDiffMinutes = (currentDate.getTime() - windowStart.getTime()) / (1000 * 60)
 
     if (timeDiffMinutes <= windowMinutes) {
-      currentWindow.push(sorted[i])
+      currentWindow.push(sorted[i]!)
     } else {
       windows.push({
         transactions: currentWindow,
         startTime: windowStart,
-        endTime: parseDate(currentWindow[currentWindow.length - 1].date),
+        endTime: parseDate(currentWindow[currentWindow.length - 1]!.date),
       })
-      currentWindow = [sorted[i]]
+      currentWindow = [sorted[i]!]
       windowStart = currentDate
     }
   }
@@ -93,7 +93,7 @@ export function groupByTime(
     windows.push({
       transactions: currentWindow,
       startTime: windowStart,
-      endTime: parseDate(currentWindow[currentWindow.length - 1].date),
+      endTime: parseDate(currentWindow[currentWindow.length - 1]!.date),
     })
   }
 
@@ -109,12 +109,12 @@ export function detectTransferPairs(
   for (let i = 0; i < result.length; i++) {
     if (processed.has(i)) continue
 
-    const tx1 = result[i]
+    const tx1 = result[i]!
 
     for (let j = i + 1; j < result.length; j++) {
       if (processed.has(j)) continue
 
-      const tx2 = result[j]
+      const tx2 = result[j]!
 
       // Check if values match
       if (Math.abs(tx1.value - tx2.value) > 0.01) continue
@@ -132,20 +132,23 @@ export function detectTransferPairs(
 
       if (hoursDiff <= 24) {
         // Mark as transfer pair
-        if (!result[i].contextTags) result[i].contextTags = []
-        if (!result[j].contextTags) result[j].contextTags = []
+        const resI = result[i]!
+        const resJ = result[j]!
 
-        result[i].contextTags.push("paired_transfer")
-        result[j].contextTags.push("paired_transfer")
+        if (!resI.contextTags) resI.contextTags = []
+        if (!resJ.contextTags) resJ.contextTags = []
 
-        result[i].patternType = "internal_transfer"
-        result[j].patternType = "internal_transfer"
+        resI.contextTags.push("paired_transfer")
+        resJ.contextTags.push("paired_transfer")
 
-        if (!result[i].relatedTransactions) result[i].relatedTransactions = []
-        if (!result[j].relatedTransactions) result[j].relatedTransactions = []
+        resI.patternType = "internal_transfer"
+        resJ.patternType = "internal_transfer"
 
-        result[i].relatedTransactions.push(tx2.description)
-        result[j].relatedTransactions.push(tx1.description)
+        if (!resI.relatedTransactions) resI.relatedTransactions = []
+        if (!resJ.relatedTransactions) resJ.relatedTransactions = []
+
+        resI.relatedTransactions.push(tx2.description)
+        resJ.relatedTransactions.push(tx1.description)
 
         processed.add(i)
         processed.add(j)
@@ -154,7 +157,14 @@ export function detectTransferPairs(
     }
   }
 
-  return result
+  // Ensure all transactions have required fields
+  return result.map((tx) => ({
+    ...tx,
+    contextTags: tx.contextTags || [],
+    relatedTransactions: tx.relatedTransactions || [],
+    anomalyScore: tx.anomalyScore || 0,
+    patternType: tx.patternType || null,
+  }))
 }
 
 export function detectRecurring(transactions: ContextualTransaction[]): ContextualTransaction[] {
@@ -164,7 +174,7 @@ export function detectRecurring(transactions: ContextualTransaction[]): Contextu
   const groups: { [key: string]: number[] } = {}
 
   for (let i = 0; i < result.length; i++) {
-    const tx = result[i]
+    const tx = result[i]!
     const normalized = tx.description.toLowerCase().replace(/[0-9]/g, "X").substring(0, 30)
     const valueRange = Math.floor(tx.value / 10) * 10 // Round to nearest 10
 
@@ -178,17 +188,25 @@ export function detectRecurring(transactions: ContextualTransaction[]): Contextu
   for (const [key, indices] of Object.entries(groups)) {
     if (indices.length >= 3) {
       for (const idx of indices) {
-        if (!result[idx].contextTags) result[idx].contextTags = []
-        result[idx].contextTags.push("subscription_candidate")
-        result[idx].patternType = "recurring"
-        result[idx].relatedTransactions = indices
+        const txAtIdx = result[idx]!
+        if (!txAtIdx.contextTags) txAtIdx.contextTags = []
+        txAtIdx.contextTags.push("subscription_candidate")
+        txAtIdx.patternType = "recurring"
+        txAtIdx.relatedTransactions = indices
           .filter((i) => i !== idx)
-          .map((i) => result[i].description)
+          .map((i) => result[i]!.description)
       }
     }
   }
 
-  return result
+  // Ensure all transactions have required fields
+  return result.map((tx) => ({
+    ...tx,
+    contextTags: tx.contextTags || [],
+    relatedTransactions: tx.relatedTransactions || [],
+    anomalyScore: tx.anomalyScore || 0,
+    patternType: tx.patternType || null,
+  }))
 }
 
 export function analyzeMerchantBehavior(
@@ -350,19 +368,19 @@ export function applyContextEngine(transactions: ContextualTransaction[]): Conte
   }
 
   // Step 2: Detect transfer pairs (within windows + all)
-  enhanced = detectTransferPairs(enhanced)
+  enhanced = detectTransferPairs(enhanced) as typeof enhanced
 
   // Step 3: Detect recurring patterns
-  enhanced = detectRecurring(enhanced)
+  enhanced = detectRecurring(enhanced) as typeof enhanced
 
   // Step 4: Analyze merchant behavior
-  enhanced = analyzeMerchantBehavior(enhanced)
+  enhanced = analyzeMerchantBehavior(enhanced) as typeof enhanced
 
   // Step 5: Detect anomalies
-  enhanced = detectAnomalies(enhanced)
+  enhanced = detectAnomalies(enhanced) as typeof enhanced
 
   // Step 6: Adjust categories with context
-  enhanced = enhanced.map((tx) => adjustCategoryWithContext(tx))
+  enhanced = enhanced.map((tx) => adjustCategoryWithContext(tx)) as typeof enhanced
 
   // Step 7: Clean up and finalize
   const result = enhanced.map((tx) => ({

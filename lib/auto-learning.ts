@@ -38,7 +38,7 @@ export function learnFromTransactions(
       }
 
       // Find most common category
-      let consensusCategory = txs[0].category
+      let consensusCategory = txs[0]!.category
       let maxVotes = 0
 
       for (const [category, votes] of Object.entries(categoryVotes)) {
@@ -53,7 +53,7 @@ export function learnFromTransactions(
 
       // Update or create merchant memory
       if (merchantKey in merchantMemory) {
-        const entry = merchantMemory[merchantKey]
+        const entry = merchantMemory[merchantKey]!
         entry.category = consensusCategory
         entry.confidence = Math.min((entry.confidence + avgConfidence) / 2, 0.95)
         entry.usageCount += txs.length
@@ -69,7 +69,7 @@ export function learnFromTransactions(
       // Update pattern stats
       const pattern = merchantKey
       if (pattern in patternStats) {
-        const stat = patternStats[pattern]
+        const stat = patternStats[pattern]!
         stat.occurrences += txs.length
         stat.confidence = Math.min((stat.confidence + avgConfidence) / 2, 0.95)
       } else {
@@ -106,7 +106,7 @@ export function detectRepeatedPatterns(transactions: ParsedTransaction[]): Recor
     if (key) {
       const patternKey = `${key}_${tx.category}`
       if (patternKey in patterns) {
-        patterns[patternKey].transactions.push(tx)
+        patterns[patternKey]!.transactions.push(tx)
       } else {
         patterns[patternKey] = {
           merchantKey: key,
@@ -179,9 +179,10 @@ export function autoLearnCategories(
           const avgConfidence = txs.reduce((sum, tx) => sum + tx.confidence, 0) / txs.length
 
           if (merchantKey in merchantMemory) {
-            merchantMemory[merchantKey].category = category
-            merchantMemory[merchantKey].confidence = Math.min(
-              (merchantMemory[merchantKey].confidence + avgConfidence) / 2,
+            const entry = merchantMemory[merchantKey]!
+            entry.category = category
+            entry.confidence = Math.min(
+              (entry.confidence + avgConfidence) / 2,
               0.95
             )
           } else {
