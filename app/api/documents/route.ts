@@ -6,6 +6,7 @@ import { DocumentStatus } from "@prisma/client"
 import { extractTextFromPdf } from "@/lib/document-extract"
 import { checkDocumentsLimit } from "@/lib/rate-limit"
 import { deleteDocumentBlob } from "@/lib/blob"
+import { processSafe, SafeTransaction } from "@/lib/safe-engine"
 
 const MAX_SIZE = 10 * 1024 * 1024 // 10MB
 
@@ -117,12 +118,14 @@ export async function POST(request: NextRequest) {
             } else {
               // Extraction returned empty or very short text - mark as FAILED
               status = DocumentStatus.FAILED
-              errorMessage = "Não foi possível extrair texto do PDF. Verifique se o documento tem texto legível (não é uma imagem/varredura)."
+              errorMessage =
+                "Não foi possível extrair texto do PDF. Verifique se o documento tem texto legível (não é uma imagem/varredura)."
             }
           } catch (extractErr) {
             console.warn(`⚠️ ${file.name}: extração falhou:`, extractErr)
             status = DocumentStatus.FAILED
-            errorMessage = extractErr instanceof Error ? extractErr.message : "Falha na extração de PDF"
+            errorMessage =
+              extractErr instanceof Error ? extractErr.message : "Falha na extração de PDF"
           }
         }
 
