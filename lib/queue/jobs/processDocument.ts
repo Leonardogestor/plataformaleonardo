@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db"
 import { DocumentStatus } from "@prisma/client"
 import { extractTextFromPdf, extractTextFromExcel } from "@/lib/document-extract"
 import { parseTransactionsWithAI, convertToNormalizedTransaction } from "@/lib/ai-transaction-parser"
+import { auditTransactions } from "@/lib/transaction-auditor"
 import { importTransactionsFromPdfWithDedup } from "@/lib/transaction-import"
 
 export interface ProcessDocumentJobData {
@@ -183,12 +184,40 @@ export async function processDocumentJob(
       transactionCount: aiResult.transactions.length,
     })
 
-    // 7. Converter ParsedTransaction para NormalizedTransaction
-    const normalizedTransactions = aiResult.transactions.map((tx) =>
-      convertToNormalizedTransaction(tx, data.fileId)
+    // 7. Auditoria: validar e corrigir transações
+    pipelineLogger.info("Auditing transactions", { fileId: data.fileId })
+    const auditedTransactions = auditTransactions(
+      aiResult.transactions.map((tx) => ({
+        date: tx.date,
+        type: tx.type,
+        category: tx.category,
+        value: tx.amount,
+        description: tx.description,
+        raw_description: tx.description,
+      }))
     )
 
-    // 8. Importar transações com deduplicação
+    const correctionStats = {
+      total: auditedTransactions.length,
+      corrected: auditedTransactions.filter((t) => t.corrected).length,
+    }
+
+    pipelineLogger.info("Audit completed", {
+      fileId: data.fileId,
+      ...correctionStats,
+    })
+
+    // 8. Converter para formato de importação
+    const normalizedTransactions = auditedTransactions.map((tx) => ({
+      date: tx.date,
+      amount: Math.abs(tx.value),
+      type: tx.type,
+      category: tx.category,
+      description: tx.description,
+      sourceFile: "pdf",
+    }))
+
+    // 9. Importar transações com deduplicação
     const result = await importTransactionsFromPdfWithDedup(data.userId, normalizedTransactions)
 
     pipelineLogger.info("Transactions imported", {
@@ -197,7 +226,7 @@ export async function processDocumentJob(
       failed: result.failed,
     })
 
-    // 9. Atualizar status final do documento
+    // 10. Atualizar status final do documento
     const finishedAt = new Date()
     const durationMs = finishedAt.getTime() - startTime
 
