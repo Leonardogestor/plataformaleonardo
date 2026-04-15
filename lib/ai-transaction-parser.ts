@@ -1,246 +1,286 @@
 /**
  * AI-powered transaction parser for Brazilian bank statements.
- * Sends extracted PDF/Excel text to OpenAI and returns structured transactions.
- * Works with any bank format — no regex required.
+ * Uses specialized prompt for structured extraction from Nubank and other banks.
  */
 
 import { z } from "zod"
 
+// Categorias permitidas conforme o prompt
+const ALLOWED_CATEGORIES = [
+  "Alimentação",
+  "Transporte",
+  "Saúde",
+  "Mercado",
+  "Lazer",
+  "Moradia",
+  "Assinaturas",
+  "Transferência",
+  "Investimento",
+  "Outros",
+]
+
 const transactionSchema = z.object({
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  date: z.string().regex(/^\d{2}\/\d{2}\/\d{4}$/),
+  type: z.enum(["INCOME", "EXPENSE", "INVESTIMENTO"]),
+  category: z.enum(ALLOWED_CATEGORIES as [string, ...string[]]),
+  value: z.number(),
   description: z.string().min(1),
-  amount: z.number().positive(),
-  type: z.enum(["INCOME", "EXPENSE", "TRANSFER"]),
-  category: z.string().min(1),
-  confidence: z.number().min(0).max(1),
 })
 
 const aiParserResponseSchema = z.object({
   transactions: z.array(transactionSchema),
-  summary: z.object({
-    totalProcessed: z.number(),
-    successful: z.number(),
-    confidence: z.number(),
-    notes: z.string().optional(),
-  }),
 })
 
 export type ParsedTransaction = z.infer<typeof transactionSchema>
 export type AIParserResponse = z.infer<typeof aiParserResponseSchema>
 
-const DEFAULT_CATEGORY = "Outros"
-const DEFAULT_CONFIDENCE = 0.7
-const MONTH_MAP: Record<string, string> = {
-  JAN: "01",
-  FEV: "02",
-  FEB: "02",
-  MAR: "03",
-  ABR: "04",
-  APR: "04",
-  MAI: "05",
-  MAY: "05",
-  JUN: "06",
-  JUL: "07",
-  AGO: "08",
-  AUG: "08",
-  SET: "09",
-  SEP: "09",
-  OUT: "10",
-  OCT: "10",
-  NOV: "11",
-  DEZ: "12",
-  DEC: "12",
-}
+const SYSTEM_PROMPT = `Você é um sistema especialista em parsing de extratos bancários brasileiros (especialmente Nubank).
 
-const SYSTEM_PROMPT = `Você é um parser financeiro altamente especializado em extratos bancários do Nubank (Brasil).
+Sua tarefa é transformar um texto bruto de extrato em uma lista estruturada de transações financeiras.
 
-Seu trabalho é transformar texto bruto em uma lista estruturada de transações financeiras.
+----------------------------------------
+REGRAS DE EXTRAÇÃO
+----------------------------------------
 
-⚠️ CONTEXTO IMPORTANTE:
-O texto pode estar desorganizado, com quebras erradas, múltiplas informações juntas e ruídos (cabeçalhos, saldos, resumos).
+1. Cada transação deve conter exatamente os campos:
+- date: string no formato DD/MM/YYYY
+- type: "INCOME", "EXPENSE" ou "INVESTIMENTO"
+- category: uma das categorias abaixo
+- value: número decimal (negativo para saída, positivo para entrada)
+- description: texto limpo e resumido
 
-⚠️ SUA MISSÃO:
-Identificar e extrair SOMENTE transações financeiras reais.
+----------------------------------------
+CLASSIFICAÇÃO DE TIPO
+----------------------------------------
 
----
+- "Compra no débito" → EXPENSE
+- "Transferência enviada" → EXPENSE
+- "Transferência recebida" → INCOME
+- "Depósito" → INCOME
+- "Aplicação RDB" → INVESTIMENTO
+- "Resgate RDB" → INCOME
+- "Pagamento de fatura" → EXPENSE
+- "Estorno" → INCOME
+- "Pix enviado" → EXPENSE
+- "Pix recebido" → INCOME
 
-📌 REGRAS DE INTERPRETAÇÃO:
+----------------------------------------
+CATEGORIAS PERMITIDAS
+----------------------------------------
 
-1. Cada transação contém:
-- Data (ex: 01 JAN 2026)
-- Descrição (texto livre)
-- Valor (sempre no final)
+Escolha apenas uma das categorias abaixo (não invente):
+- Alimentação
+- Transporte
+- Saúde
+- Mercado
+- Lazer
+- Moradia
+- Assinaturas
+- Transferência
+- Investimento
+- Outros
 
-2. Ignore completamente:
-- "Saldo inicial", "Saldo final"
-- "Total de entradas", "Total de saídas"
-- Cabeçalhos (CPF, Agência, Conta)
-- Linhas institucionais
+----------------------------------------
+REGRAS DE CATEGORIZAÇÃO
+----------------------------------------
 
-3. Valores:
-- Valores positivos → "income"
-- Valores negativos OU compras → "expense"
-- "Compra no débito" → sempre expense
-- "Transferência recebida" → income
-- "Transferência enviada" → expense
-- "Pix recebido" → income
-- "Pix enviado" → expense
+Use heurística + entendimento semântico:
 
-4. Datas:
-Converter de:
-"01 JAN 2026"
-para:
-"2026-01-01"
+- iFood, restaurante, padaria, Nutricar → Alimentação
+- Drogaria, farmácia → Saúde
+- Atacadão, mercado → Mercado
+- Uber, 99, ônibus, petrobras → Transporte
+- Spotify, Netflix, cinema → Assinaturas/Lazer
+- Conta de luz, aluguel → Moradia
+- PIX sem contexto específico → Transferência
+- RDB, Fundo, Aplicação → Investimento
 
-Meses:
-JAN=01, FEV=02, MAR=03, ABR=04, MAI=05, JUN=06,
-JUL=07, AGO=08, SET=09, OUT=10, NOV=11, DEZ=12
+----------------------------------------
+REGRAS DE LIMPEZA
+----------------------------------------
 
-5. Valor:
+- Remover prefixos como: "Compra no débito", "Transferência recebida", etc.
+- Remover sufixos irrelevantes (códigos, codes CNPJ internos)
+- Manter apenas o nome essencial do estabelecimento
+- Limpar espaços extras
+
+Exemplo:
+"Compra no débito BELLA PORTAL PADARIA L 87,26"
+→ descrição: "BELLA PORTAL PADARIA"
+→ value: -87.26
+
+----------------------------------------
+REGRAS DE DATA
+----------------------------------------
+
+Datas aparecem em formatos variados:
+- "01 SET 2025" → "01/09/2025"
+- "01/09/2025" → "01/09/2025"
+- Mapa de meses: JAN=01, FEV=02, MAR=03, ABR=04, MAI=05, JUN=06, JUL=07, AGO=08, SET=09, OUT=10, NOV=11, DEZ=12
+
+----------------------------------------
+REGRAS IMPORTANTES
+----------------------------------------
+
+- Ignore linhas como: "Total de entradas", "Total de saídas", "Saldo", "Saldo inicial", "Saldo final"
+- Ignore cabeçalhos e rodapés
+- Extraia apenas transações reais
+- Se houver múltiplas transações na mesma linha, separe corretamente
+- Nunca invente transações
+- Nunca deixe campos vazios
+
+----------------------------------------
+REGRAS DE VALOR
+----------------------------------------
+
+- Valores positivos → INCOME (value > 0)
+- Valores negativos → EXPENSE (value < 0)
 - Converter "50,00" → 50.00
-- Sempre número (float)
-- Negativo para despesas
+- Converter "1.234,56" → 1234.56
 
----
+Se disser "+ 100,00" significa entrada (INCOME, positivo)
+Se disser "- 100,00" significa saída (EXPENSE, negativo)
 
-📌 FORMATO DE SAÍDA (OBRIGATÓRIO):
+----------------------------------------
+FORMATO DE SAÍDA (OBRIGATÓRIO)
+----------------------------------------
 
-Retorne APENAS JSON válido.
-
-Se nenhuma transação for encontrada, retorne:
-[]
-
-Formato:
+Responda APENAS com JSON válido:
 
 [
   {
-    "date": "2026-01-01",
-    "description": "Compra no débito ORION",
-    "amount": -50.00,
-    "type": "expense"
+    "date": "01/09/2025",
+    "type": "EXPENSE",
+    "category": "Alimentação",
+    "value": -50.00,
+    "description": "BELLA PORTAL PADARIA"
+  },
+  {
+    "date": "02/09/2025",
+    "type": "INCOME",
+    "category": "Transferência",
+    "value": 500.00,
+    "description": "PIX - JOAO SILVA"
   }
 ]
 
----
+Se nenhuma transação for encontrada, retorne: []
 
-📌 REGRAS CRÍTICAS:
-
-- NUNCA invente dados
-- NUNCA explique nada
-- NUNCA retorne texto fora do JSON
-- Se estiver em dúvida → ignore a linha
-- Cada objeto = uma transação
-
----
-
-📌 EXEMPLO DE ENTRADA:
-
-01 JAN 2026 Compra no débito ORION 50,00  
-02 JAN 2026 Transferência recebida PIX JOAO 200,00  
-03 JAN 2026 Compra no débito PADARIA CENTRAL 30,50  
-
----
-
-📌 EXEMPLO DE SAÍDA:
-
-[
-  {
-    "date": "2026-01-01",
-    "description": "Compra no débito ORION",
-    "amount": -50.00,
-    "type": "expense"
-  },
-  {
-    "date": "2026-01-02",
-    "description": "Transferência recebida PIX JOAO",
-    "amount": 200.00,
-    "type": "income"
-  },
-  {
-    "date": "2026-01-03",
-    "description": "Compra no débito PADARIA CENTRAL",
-    "amount": -30.50,
-    "type": "expense"
-  }
-]
-
----
-`;
+NUNCA retorne nada além do JSON. Não explique, não comente, apenas JSON válido.
+`
 
 function buildUserPrompt(text: string, bankHint?: string): string {
-  return `${bankHint ? `Banco detectado: ${bankHint}\n\n` : ""}Texto do extrato bancário:
+  return `${bankHint ? `Banco detectado: ${bankHint}\n\n` : ""}Texto do extrato bancário a processar:
 
 ${text}
 
-Retorne um JSON com TODAS as transações encontradas neste extrato. Formato:
-{
-  "transactions": [
-    {
-      "date": "YYYY-MM-DD",
-      "description": "Descrição clara da transação",
-      "amount": 123.45,
-      "type": "INCOME" ou "EXPENSE",
-      "category": "Categoria",
-      "confidence": 0.95
-    }
-  ],
-  "summary": {
-    "totalProcessed": número de transações encontradas,
-    "successful": número de transações com confiança >= 0.7,
-    "confidence": confiança média geral,
-    "notes": "observações sobre o extrato"
-  }
-}`
+Extraia TODAS as transações financeiras reais e retorne como JSON válido. Ignore saldos, totais e cabeçalhos.`
 }
 
-function normalizeDate(value: unknown): string | null {
-  if (typeof value !== "string") return null
+function normalizeDate(dateStr: string): string | null {
+  if (!dateStr || typeof dateStr !== "string") return null
 
-  const trimmed = value.trim().toUpperCase()
-  if (!trimmed) return null
+  const trimmed = dateStr.trim().toUpperCase()
 
-  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+  // Já está em DD/MM/YYYY
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
     return trimmed
   }
 
-  const slashMatch = trimmed.match(/^(\d{2})[/-](\d{2})[/-](\d{4})$/)
-  if (slashMatch) {
-    const [, day, month, year] = slashMatch
-    return `${year}-${month}-${day}`
+  // Converte de DD-MM-YYYY
+  if (/^\d{2}-\d{2}-\d{4}$/.test(trimmed)) {
+    return trimmed.replace(/-/g, "/")
   }
 
-  const monthNameMatch = trimmed.match(/^(\d{2})\s+([A-ZÇ]{3})\s+(\d{4})$/)
-  if (monthNameMatch) {
-    const [, day, rawMonth, year] = monthNameMatch
-    if (!rawMonth) return null
-    const month = MONTH_MAP[rawMonth as keyof typeof MONTH_MAP]
-    if (month) {
-      return `${year}-${month}-${day}`
+  // Converte de "01 SET 2025" para "01/09/2025"
+  const monthMap: Record<string, string> = {
+    JAN: "01",
+    FEV: "02",
+    MAR: "03",
+    ABR: "04",
+    MAI: "05",
+    JUN: "06",
+    JUL: "07",
+    AGO: "08",
+    SET: "09",
+    OUT: "10",
+    NOV: "11",
+    DEZ: "12",
+  }
+
+  const match = trimmed.match(/^(\d{2})\s+([A-ZÇ]{3})\s+(\d{4})$/)
+  if (match) {
+    const [, day, monthStr, year] = match
+    if (monthStr) {
+      const monthNum = monthMap[monthStr as keyof typeof monthMap]
+      if (monthNum) {
+        return `${day}/${monthNum}/${year}`
+      }
     }
   }
 
   return null
 }
 
-function inferType(description: string, signedAmount: number): "INCOME" | "EXPENSE" | "TRANSFER" {
-  const normalized = description.toLowerCase()
+function normalizeCategory(category: string): string {
+  const normalized = category.trim()
 
-  if (signedAmount < 0) return "EXPENSE"
-  if (signedAmount > 0) return "INCOME"
+  // Se já é uma categoria válida
+  if (ALLOWED_CATEGORIES.includes(normalized)) {
+    return normalized
+  }
 
-  if (/(pix|transfer[eê]ncia|ted|doc)/i.test(normalized)) return "TRANSFER"
+  // Tenta mapear variações
+  const lower = normalized.toLowerCase()
+
   if (
-    /(compra|pagamento|d[eé]bito|debito|saque|tarifa|boleto|ifood|uber|mercado|padaria|farmacia)/i.test(
-      normalized
-    )
+    lower.includes("alimentação") ||
+    lower.includes("comida") ||
+    lower.includes("restaurante") ||
+    lower.includes("padaria") ||
+    lower.includes("ifood")
   ) {
-    return "EXPENSE"
-  }
-  if (/(recebido|recebida|sal[aá]rio|deposito|dep[oó]sito|rendimento|cr[eé]dito|credito)/i.test(normalized)) {
-    return "INCOME"
+    return "Alimentação"
   }
 
-  return "EXPENSE"
+  if (
+    lower.includes("transporte") ||
+    lower.includes("uber") ||
+    lower.includes("taxi") ||
+    lower.includes("99")
+  ) {
+    return "Transporte"
+  }
+
+  if (lower.includes("saúde") || lower.includes("farmácia") || lower.includes("med")) {
+    return "Saúde"
+  }
+
+  if (lower.includes("mercado") || lower.includes("supermercado")) {
+    return "Mercado"
+  }
+
+  if (lower.includes("lazer") || lower.includes("cinema") || lower.includes("filme")) {
+    return "Lazer"
+  }
+
+  if (lower.includes("moradia") || lower.includes("aluguel") || lower.includes("luz")) {
+    return "Moradia"
+  }
+
+  if (lower.includes("assinatura") || lower.includes("netflix") || lower.includes("spotify")) {
+    return "Assinaturas"
+  }
+
+  if (lower.includes("transfer") || lower.includes("pix")) {
+    return "Transferência"
+  }
+
+  if (lower.includes("invest") || lower.includes("rdb") || lower.includes("fundo")) {
+    return "Investimento"
+  }
+
+  return "Outros"
 }
 
 function normalizeAmount(value: unknown): number | null {
@@ -253,213 +293,49 @@ function normalizeAmount(value: unknown): number | null {
   const trimmed = value.trim()
   if (!trimmed) return null
 
-  const negative = /-/.test(trimmed)
-  const normalized = trimmed
-    .replace(/[R$\s]/g, "")
-    .replace(/\./g, "")
-    .replace(/,/g, ".")
-    .replace(/[^\d.-]/g, "")
+  // Detecta se é negativo
+  const isNegative = /-/.test(trimmed) || trimmed.startsWith("-")
+  const isPositive = /^\+|^Total de entradas/.test(trimmed)
 
-  const parsed = Number.parseFloat(normalized)
+  // Remove símbolos e normaliza
+  let normalized = trimmed
+    .replace(/[R$\s+]/g, "")
+    .replace(/[.-](?=\d{2}$)/g, ".") // Preserva duas casas decimais
+    .replace(/[.-]/g, "") // Remove pontos/hífens do milhar
+    .replace(/,/g, ".") // Converte vírgula em ponto
+
+  const parsed = parseFloat(normalized)
   if (!Number.isFinite(parsed)) return null
 
-  return negative ? -Math.abs(parsed) : parsed
+  // Retorna com signo correto
+  if (isNegative) return -Math.abs(parsed)
+  if (isPositive) return Math.abs(parsed)
+
+  return parsed
 }
 
-function extractTransactionsPayload(parsed: unknown): {
-  transactions: unknown[]
-  summary?: Record<string, unknown>
-} {
-  if (Array.isArray(parsed)) {
-    return { transactions: parsed }
-  }
-
-  if (parsed && typeof parsed === "object") {
-    const record = parsed as Record<string, unknown>
-
-    if (Array.isArray(record.transactions)) {
-      return {
-        transactions: record.transactions,
-        summary:
-          record.summary && typeof record.summary === "object"
-            ? (record.summary as Record<string, unknown>)
-            : undefined,
-      }
-    }
-
-    if (record.data && typeof record.data === "object") {
-      const data = record.data as Record<string, unknown>
-      if (Array.isArray(data.transactions)) {
-        return {
-          transactions: data.transactions,
-          summary:
-            record.summary && typeof record.summary === "object"
-              ? (record.summary as Record<string, unknown>)
-              : undefined,
-        }
-      }
-    }
-  }
-
-  return { transactions: [] }
-}
-
-function normalizeTransaction(raw: unknown): ParsedTransaction | null {
-  if (!raw || typeof raw !== "object") return null
-  const record = raw as Record<string, unknown>
-
-  const description =
-    typeof record.description === "string"
-      ? record.description.trim()
-      : typeof record.merchant === "string"
-        ? record.merchant.trim()
-        : typeof record.title === "string"
-          ? record.title.trim()
-          : ""
-  if (!description) return null
-
-  const date = normalizeDate(record.date)
-  if (!date) return null
-
-  const rawAmount = normalizeAmount(record.amount ?? record.value)
-  if (rawAmount === null) return null
-
-  const explicitType =
-    typeof record.type === "string" ? record.type.trim().toUpperCase() : undefined
-  const type =
-    explicitType === "INCOME" || explicitType === "EXPENSE" || explicitType === "TRANSFER"
-      ? explicitType
-      : inferType(description, rawAmount)
-
-  return {
-    date,
-    description,
-    amount: Math.abs(rawAmount),
-    type,
-    category:
-      typeof record.category === "string" && record.category.trim()
-        ? record.category.trim()
-        : DEFAULT_CATEGORY,
-    confidence:
-      typeof record.confidence === "number" && Number.isFinite(record.confidence)
-        ? Math.min(1, Math.max(0, record.confidence))
-        : DEFAULT_CONFIDENCE,
-  }
-}
-
-function buildValidatedResponse(parsed: unknown): AIParserResponse {
-  const payload = extractTransactionsPayload(parsed)
-  const transactions = payload.transactions
-    .map(normalizeTransaction)
-    .filter((transaction): transaction is ParsedTransaction => Boolean(transaction))
-
-  const successful = transactions.filter((transaction) => transaction.confidence >= 0.7).length
-  const averageConfidence =
-    transactions.length > 0
-      ? transactions.reduce((sum, transaction) => sum + transaction.confidence, 0) /
-        transactions.length
-      : 0
-
-  return aiParserResponseSchema.parse({
-    transactions,
-    summary: {
-      totalProcessed:
-        typeof payload.summary?.totalProcessed === "number"
-          ? payload.summary.totalProcessed
-          : transactions.length,
-      successful:
-        typeof payload.summary?.successful === "number" ? payload.summary.successful : successful,
-      confidence:
-        typeof payload.summary?.confidence === "number"
-          ? payload.summary.confidence
-          : averageConfidence,
-      notes:
-        typeof payload.summary?.notes === "string" ? payload.summary.notes : undefined,
-    },
-  })
-}
-
-function extractTransactionsByRegex(dataString: string): ParsedTransaction[] {
-  const normalizedText = dataString
-    .replace(/\r/g, "\n")
-    .replace(/[ \t]+/g, " ")
-    .replace(/\n{2,}/g, "\n")
-    .trim()
-
-  if (!normalizedText) return []
-
-  const transactions: ParsedTransaction[] = []
-  const patterns = [
-    /(\d{2}\s+(?:JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)\s+\d{4})\s+(.+?)\s+(-?\d[\d.]*,\d{2})(?=\s+\d{2}\s+(?:JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)\s+\d{4}\s+|$)/gi,
-    /(\d{2}[/-]\d{2}[/-]\d{4})\s+(.+?)\s+(-?\d[\d.]*,\d{2})(?=\s+\d{2}[/-]\d{2}[/-]\d{4}\s+|$)/gi,
-  ]
-
-  for (const pattern of patterns) {
-    let match: RegExpExecArray | null
-    while ((match = pattern.exec(normalizedText)) !== null) {
-      const [, rawDate, rawDescription, rawAmount] = match
-      if (!rawDate || !rawDescription || !rawAmount) continue
-      const description = rawDescription.trim()
-      if (
-        !description ||
-        /(saldo|total de entradas|total de sa[ií]das|resumo|ag[eê]ncia|conta|cpf)/i.test(
-          description
-        )
-      ) {
-        continue
-      }
-
-      const date = normalizeDate(rawDate)
-      const signedAmount = normalizeAmount(rawAmount)
-      if (!date || signedAmount === null) continue
-
-      const type = inferType(description, signedAmount)
-      transactions.push({
-        date,
-        description,
-        amount: Math.abs(signedAmount),
-        type,
-        category: DEFAULT_CATEGORY,
-        confidence: 0.55,
-      })
-    }
-
-    if (transactions.length > 0) {
-      break
-    }
-  }
-
-  return transactions
-}
-
-/**
- * Parse bank statement text using OpenAI.
- * Falls back to regex parser if AI is unavailable.
- */
 export async function parseTransactionsWithAI(
   text: string,
   _sourceType: "csv" | "pdf" | "excel" | "text" | "ocr" = "text",
-  bankHint?: string,
-  _existingCategories: string[] = [],
-  _enablePreprocessing: boolean = true,
-  _enableQualityScoring: boolean = true
+  bankHint?: string
 ): Promise<AIParserResponse> {
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) {
-    console.warn("OPENAI_API_KEY not set — falling back to regex parser")
-    return parseTransactionsFallback(text)
+    console.warn("OPENAI_API_KEY not set — returning empty response")
+    return { transactions: [] }
   }
 
-  // Limit text length to avoid token limits
-  const truncated = text.slice(0, 12000)
+  // Limita tamanho do texto para evitar limite de tokens
+  const truncated = text.slice(0, 15000)
 
   try {
+    console.log("[AI Parser] Iniciando parsing com OpenAI...")
     const OpenAI = await import("openai").then((m) => m.default)
-    const openai = new OpenAI({ apiKey })
+    const client = new OpenAI({ apiKey })
 
-    const completion = await openai.chat.completions.create({
+    const response = await client.chat.completions.create({
       model: process.env.AI_MODEL || "gpt-4o-mini",
-      temperature: 0.1,
+      temperature: 0,
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
@@ -467,90 +343,132 @@ export async function parseTransactionsWithAI(
       ],
     })
 
-    const raw = completion.choices[0]?.message?.content
-    if (!raw) throw new Error("Empty response from OpenAI")
+    const rawContent = response.choices[0]?.message?.content
+    if (!rawContent) {
+      console.warn("[AI Parser] Resposta vazia da OpenAI")
+      return { transactions: [] }
+    }
 
-    const parsed = JSON.parse(raw)
-    const validated = buildValidatedResponse(parsed)
+    console.log(`[AI Parser] Resposta recebida: ${rawContent.length} chars`)
 
-    console.log(`✅ AI parser: ${validated.transactions.length} transactions extracted`)
-    return validated
+    // Parse JSON
+    const parsed = JSON.parse(rawContent)
+    let transactions = Array.isArray(parsed) ? parsed : parsed.transactions || []
+
+    // Normaliza cada transação
+    const normalized = transactions
+      .map((tx: any) => {
+        try {
+          const date = normalizeDate(tx.date)
+          if (!date) {
+            console.warn(`[AI Parser] Data inválida: ${tx.date}`)
+            return null
+          }
+
+          const value = normalizeAmount(tx.value)
+          if (value === null) {
+            console.warn(`[AI Parser] Valor inválido: ${tx.value}`)
+            return null
+          }
+
+          const type = (tx.type || "EXPENSE").toUpperCase()
+          if (!["INCOME", "EXPENSE", "INVESTIMENTO"].includes(type)) {
+            console.warn(`[AI Parser] Tipo inválido: ${type}`)
+            return null
+          }
+
+          return {
+            date,
+            type: type as "INCOME" | "EXPENSE" | "INVESTIMENTO",
+            category: normalizeCategory(tx.category || "Outros"),
+            value,
+            description: (tx.description || "").trim(),
+          }
+        } catch (e) {
+          console.warn(`[AI Parser] Erro ao normalizar transação:`, e)
+          return null
+        }
+      })
+      .filter((tx: any) => tx !== null)
+
+    // Valida com Zod
+    const validated = z.array(transactionSchema).parse(normalized)
+
+    console.log(`✅ [AI Parser] ${validated.length} transações extraídas com sucesso`)
+    return { transactions: validated }
   } catch (error) {
-    console.error("AI parsing failed:", error)
-    return parseTransactionsFallback(text)
+    console.error(`❌ [AI Parser] Erro:`, error instanceof Error ? error.message : String(error))
+    return { transactions: [] }
   }
-}
-
-// Alias for compatibility
-export const hybridParseTransactions = parseTransactionsWithAI
-
-export function refineTransactionsWithAI(
-  transactions: ParsedTransaction[]
-): Promise<AIParserResponse> {
-  return Promise.resolve({
-    transactions,
-    summary: {
-      totalProcessed: transactions.length,
-      successful: transactions.length,
-      confidence: 0.8,
-    },
-  })
 }
 
 /**
- * Simple regex fallback when OpenAI is unavailable.
+ * Converte ParsedTransaction (novo formato) para NormalizedTransaction (compatível com importação)
  */
-export function parseTransactionsFallback(
-  dataString: string,
-  _sourceType: "csv" | "pdf" | "excel" | "text" | "ocr" = "text"
-): AIParserResponse {
-  const transactions: ParsedTransaction[] = []
+export function convertToNormalizedTransaction(
+  tx: ParsedTransaction,
+  documentId?: string | null
+): {
+  type: "INCOME" | "EXPENSE" | "TRANSFER"
+  category: string
+  subcategory: null
+  amount: number
+  description: string
+  date: string // ISO date YYYY-MM-DD
+  documentId: string | null | undefined
+} {
+  // Converte data de DD/MM/YYYY para YYYY-MM-DD (ISO)
+  const [day, month, year] = tx.date.split("/")
+  const isoDate = `${year}-${month}-${day}`
 
-  // Try to import bank parsers
-  try {
-    const { parseStatementByBank, detectBankFromText } = require("./bank-parsers")
-    const bank = detectBankFromText(dataString)
-    const rows = parseStatementByBank(dataString)
-    if (rows.length > 0) {
-      return {
-        transactions: rows.map((r: any) => ({
-          date: r.date,
-          description: r.description,
-          amount: r.amount,
-          type: r.type as "INCOME" | "EXPENSE",
-          category: "Outros",
-          confidence: 0.6,
-        })),
-        summary: {
-          totalProcessed: rows.length,
-          successful: rows.length,
-          confidence: 0.6,
-          notes: `Fallback: banco ${bank}`,
-        },
-      }
-    }
-  } catch {}
-
-  const regexTransactions = extractTransactionsByRegex(dataString)
-  if (regexTransactions.length > 0) {
-    return {
-      transactions: regexTransactions,
-      summary: {
-        totalProcessed: regexTransactions.length,
-        successful: regexTransactions.length,
-        confidence: 0.55,
-        notes: "Fallback por regex aplicado ao texto extraido",
-      },
-    }
+  // Mapeia type: INVESTIMENTO → TRANSFER (por enquanto)
+  let mappedType: "INCOME" | "EXPENSE" | "TRANSFER" = "EXPENSE"
+  if (tx.type === "INCOME") {
+    mappedType = "INCOME"
+  } else if (tx.type === "INVESTIMENTO") {
+    mappedType = "TRANSFER" // Ou EXPENSE, dependendo da regra
   }
 
   return {
-    transactions,
-    summary: {
-      totalProcessed: 0,
-      successful: 0,
-      confidence: 0,
-      notes: "Nenhuma transação encontrada pelo parser fallback",
-    },
+    type: mappedType,
+    category: tx.category,
+    subcategory: null,
+    amount: Math.abs(tx.value), // Sempre positivo
+    description: tx.description,
+    date: isoDate,
+    documentId,
   }
+}
+
+// Alias para compatibilidade
+export const hybridParseTransactions = parseTransactionsWithAI
+
+/**
+ * Refina transações (compatibilidade com código legado)
+ * Retorna as transações normalizadas
+ */
+export function refineTransactionsWithAI(
+  transactions: any[]
+): Promise<{
+  transactions: ParsedTransaction[]
+  summary: { confidence: number }
+}> {
+  // Converte transações legadas para ParsedTransaction
+  const converted = transactions
+    .filter((t) => t.type === "INCOME" || t.type === "EXPENSE")
+    .map((t) => {
+      const [year, month, day] = t.date.split("-")
+      return {
+        date: `${day}/${month}/${year}`,
+        type: t.type as "INCOME" | "EXPENSE",
+        category: t.category || "Outros",
+        value: t.type === "INCOME" ? Math.abs(t.amount) : -Math.abs(t.amount),
+        description: t.description,
+      }
+    })
+
+  return Promise.resolve({
+    transactions: converted,
+    summary: { confidence: 0.8 },
+  })
 }

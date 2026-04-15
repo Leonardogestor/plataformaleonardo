@@ -21,14 +21,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No data provided" }, { status: 400 })
     }
 
-    // Parse transactions with enhanced AI
+    // Parse transactions with AI
     const result = await parseTransactionsWithAI(
       data,
       options.sourceType || "text",
-      options.bankHint,
-      options.existingCategories || [],
-      options.enablePreprocessing !== false,
-      true // enableQualityScoring
+      options.bankHint
     )
 
     return NextResponse.json(result)

@@ -10,7 +10,11 @@ import {
   importTransactionsFromPdfWithDedup,
   type NormalizedTransaction,
 } from "@/lib/transaction-import"
-import { hybridParseTransactions, refineTransactionsWithAI } from "@/lib/ai-transaction-parser"
+import {
+  hybridParseTransactions,
+  refineTransactionsWithAI,
+  convertToNormalizedTransaction,
+} from "@/lib/ai-transaction-parser"
 import * as XLSX from "xlsx"
 
 const DEFAULT_CATEGORY = "Outros"
@@ -162,13 +166,16 @@ export async function processDocumentExcel(documentId: string): Promise<void> {
         if (aiResult.transactions.length > 0) {
           transactions = aiResult.transactions
             .filter((t) => t.type === "INCOME" || t.type === "EXPENSE")
-            .map((t) => ({
-              type: t.type,
-              category: t.category,
-              amount: t.amount,
-              description: t.description,
-              date: t.date,
-            }))
+            .map((t) => {
+              const normalized = convertToNormalizedTransaction(t)
+              return {
+                type: normalized.type,
+                category: normalized.category,
+                amount: normalized.amount,
+                description: normalized.description,
+                date: normalized.date,
+              }
+            })
           parsingMethod = "ai_fallback"
           console.info(`AI parsing recovered ${transactions.length} transactions`)
         }
@@ -188,13 +195,16 @@ export async function processDocumentExcel(documentId: string): Promise<void> {
         const refinedResult = await refineTransactionsWithAI(filteredForAI)
 
         if (refinedResult.summary.confidence > 0.7) {
-          transactions = refinedResult.transactions.map((t) => ({
-            type: t.type,
-            category: t.category,
-            amount: t.amount,
-            description: t.description,
-            date: t.date,
-          }))
+          transactions = refinedResult.transactions.map((t) => {
+            const normalized = convertToNormalizedTransaction(t)
+            return {
+              type: normalized.type,
+              category: normalized.category,
+              amount: normalized.amount,
+              description: normalized.description,
+              date: normalized.date,
+            }
+          })
           parsingMethod = "ai_refined"
         }
       }
@@ -204,13 +214,16 @@ export async function processDocumentExcel(documentId: string): Promise<void> {
 
       transactions = aiResult.transactions
         .filter((t) => t.type === "INCOME" || t.type === "EXPENSE")
-        .map((t) => ({
-          type: t.type,
-          category: t.category,
-          amount: t.amount,
-          description: t.description,
-          date: t.date,
-        }))
+        .map((t) => {
+          const normalized = convertToNormalizedTransaction(t)
+          return {
+            type: normalized.type,
+            category: normalized.category,
+            amount: normalized.amount,
+            description: normalized.description,
+            date: normalized.date,
+          }
+        })
       parsingMethod = "ai_only"
     }
 

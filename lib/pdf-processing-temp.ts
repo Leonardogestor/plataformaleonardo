@@ -11,7 +11,7 @@ import {
   importTransactionsFromPdfWithDedup,
   type NormalizedTransaction,
 } from "@/lib/transaction-import"
-import { hybridParseTransactions, refineTransactionsWithAI } from "@/lib/ai-transaction-parser"
+import { hybridParseTransactions, refineTransactionsWithAI, convertToNormalizedTransaction } from "@/lib/ai-transaction-parser"
 
 const DEFAULT_CATEGORY = "Outros"
 const MAX_TRANSACTIONS_PER_DOCUMENT = 5000
@@ -78,13 +78,16 @@ export async function processPdfFromBuffer(documentId: string, buffer: Buffer): 
     const bank = detectBankFromText(text)
     const aiResult = await hybridParseTransactions(text, "pdf", bank)
     if (aiResult.transactions.length > 0) {
-      transactions = aiResult.transactions.map((t) => ({
-        type: t.type,
-        category: t.category,
-        amount: t.amount,
-        description: t.description,
-        date: t.date,
-      }))
+      transactions = aiResult.transactions.map((t) => {
+        const normalized = convertToNormalizedTransaction(t)
+        return {
+          type: normalized.type,
+          category: normalized.category,
+          amount: normalized.amount,
+          description: normalized.description,
+          date: normalized.date,
+        }
+      })
       parsingMethod = "ai_only"
       console.info(`AI parsing (forçado) retornou ${transactions.length} transações`)
     } else {

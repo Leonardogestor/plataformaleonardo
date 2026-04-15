@@ -6,6 +6,7 @@
 import { extractTextFromPdf } from "@/lib/document-extract"
 
 import { importTransactionsFromPdfWithDedup } from "@/lib/transaction-import"
+import { convertToNormalizedTransaction } from "@/lib/ai-transaction-parser"
 import { prisma } from "@/lib/db"
 import { logger } from "@/lib/logger"
 import { DocumentStatus } from "@prisma/client"
@@ -367,10 +368,13 @@ export class CostAwarePDFProcessor {
         }
 
         // Limitar número de transações para controlar custo
-        const limitedTransactions =
+        const slicedTransactions =
           aiResult.transactions.length > 500
             ? aiResult.transactions.slice(0, 500)
             : aiResult.transactions
+
+        // Converter ParsedTransaction para NormalizedTransaction
+        const limitedTransactions = slicedTransactions.map((tx) => convertToNormalizedTransaction(tx))
 
         // 3. Importação com deduplicação
         const result = await withTimeout(

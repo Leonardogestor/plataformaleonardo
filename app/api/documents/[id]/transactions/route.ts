@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { DocumentStatus } from "@prisma/client"
 import { detectBankFromText } from "@/lib/bank-parsers"
-import { parseTransactionsWithAI } from "@/lib/ai-transaction-parser"
+import { parseTransactionsWithAI, convertToNormalizedTransaction } from "@/lib/ai-transaction-parser"
 
 /**
  * GET - Busca transacoes associadas a um documento processado.
@@ -94,19 +94,19 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         const bank = detectBankFromText(document.extractedText)
         const parsedResult = await parseTransactionsWithAI(document.extractedText, "pdf", bank)
 
-        formattedTransactions = parsedResult.transactions.map((transaction, index) => ({
-          id: `parsed-${id}-${index}`,
-          date: transaction.date,
-          description: transaction.description,
-          amount:
-            transaction.type === "INCOME"
-              ? Math.abs(Number(transaction.amount))
-              : -Math.abs(Number(transaction.amount)),
-          type: transaction.type,
-          category: transaction.category || "outros",
-          subcategory: "",
-          documentId: id,
-        }))
+        formattedTransactions = parsedResult.transactions.map((transaction, index) => {
+          const normalized = convertToNormalizedTransaction(transaction, id)
+          return {
+            id: `parsed-${id}-${index}`,
+            date: normalized.date,
+            description: normalized.description,
+            amount: normalized.type === "INCOME" ? normalized.amount : -normalized.amount,
+            type: normalized.type,
+            category: normalized.category || "outros",
+            subcategory: "",
+            documentId: id,
+          }
+        })
       } catch (parseError) {
         console.warn("Falha ao reconstruir transações a partir do texto extraído:", parseError)
       }

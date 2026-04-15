@@ -3,13 +3,13 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { detectBankFromText } from "@/lib/bank-parsers"
-import { parseTransactionsWithAI } from "@/lib/ai-transaction-parser"
+import {
+  parseTransactionsWithAI,
+  convertToNormalizedTransaction,
+} from "@/lib/ai-transaction-parser"
 import { importTransactionsFromPdfWithDedup } from "@/lib/transaction-import"
 
-export async function POST(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
@@ -101,18 +101,12 @@ export async function POST(
       )
     }
 
-    const result = await importTransactionsFromPdfWithDedup(
-      session.user.id,
-      parsed.transactions.map((transaction) => ({
-        type: transaction.type,
-        category: transaction.category,
-        subcategory: null,
-        amount: transaction.amount,
-        description: transaction.description,
-        date: transaction.date,
-        documentId: id,
-      }))
+    // Converte para NormalizedTransaction
+    const normalizedTransactions = parsed.transactions.map((tx) =>
+      convertToNormalizedTransaction(tx, id)
     )
+
+    const result = await importTransactionsFromPdfWithDedup(session.user.id, normalizedTransactions)
 
     const linkedCount = await prisma.transaction.count({
       where: { userId: session.user.id, documentId: id },
@@ -130,10 +124,6 @@ export async function POST(
     })
   } catch (error) {
     console.error("Erro ao importar transações do documento:", error)
-    return NextResponse.json(
-      { error: "Erro ao importar transações do documento" },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: "Erro ao importar transações do documento" }, { status: 500 })
   }
 }
-
