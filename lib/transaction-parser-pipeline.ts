@@ -4,8 +4,7 @@ import {
   detectType,
   classifyCategory,
   normalizeTransaction as legacyNormalizeTransaction,
-  TransactionType,
-} from "@/transaction-normalizer-fixed"
+} from "../transaction-normalizer-fixed"
 
 type TransactionType = "INCOME" | "EXPENSE" | "INVESTIMENTO"
 
