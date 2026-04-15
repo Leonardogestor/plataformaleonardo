@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { z } from "zod"
+import { processSafe, SafeTransaction } from "@/lib/safe-engine"
 
 const importSchema = z.object({
   transactions: z.array(
@@ -60,14 +61,18 @@ export async function POST(request: NextRequest) {
           continue
         }
 
-        // Set default category if none provided (skip categorization API to avoid errors)
-        let category = transaction.category || "Outros"
-        if (!category || category.trim() === "") {
-          category = "Outros"
-        }
+        // 🛡️ SAFE ENGINE: Garantir transação válida mesmo com dados malformados
+        const safeTx = processSafe({
+          date: transaction.date,
+          type: transaction.type,
+          category: transaction.category || "Outros",
+          value: transaction.amount,
+          description: transaction.description,
+          confidence: 0.9,
+        }) as SafeTransaction
 
         // 🔥 CORRIGIR VALOR - Parsing brasileiro
-        let amount = transaction.amount
+        let amount = safeTx.value
         if (typeof amount === "string") {
           const amountStr = String(amount)
           // Remove R$ and spaces
@@ -84,19 +89,19 @@ export async function POST(request: NextRequest) {
           await tx.transaction.create({
             data: {
               userId: session.user.id,
-              type: transaction.type,
-              category,
+              type: safeTx.type as "INCOME" | "EXPENSE" | "TRANSFER",
+              category: safeTx.category,
               subcategory: transaction.subcategory || null,
               amount: amount, // Usar valor corrigido
-              description: transaction.description,
-              date: new Date(transaction.date),
+              description: safeTx.description,
+              date: new Date(safeTx.date.split("/").reverse().join("-")),
               accountId: transaction.accountId || null,
-              isPending: false,
+              isPending: safeTx.reviewRequired,
             },
           })
 
           if (transaction.accountId) {
-            const increment = transaction.type === "INCOME" ? amount : -amount // Usar valor corrigido
+            const increment = safeTx.type === "INCOME" ? amount : -amount // Usar valor corrigido
             await tx.account.update({
               where: { id: transaction.accountId },
               data: { balance: { increment } },

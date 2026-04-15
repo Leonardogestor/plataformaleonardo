@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { parseOfx } from "@/lib/parse-ofx"
 import * as XLSX from "xlsx"
+import { processSafe, SafeTransaction } from "@/lib/safe-engine"
 
 export async function POST(request: NextRequest) {
   try {
@@ -102,6 +103,15 @@ export async function POST(request: NextRequest) {
     )
   } catch (error) {
     console.error("Erro ao parsear arquivo:", error)
-    return NextResponse.json({ error: "Erro ao processar arquivo" }, { status: 500 })
+    // 🛡️ SAFE ENGINE: Retornar resposta válida mesmo em erro crítico
+    return NextResponse.json(
+      {
+        error: "Erro ao processar arquivo",
+        message: error instanceof Error ? error.message : "Erro desconhecido",
+        fallback: true,
+        format: "error"
+      },
+      { status: 500 }
+    )
   }
 }
