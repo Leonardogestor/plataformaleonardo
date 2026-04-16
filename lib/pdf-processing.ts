@@ -111,7 +111,7 @@ export async function processDocumentPdf(documentId: string): Promise<void> {
       console.warn("⚠️ AI parsing não encontrou transações — usando fallback")
       // Criar transação mínima do texto extraído
       const fallbackTx: NormalizedTransaction = {
-        date: new Date().toISOString().split("T")[0],
+        date: new Date().toISOString().slice(0, 10)!,
         amount: 0,
         type: "EXPENSE",
         category: "Documentos",
