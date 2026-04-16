@@ -10,8 +10,9 @@ export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
 
   try {
     console.log(`[PDF] Tentando pdf-parse...`)
-    // @ts-ignore - pdf-parse ESM não expõe .default no tipo mas existe em runtime
-    const pdfParse = (await import("pdf-parse" as any)) as any
+    // pdf-parse v1 funciona como função simples no Node.js/Vercel
+    // @ts-ignore
+    const pdfParse = require("pdf-parse")
     const data = await pdfParse(buffer)
     const text = (data.text ?? "").trim()
     console.log(`[PDF]  SUCESSO! Total: ${text.length} caracteres (${data.numpages} páginas)`)
