@@ -61,7 +61,7 @@ function cleanDescription(rawDesc: string): string {
   }
 
   // Remover dados bancários (agência, conta, CPF)
-  cleaned = cleaned.replace(/\s*-\s*{3}\.\d{3}\.\d{3}--\s*/g, "")
+  cleaned = cleaned.replace(/\s*-\s*[*]{3}\.\d{3}\.\d{3}-[*]{2}\s*/g, "")
   cleaned = cleaned.replace(/\s*-\s*\w+\s+\(?\d{4}\)?\s+Agência[^-]*/gi, "")
   cleaned = cleaned.replace(/Agência:\s*\d+\s+Conta:\s*[\d-]+/gi, "")
   cleaned = cleaned.replace(/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/g, "") // CNPJ
