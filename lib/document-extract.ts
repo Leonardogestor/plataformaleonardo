@@ -11,7 +11,8 @@ export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
   try {
     console.log(`[PDF] Tentando pdf-parse...`)
     // pdf-parse é estável no Node.js/Vercel - sem dependência de Worker ou eval
-    const pdfParse = (await import("pdf-parse")).default
+    const pdfModule = await import("pdf-parse")
+    const pdfParse = pdfModule.default ?? (pdfModule as any)
     const data = await pdfParse(buffer)
     const text = (data.text ?? "").trim()
     console.log(`[PDF]  SUCESSO! Total: ${text.length} caracteres (${data.numpages} páginas)`)
