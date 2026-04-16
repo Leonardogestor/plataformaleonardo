@@ -112,7 +112,16 @@ function extractTransactionsFromText(text: string): Array<{
   value: number
   isExpense: boolean
 }> {
-  const lines = text
+  // Pré-processar: inserir quebras antes de datas e palavras-chave do Nubank
+  const preprocessed = text
+    .replace(/(\d{2}\s+(?:JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)\s+\d{4})/gi, "\n$1\n")
+    .replace(/(Total de (?:entradas|saídas))/gi, "\n$1\n")
+    .replace(
+      /(Compra no débito|pelo Pix|Transferência enviada|Transferência recebida|Aplicação RDB|Resgate RDB|Depósito de|Pagamento de fatura)/gi,
+      "\n$1"
+    )
+
+  const lines = preprocessed
     .split("\n")
     .map((l) => l.trim())
     .filter(Boolean)
