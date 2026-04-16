@@ -3,10 +3,16 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { DocumentStatus } from "@prisma/client"
-import { extractTextFromPdf } from "@/lib/document-extract"
+import { extractTextFromPdf, extractTextFromExcel } from "@/lib/document-extract"
 import { checkDocumentsLimit } from "@/lib/rate-limit"
 import { deleteDocumentBlob } from "@/lib/blob"
-import { processSafe, SafeTransaction } from "@/lib/safe-engine"
+import {
+  hybridParseTransactions,
+  convertToNormalizedTransaction,
+  type NormalizedTransaction,
+} from "@/lib/ai-transaction-parser"
+import { importTransactionsFromPdfWithDedup } from "@/lib/transaction-import"
+import { detectBankFromText } from "@/lib/bank-parsers"
 
 const MAX_SIZE = 10 * 1024 * 1024 // 10MB
 
@@ -75,7 +81,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 4. Coletar arquivos — aceita campo "file" (singular) ou "files" (múltiplos)
+    // 4. Coletar arquivos - aceita campo "file" (singular) ou "files" (múltiplos)
     const rawFiles = [...formData.getAll("file"), ...formData.getAll("files")]
 
     const files: File[] = rawFiles.filter((f): f is File => f instanceof File && f.size > 0)
@@ -94,39 +100,64 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 6. Processar cada arquivo de forma síncrona dentro da request
-    // (Vercel serverless não suporta background tasks — o processo encerra após a resposta)
+    // 6. Processar cada arquivo: extrair texto -> parsear -> importar transações
     const userId = session.user.id
     const createdDocs = await Promise.all(
       files.map(async (file) => {
-        const isPdf = file.name.toLowerCase().endsWith(".pdf")
+        const fileName = file.name.toLowerCase()
+        const isPdf = fileName.endsWith(".pdf")
+        const isExcel =
+          fileName.endsWith(".xlsx") || fileName.endsWith(".xls") || fileName.endsWith(".csv")
         const mimeType = isPdf ? "application/pdf" : file.type || "application/octet-stream"
         const buffer = Buffer.from(await file.arrayBuffer())
 
-        // Tentar extrair texto e transações dentro da request
         let extractedText: string | null = null
         let errorMessage: string | null = null
         let status: DocumentStatus = DocumentStatus.COMPLETED
+        let transactionsImported = 0
 
-        if (isPdf) {
-          try {
-            // Server-side extraction only (client-side removed for reliability)
-            const text = await extractTextFromPdf(buffer)
+        try {
+          // 1. Extrair texto
+          let text = ""
+          if (isPdf) {
+            text = await extractTextFromPdf(buffer)
+          } else if (isExcel) {
+            text = await extractTextFromExcel(buffer)
+          }
 
-            if (text && text.length >= 10) {
-              extractedText = text.slice(0, 10000)
-            } else {
-              // Extraction returned empty or very short text - mark as FAILED
-              status = DocumentStatus.FAILED
-              errorMessage =
-                "Não foi possível extrair texto do PDF. Verifique se o documento tem texto legível (não é uma imagem/varredura)."
-            }
-          } catch (extractErr) {
-            console.warn(`⚠️ ${file.name}: extração falhou:`, extractErr)
+          if (!text || text.length < 10) {
             status = DocumentStatus.FAILED
             errorMessage =
-              extractErr instanceof Error ? extractErr.message : "Falha na extração de PDF"
+              "Não foi possível extrair texto do arquivo. Verifique se o PDF tem texto legível (não é uma imagem escaneada)."
+          } else {
+            extractedText = text.slice(0, 100_000)
+
+            // 2. Parsear transações
+            const bank = detectBankFromText(text)
+            const aiResult = await hybridParseTransactions(text, isPdf ? "pdf" : "excel", bank)
+
+            let transactions: NormalizedTransaction[] = []
+            if (aiResult.transactions.length > 0) {
+              transactions = aiResult.transactions.map((t) => convertToNormalizedTransaction(t))
+              console.info(` Parser retornou ${transactions.length} transações - ${file.name}`)
+            } else {
+              console.warn(` Nenhuma transação encontrada em: ${file.name}`)
+            }
+
+            // 3. Importar transações (com deduplicação)
+            if (transactions.length > 0) {
+              const result = await importTransactionsFromPdfWithDedup(userId, transactions)
+              transactionsImported = result.success
+              if (result.failed > 0 && result.success === 0) {
+                status = DocumentStatus.FAILED
+                errorMessage = result.errors.slice(0, 3).join("; ")
+              }
+            }
           }
+        } catch (err) {
+          console.error(` Erro ao processar ${file.name}:`, err)
+          status = DocumentStatus.FAILED
+          errorMessage = err instanceof Error ? err.message : "Erro inesperado no processamento"
         }
 
         const doc = await prisma.document.create({
@@ -142,16 +173,24 @@ export async function POST(request: NextRequest) {
           },
         })
 
-        return { id: doc.id, name: doc.name, status: doc.status }
+        return {
+          id: doc.id,
+          name: doc.name,
+          status: doc.status,
+          transactionsImported,
+        }
       })
     )
+
+    const totalTransactions = createdDocs.reduce((sum, d) => sum + (d.transactionsImported ?? 0), 0)
 
     return NextResponse.json(
       {
         success: true,
         documents: createdDocs,
         total: createdDocs.length,
-        message: `${createdDocs.length} arquivo(s) recebido(s) e sendo processado(s).`,
+        transactionsImported: totalTransactions,
+        message: `${createdDocs.length} arquivo(s) processado(s). ${totalTransactions} transação(ões) importada(s).`,
       },
       { status: 201 }
     )

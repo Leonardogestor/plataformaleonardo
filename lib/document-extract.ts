@@ -1,7 +1,6 @@
-// @ts-nocheck
 /**
  * Extração confiável de texto para PDFs - Nubank, Itaú, e outros bancos.
- * Usa pdfjs-dist para máxima compatibilidade.
+ * Usa pdf-parse para máxima estabilidade no Node.js/Vercel serverless.
  */
 
 const MAX_EXTRACT_LENGTH = 100_000
@@ -9,52 +8,16 @@ const MAX_EXTRACT_LENGTH = 100_000
 export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
   console.log(`[PDF] Iniciando extração de PDF (${buffer.length} bytes)`)
 
-  // Primary: pdfjs-dist (excelente compatibilidade)
   try {
-    console.log(`[PDF] Tentando pdfjs-dist...`)
-    const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs")
-    const getDocument = pdfjs.getDocument
-
-    const loadingTask = getDocument({
-      data: new Uint8Array(buffer),
-      useWorkerFetch: false,
-      isEvalSupported: false,
-      verbosity: 0,
-    })
-
-    const pdf = await loadingTask.promise
-    console.log(`[PDF] ✓ Documento carregado: ${pdf.numPages} páginas`)
-
-    const parts: string[] = []
-    for (let i = 1; i <= pdf.numPages; i++) {
-      try {
-        const page = await pdf.getPage(i)
-        const content = await page.getTextContent({ normalizedStrings: true })
-        const pageText = (content.items ?? [])
-          .filter((item: any) => item.str && item.str.trim())
-          .map((item: any) => item.str)
-          .join(" ")
-
-        if (pageText.trim().length > 0) {
-          parts.push(pageText)
-          console.log(`[PDF]   Página ${i}: ${pageText.length} chars`)
-        }
-      } catch (pageErr) {
-        console.warn(
-          `[PDF] ⚠️ Erro na página ${i}:`,
-          pageErr instanceof Error ? pageErr.message : "desconhecido"
-        )
-      }
-    }
-
-    const text = parts.join("\n").trim()
-    console.log(`[PDF] ✅ SUCESSO! Total: ${text.length} caracteres`)
-
-    // ✅ NOVO: Aceita QUALQUER texto, mesmo que curto
-    // O fallback vai cuidar de PDFs vazios
-    return text
+    console.log(`[PDF] Tentando pdf-parse...`)
+    // pdf-parse é estável no Node.js/Vercel - sem dependência de Worker ou eval
+    const pdfParse = (await import("pdf-parse")).default
+    const data = await pdfParse(buffer)
+    const text = (data.text ?? "").trim()
+    console.log(`[PDF]  SUCESSO! Total: ${text.length} caracteres (${data.numpages} páginas)`)
+    return text.slice(0, MAX_EXTRACT_LENGTH)
   } catch (e) {
-    console.error(`[PDF] ❌ Falha na extração: ${e instanceof Error ? e.message : String(e)}`)
+    console.error(`[PDF]  Falha na extração: ${e instanceof Error ? e.message : String(e)}`)
     return ""
   }
 }
@@ -63,7 +26,6 @@ export async function extractTextFromExcel(buffer: Buffer): Promise<string> {
   try {
     const XLSX = await import("xlsx")
 
-    // Tenta ler como workbook (XLSX/XLS) primeiro
     try {
       const workbook = XLSX.read(buffer, { type: "buffer", raw: true })
       const parts: string[] = []
@@ -80,7 +42,6 @@ export async function extractTextFromExcel(buffer: Buffer): Promise<string> {
       console.warn("XLSX parsing failed, trying CSV:", xlsxError)
     }
 
-    // Se falhar, tenta como CSV
     const text = buffer.toString("utf-8")
     if (text.trim().length > 0) {
       return text.slice(0, MAX_EXTRACT_LENGTH).trim()
