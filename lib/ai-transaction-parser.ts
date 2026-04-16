@@ -20,30 +20,37 @@ export interface NormalizedTransaction {
 
 /**
  * PASSO 1: Limpar e padronizar descrição
- * Remove prefixos/sufixos bancários irrelevantes
  */
 function cleanDescription(rawDesc: string): string {
   let cleaned = rawDesc.trim()
 
-  // Remover prefixos comuns (with word boundaries)
   const prefixPatterns = [
     /^Compra\s+no\s+débito\s+/i,
     /^Compra\s+débito\s+/i,
+    /^Compra\s+no\s+crédito\s+/i,
+    /^Compra\s+no\s+débito\s+via\s+NuPay\s+/i,
+    /^via\s+NuPay\s+/i,
+    /^Transferência\s+recebida\s+pelo\s+Pix\s+via\s+Open\s+Banking\s+/i,
+    /^Transferência\s+recebida\s+pelo\s+Pix\s+/i,
+    /^Transferência\s+enviada\s+pelo\s+Pix\s+/i,
+    /^Transferência\s+Recebida\s+/i,
     /^Transferência\s+recebida\s+/i,
     /^Transferência\s+enviada\s+/i,
     /^Transferência\s+/i,
-    /^Depósito\s+/i,
+    /^Reembolso\s+recebido\s+pelo\s+Pix\s+/i,
+    /^Estorno\s+-\s+Compra\s+no\s+débito\s+via\s+NuPay\s+/i,
+    /^Valor\s+adicionado\s+na\s+conta\s+por\s+cartão\s+de\s+crédito\s+/i,
+    /^Depósito\s+de\s+/i,
     /^Pagamento\s+de\s+fatura\s+/i,
     /^Pagamento\s+/i,
     /^Resgate\s+/i,
     /^Aplicação\s+/i,
+    /^pelo\s+Pix\s+/i,
     /^Pix\s+/i,
     /^TED\s+/i,
     /^DOC\s+/i,
     /^Boleto\s+/i,
     /^Recarga\s+/i,
-    /^Crédito\s+/i,
-    /^Débito\s+/i,
   ]
 
   for (const pattern of prefixPatterns) {
@@ -53,57 +60,57 @@ function cleanDescription(rawDesc: string): string {
     }
   }
 
-  // Remover sufixos: letras soltas, códigos, números finais isolados
-  cleaned = cleaned.replace(/\s+[A-Z]\s*$/, "") // Remove letra solta no final
-  cleaned = cleaned.replace(/\s+\d{1,3}\s*$/, "") // Remove números curtos no final
-
-  // Limpar espaços múltiplos
+  // Remover dados bancários (agência, conta, CPF)
+  cleaned = cleaned.replace(/\s*-\s*{3}\.\d{3}\.\d{3}--\s*/g, "")
+  cleaned = cleaned.replace(/\s*-\s*\w+\s+\(?\d{4}\)?\s+Agência[^-]*/gi, "")
+  cleaned = cleaned.replace(/Agência:\s*\d+\s+Conta:\s*[\d-]+/gi, "")
+  cleaned = cleaned.replace(/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/g, "") // CNPJ
+  cleaned = cleaned.replace(/\s+[A-Z]\s*$/, "")
+  cleaned = cleaned.replace(/\s+\d{1,3}\s*$/, "")
   cleaned = cleaned.replace(/\s+/g, " ").trim()
 
   return cleaned
 }
 
 /**
- * PASSO 2: Classificar tipo (INCOME, EXPENSE, TRANSFER)
- * Regras:
- * - Valor negativo → EXPENSE
- * - Valor positivo → INCOME
- * - Se contiver "Aplicação" → INVESTIMENTO (mas retornamos como TRANSFER)
- * - Se contiver "Resgate" → INCOME
+ * Linhas de cabeçalho/rodapé do Nubank que devem ser ignoradas
  */
-function classifyType(desc: string, value: number): "INCOME" | "EXPENSE" | "TRANSFER" {
-  const d = desc.toLowerCase()
-  const originalDesc = desc.toLowerCase() // Original antes de limpar
+const NUBANK_LINHAS_IGNORAR = [
+  /^saldo (inicial|final)/i,
+  /^rendimento líquido/i,
+  /^total de (entradas|saídas)/i,
+  /^movimentações$/i,
+  /^valores em r\$/i,
+  /^extrato gerado/i,
+  /^tem alguma dúvida/i,
+  /^caso a solução/i,
+  /^atendimento/i,
+  /^ouvidoria/i,
+  /^nu (financeira|pagamentos)/i,
+  /^cnpj/i,
+  /^\d+ de \d+$/i,
+  /^R\$ \d/i,
+  /^\+$/,
+  /^-$/,
+  /^/,
+  /agência.*conta/i,
+  /^cpf/i,
+  /^de empréstimo/i,
+]
 
-  // Regras especiais
-  if (d.includes("aplicação") || d.includes("investimento")) {
-    return "TRANSFER" // Mapeamos INVESTIMENTO → TRANSFER
-  }
-
-  if (d.includes("resgate")) {
-    return "INCOME"
-  }
-
-  // Baseado em valor
-  if (value > 0) {
-    return "INCOME"
-  }
-
-  if (value < 0) {
-    return "EXPENSE"
-  }
-
-  return "EXPENSE" // default
+function deveIgnorar(linha: string): boolean {
+  return NUBANK_LINHAS_IGNORAR.some((re) => re.test(linha.trim()))
 }
 
 /**
- * 🔥 PARSER POR BLOCO - Extrai transações mesmo de PDFs malformados
- * Não depende de regex rígido ou datas
+ *  PARSER NUBANK - Extrai transações com INCOME/EXPENSE correto
+ * Detecta contexto de "Total de entradas" e "Total de saídas" por dia
  */
 function extractTransactionsFromText(text: string): Array<{
   date: string
   rawDescription: string
   value: number
+  isExpense: boolean
 }> {
   const lines = text
     .split("\n")
@@ -114,46 +121,146 @@ function extractTransactionsFromText(text: string): Array<{
     date: string
     rawDescription: string
     value: number
+    isExpense: boolean
   }> = []
+
+  const MESES: Record<string, string> = {
+    JAN: "01",
+    FEV: "02",
+    MAR: "03",
+    ABR: "04",
+    MAI: "05",
+    JUN: "06",
+    JUL: "07",
+    AGO: "08",
+    SET: "09",
+    OUT: "10",
+    NOV: "11",
+    DEZ: "12",
+  }
+
+  let dataAtual = new Date().toLocaleDateString("pt-BR")
+  let isExpense = false
   let buffer: string[] = []
+  let bufferIsExpense = false
+
+  const fechaBloco = () => {
+    if (buffer.length === 0) return
+
+    const block = buffer.join(" ")
+    const valores = [...block.matchAll(/(\d{1,3}(?:\.\d{3})*,\d{2})/g)]
+    if (valores.length === 0) {
+      buffer = []
+      return
+    }
+
+    const valueStr = valores[valores.length - 1]![1]!
+    const value = parseFloat(valueStr.replace(/\./g, "").replace(",", "."))
+
+    const idx = block.lastIndexOf(valueStr)
+    let description = block.substring(0, idx).trim()
+
+    // Limpar prefixos bancários inline
+    description = description
+      .replace(
+        /^(Compra no débito via NuPay|Compra no débito|Compra no crédito|via NuPay|pelo Pix|Reembolso recebido pelo Pix|Transferência enviada pelo Pix|Transferência recebida pelo Pix via Open Banking|Transferência recebida pelo Pix|Transferência Recebida|Estorno - Compra no débito via NuPay|Valor adicionado na conta por cartão de crédito|Depósito de|Aplicação)\s*/i,
+        ""
+      )
+      .replace(/\s+/g, " ")
+      .trim()
+
+    if (
+      deveIgnorar(description) ||
+      description.length < 2 ||
+      value <= 0 ||
+      description.length > 200
+    ) {
+      buffer = []
+      return
+    }
+
+    transactions.push({
+      date: dataAtual,
+      rawDescription: description,
+      value,
+      isExpense: bufferIsExpense,
+    })
+
+    buffer = []
+  }
 
   for (const line of lines) {
-    buffer.push(line)
+    // Detectar data "DD MES YYYY"
+    const mData = line.match(
+      /^(\d{2})\s+(JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)\s+(\d{4})$/i
+    )
+    if (mData) {
+      fechaBloco()
+      const dia = mData[1]!
+      const mes = MESES[mData[2]!.toUpperCase()] ?? "01"
+      const ano = mData[3]!
+      dataAtual = `${dia}/${mes}/${ano}`
+      continue
+    }
 
-    // 🎯 Se encontrou valor em formato brasileiro → fecha bloco
-    if (line.match(/\d{1,3}(\.\d{3})*,\d{2}$/)) {
-      const block = buffer.join(" ")
+    // Detectar data "DD/MM/YYYY"
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(line)) {
+      fechaBloco()
+      dataAtual = line
+      continue
+    }
 
-      // Extrair valor
-      const valueMatch = block.match(/(\d{1,3}(\.\d{3})*,\d{2})/)
-      const value = valueMatch ? parseFloat(valueMatch[1]!.replace(/\./g, "").replace(",", ".")) : 0
+    // Detectar mudança de contexto
+    if (/total de saídas/i.test(line)) {
+      fechaBloco()
+      isExpense = true
+      continue
+    }
+    if (/total de entradas/i.test(line)) {
+      fechaBloco()
+      isExpense = false
+      continue
+    }
 
-      // Extrair descrição (remove valor do bloco)
-      const description = block.replace(/(\d{1,3}(\.\d{3})*,\d{2})/, "").trim()
+    // Ignorar cabeçalhos
+    if (deveIgnorar(line)) {
+      fechaBloco()
+      continue
+    }
 
-      if (description.length > 0 && value > 0) {
-        transactions.push({
-          date: new Date().toLocaleDateString("pt-BR"), // Fallback hoje
-          rawDescription: description,
-          value,
-        })
-      }
-
-      buffer = []
+    // Linha com valor -> fecha bloco
+    if (line.match(/\d{1,3}(?:\.\d{3})*,\d{2}$/)) {
+      buffer.push(line)
+      bufferIsExpense = isExpense
+      fechaBloco()
+    } else {
+      if (buffer.length === 0) bufferIsExpense = isExpense
+      buffer.push(line)
     }
   }
 
+  fechaBloco()
   return transactions
 }
 
 /**
+ * PASSO 2: Classificar tipo
+ */
+function classifyType(desc: string, value: number): "INCOME" | "EXPENSE" | "TRANSFER" {
+  const d = desc.toLowerCase()
+  if (d.includes("aplicação") || d.includes("rdb") || d.includes("investimento")) return "TRANSFER"
+  if (d.includes("resgate")) return "INCOME"
+  if (value > 0) return "INCOME"
+  if (value < 0) return "EXPENSE"
+  return "EXPENSE"
+}
+
+/**
  * PASSO 3: Classificar categoria
- * Usa interpretação semântica + padrões
  */
 function classifyCategory(desc: string): string {
   const d = desc.toLowerCase()
 
-  // ALIMENTAÇÃO
   if (
     d.includes("restaurante") ||
     d.includes("padaria") ||
@@ -164,84 +271,64 @@ function classifyCategory(desc: string): string {
     d.includes("sorveteria") ||
     d.includes("churrascaria") ||
     d.includes("açougue") ||
-    d.includes("bakery") ||
-    d.includes("bar") ||
-    d.includes("boteco") ||
-    d.includes("delivery")
-  ) {
+    d.includes("delivery") ||
+    d.includes("burger") ||
+    d.includes("pastel") ||
+    d.includes("alimenta") ||
+    d.includes("comida")
+  )
     return "Alimentação"
-  }
 
-  // TRANSPORTE
   if (
     d.includes("uber") ||
-    d.includes("99") ||
+    d.includes("99 tecnologia") ||
+    d.includes("99food") ||
+    d.includes("buser") ||
     d.includes("ônibus") ||
     d.includes("metrô") ||
-    d.includes("taxi") ||
-    d.includes("táxi") ||
-    d.includes("passagem") ||
     d.includes("combustível") ||
     d.includes("gasolina") ||
     d.includes("estacionamento") ||
     d.includes("pedágio") ||
-    d.includes("transporte") ||
-    d.includes("viagem")
-  ) {
+    d.includes("transporte")
+  )
     return "Transporte"
-  }
 
-  // SAÚDE
   if (
     d.includes("farmácia") ||
     d.includes("farmacia") ||
     d.includes("drogaria") ||
     d.includes("medicamento") ||
     d.includes("médico") ||
-    d.includes("medico") ||
     d.includes("hospital") ||
     d.includes("clínica") ||
-    d.includes("clinica") ||
-    d.includes("odonto") ||
     d.includes("dentista") ||
-    d.includes("oftalmologia") ||
-    d.includes("psicólogo") ||
-    d.includes("psicologia") ||
-    d.includes("fisioterapia")
-  ) {
+    d.includes("laboratorio") ||
+    d.includes("promofarma") ||
+    d.includes("nutricar")
+  )
     return "Saúde"
-  }
 
-  // MERCADO
   if (
     d.includes("supermercado") ||
     d.includes("mercado") ||
     d.includes("carrefour") ||
-    d.includes("pão de açúcar") ||
-    d.includes("extra") ||
     d.includes("atacadão") ||
-    d.includes("dia") ||
     d.includes("hortifruti") ||
-    d.includes("basilia")
-  ) {
+    d.includes("extra")
+  )
     return "Mercado"
-  }
 
-  // LAZER
   if (
     d.includes("cinema") ||
     d.includes("teatro") ||
     d.includes("ingresso") ||
     d.includes("show") ||
-    d.includes("clube") ||
-    d.includes("parque") ||
-    d.includes("museu") ||
+    d.includes("cacau") ||
     d.includes("lazer")
-  ) {
+  )
     return "Lazer"
-  }
 
-  // ASSINATURAS
   if (
     d.includes("spotify") ||
     d.includes("netflix") ||
@@ -249,72 +336,57 @@ function classifyCategory(desc: string): string {
     d.includes("disney") ||
     d.includes("assinatura") ||
     d.includes("streaming") ||
-    d.includes("youtube premium") ||
-    d.includes("plano")
-  ) {
+    d.includes("bytedance") ||
+    d.includes("tiktok") ||
+    d.includes("facebook") ||
+    d.includes("ebanx") ||
+    d.includes("assiny")
+  )
     return "Assinaturas"
-  }
 
-  // MORADIA
   if (
     d.includes("energia") ||
     d.includes("água") ||
     d.includes("gás") ||
     d.includes("internet") ||
-    d.includes("telefone") ||
     d.includes("aluguel") ||
     d.includes("condomínio") ||
-    d.includes("serviço") ||
-    d.includes("moradia")
-  ) {
+    d.includes("edenred") ||
+    d.includes("shpp")
+  )
     return "Moradia"
-  }
 
-  // TRANSFERÊNCIA (PIX, TED, DOC sem contexto melhor)
-  if (
-    d.includes("pix") ||
-    d.includes("ted") ||
-    d.includes("doc") ||
-    d.includes("transferência") ||
-    d.includes("transferencia")
-  ) {
-    return "Transferência"
-  }
-
-  // DEFAULT: Outros
   return "Outros"
 }
 
 /**
- * Converte valor do formato brasileiro
- */
-function convertBrazilianValue(valueStr: string): number {
-  const isNegative = valueStr.startsWith("-") || valueStr.includes("(")
-  const cleanValue = valueStr.replace(/[^\d,]/g, "").replace(",", ".")
-  let num = parseFloat(cleanValue) || 0
-  return isNegative ? -num : num
-}
-
-/**
  * NORMALIZADOR PRINCIPAL
- * Entrada: transação bruta
- * Saída: transação normalizada e categorizada
  */
 function normalizeTransaction(raw: {
   date: string
   rawDescription: string
   value: number
+  isExpense?: boolean
 }): NormalizedTransaction {
-  // Passo 1: Limpar descrição
   const cleanedDesc = cleanDescription(raw.rawDescription)
 
-  // Passo 2: Classificar tipo
-  const type = classifyType(raw.rawDescription, raw.value)
+  let type: "INCOME" | "EXPENSE" | "TRANSFER"
+  const d = raw.rawDescription.toLowerCase()
 
-  // Passo 3: Classificar categoria
+  if (d.includes("aplicação") || d.includes("rdb") || d.includes("investimento")) {
+    type = "TRANSFER"
+  } else if (d.includes("resgate")) {
+    type = "INCOME"
+  } else if (raw.isExpense === true) {
+    type = "EXPENSE"
+  } else if (raw.isExpense === false) {
+    type = "INCOME"
+  } else {
+    type = classifyType(raw.rawDescription, raw.value)
+  }
+
   const category = classifyCategory(cleanedDesc)
 
-  // Passo 4: Validar e retornar
   return {
     date: convertDateToISO(raw.date),
     amount: Math.abs(raw.value),
@@ -328,27 +400,25 @@ function normalizeTransaction(raw: {
  * Converte DD/MM/YYYY para YYYY-MM-DD
  */
 function convertDateToISO(dateStr: string): string {
-  const [day, month, year] = dateStr.split("/")
+  const parts = dateStr.split("/")
+  if (parts.length !== 3) return new Date().toISOString().split("T")[0]!
+  const [day, month, year] = parts
   return `${year}-${month}-${day}`
 }
 
 /**
- * PARSER PRINCIPAL - AGORA USA BLOCO EXTRACTOR
- * Texto bruto → Transações normalizadas
- * 🔥 NUNCA retorna erro, SEMPRE tenta extrair algo
+ * PARSER PRINCIPAL
  */
 export async function parseTransactionsWithAI(
   text: string,
   _sourceType: "pdf" | "excel" | "csv" = "pdf",
   _bankHint?: string
 ): Promise<{ transactions: NormalizedTransaction[]; summary?: { confidence: number } }> {
-  // ✅ Aceita texto vazio - vai tentar o bloco extractor
   if (!text || text.trim().length === 0) {
     return { transactions: [] }
   }
 
   try {
-    // 🔥 NOVO: Usar extractTransactionsFromText ao invés do regex rígido
     const rawTransactions = extractTransactionsFromText(text)
     const normalized = rawTransactions.map((raw) => normalizeTransaction(raw))
 

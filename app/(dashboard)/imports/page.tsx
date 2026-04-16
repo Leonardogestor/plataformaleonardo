@@ -16,7 +16,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Upload, FileText, AlertCircle, RefreshCw, Trash2, Download, Pencil } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 
-
 export default function ImportsPage() {
   // Importar transaÃ§Ãµes do documento para a tela de transaÃ§Ãµes
   const handleImportarParaTransacao = async (docId: string) => {
@@ -66,34 +65,7 @@ export default function ImportsPage() {
     return () => clearInterval(interval)
   }, [processedData])
 
-  // Auto-import when document is completed
-  useEffect(() => {
-    const completedButNotImported = processedData.find(
-      (doc) => doc.status === "COMPLETED" && !doc.autoImported
-    )
-
-    if (!completedButNotImported) return
-
-    const autoImport = async () => {
-      try {
-        const res = await fetch(`/api/documents/${completedButNotImported.id}/import`, {
-          method: "POST",
-        })
-        const data = await res.json()
-
-        if (res.ok) {
-          // Redireciona automaticamente para transações
-          window.location.href = "/transactions"
-        }
-      } catch (e) {
-        console.error("Auto-import error:", e)
-      }
-    }
-
-    // Aguarda 1 segundo antes de importar
-    const timer = setTimeout(autoImport, 1000)
-    return () => clearTimeout(timer)
-  }, [processedData])
+  // Auto-import removido - usuário clica em "Importar para Transações" manualmente
 
   const loadDocuments = async () => {
     try {
@@ -280,7 +252,6 @@ export default function ImportsPage() {
         formData.append("files", file)
       })
       formData.append("name", `Extrato ${selectedBank} - ${selectedMonth}/${selectedYear}`)
-
 
       setUploadStatus("Enviando e processando transaÃ§Ãµes...")
 
