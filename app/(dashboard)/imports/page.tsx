@@ -543,8 +543,8 @@ export default function ImportsPage() {
                   )}
 
                   {doc.extractedText && (
-                    <div className="mb-3 p-3 bg-gray-50 border rounded text-sm">
-                      <strong>ðŸ“„ Preview do texto extraÃ­do:</strong>
+                    <div className="mb-3 p-3 bg-zinc-900 border border-zinc-700 rounded text-sm">
+                      <strong className="text-zinc-300">ðŸ“„ Preview do texto extraÃ­do:</strong>
                       <div className="mt-2 p-2 bg-zinc-900 text-zinc-100 border border-zinc-700 rounded text-xs font-mono max-h-32 overflow-y-auto">
                         {doc.extractedText.slice(0, 300)}
                         {doc.extractedText.length > 300 ? "..." : ""}
