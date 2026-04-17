@@ -10,10 +10,10 @@ export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
 
   try {
     console.log(`[PDF] Tentando pdf-parse...`)
-    // pdf-parse v1 funciona como função simples no Node.js/Vercel
     // @ts-ignore
-    const pdfParse = require("pdf-parse")
-    const data = await pdfParse(buffer)
+    const { PDFParse } = await import("pdf-parse")
+    const parser = new PDFParse()
+    const data = await parser.pdf(buffer)
     const text = (data.text ?? "").trim()
     console.log(`[PDF]  SUCESSO! Total: ${text.length} caracteres (${data.numpages} páginas)`)
     return text.slice(0, MAX_EXTRACT_LENGTH)
