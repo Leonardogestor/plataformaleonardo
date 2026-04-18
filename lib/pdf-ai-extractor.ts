@@ -43,20 +43,26 @@ export async function extractTransactionsFromPdfWithAI(
   }
 
   try {
+    // Extrai texto direto do buffer sem depender do pdf-parse
     let rawText = ""
     try {
-      const mod = await import("pdf-parse")
-      if (typeof mod.default === "function") {
-        const data = await mod.default(pdfBuffer)
-        rawText = data.text ?? ""
-      } else if ((mod as any).PDFParse) {
-        const parser = new (mod as any).PDFParse()
-        const data = await parser.pdf(pdfBuffer)
-        rawText = data.text ?? ""
-      }
-    } catch (e) {
-      console.warn("[AI Extractor] pdf-parse falhou, usando buffer direto")
+      // Tenta decodificar como latin1 (melhor para PDFs)
+      rawText = pdfBuffer
+        .toString("latin1")
+        .replace(/[^\x20-\x7E\xA0-\xFF\n\r\t]/g, " ")
+        .replace(/\s{3,}/g, "  ")
+        .trim()
+    } catch {
       rawText = pdfBuffer.toString("utf-8")
+    }
+
+    // Se ainda ficou vazio ou muito curto, tenta utf-8
+    if (rawText.trim().length < 100) {
+      rawText = pdfBuffer
+        .toString("utf-8")
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, " ")
+        .replace(/\s{3,}/g, "  ")
+        .trim()
     }
 
     if (!rawText || rawText.trim().length < 50) {
@@ -67,7 +73,10 @@ export async function extractTransactionsFromPdfWithAI(
     const processedText = rawText
       .replace(/(\d{2}\s+(?:JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)\s+\d{4})/gi, "\n$1\n")
       .replace(/(Total de (?:entradas|saídas))/gi, "\n$1\n")
-      .replace(/(Compra no débito|pelo Pix|Transferência enviada|Transferência recebida|via NuPay)/gi, "\n$1")
+      .replace(
+        /(Compra no débito|pelo Pix|Transferência enviada|Transferência recebida|via NuPay)/gi,
+        "\n$1"
+      )
       .replace(/\n{3,}/g, "\n\n")
       .slice(0, 50000)
 
@@ -99,7 +108,10 @@ export async function extractTransactionsFromPdfWithAI(
     const data = await response.json()
     const content = data.choices?.[0]?.message?.content ?? ""
 
-    const cleaned = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim()
+    const cleaned = content
+      .replace(/```json\n?/g, "")
+      .replace(/```\n?/g, "")
+      .trim()
     const parsed = JSON.parse(cleaned)
 
     const transactions: ExtractedTransaction[] = (parsed.transactions ?? [])
@@ -108,7 +120,9 @@ export async function extractTransactionsFromPdfWithAI(
         date: String(t.date),
         description: String(t.description ?? "Sem descrição").slice(0, 200),
         amount: Math.abs(Number(t.amount) || 0),
-        type: (["INCOME", "EXPENSE", "TRANSFER"].includes(t.type) ? t.type : "EXPENSE") as ExtractedTransaction["type"],
+        type: (["INCOME", "EXPENSE", "TRANSFER"].includes(t.type)
+          ? t.type
+          : "EXPENSE") as ExtractedTransaction["type"],
         category: String(t.category ?? "Outros"),
       }))
       .filter((t: ExtractedTransaction) => t.amount > 0)
