@@ -14,12 +14,24 @@ export async function extractTransactionsFromPdfWithAI(
     return { transactions: [] }
   }
 
-  const prompt = "Extraia todas as transacoes bancarias deste extrato e retorne APENAS JSON: {\"transactions\":[{\"date\":\"YYYY-MM-DD\",\"description\":\"nome\",\"amount\":99.99,\"type\":\"EXPENSE\",\"category\":\"Outros\"}]}. EXPENSE=saida, INCOME=entrada, TRANSFER=investimento. amount positivo sem R$."
+  const base64 = pdfBuffer.toString("base64")
+  const prompt = [
+    "Você é um especialista em extratos bancários brasileiros.",
+    "Analise este extrato PDF do Nubank e extraia TODAS as transações individuais.",
+    "Retorne APENAS um JSON válido, sem texto adicional, sem markdown, sem explicações.",
+    "Formato obrigatório:",
+    '{"transactions":[{"date":"YYYY-MM-DD","description":"nome do estabelecimento ou pessoa","amount":99.99,"type":"EXPENSE","category":"Alimentação"}]}',
+    "Regras:",
+    "- type deve ser EXPENSE para saídas/compras/transferências enviadas",
+    "- type deve ser INCOME para entradas/transferências recebidas/resgates",
+    "- type deve ser TRANSFER para investimentos",
+    "- amount sempre positivo, sem R$",
+    "- date no formato YYYY-MM-DD",
+    "- Ignore linhas de total, saldo e cabeçalho",
+    "- Inclua TODAS as transações do extrato",
+  ].join("\n")
 
   try {
-    // Envia o PDF diretamente como base64 para o GPT-4o via Responses API
-    const base64 = pdfBuffer.toString("base64")
-
     const res = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
@@ -48,22 +60,29 @@ export async function extractTransactionsFromPdfWithAI(
     })
 
     if (!res.ok) {
-      const err = await res.text()
-      console.error("[AI] OpenAI erro " + res.status + ": " + err)
+      const errText = await res.text()
+      console.error("[AI] Responses API erro " + res.status + ": " + errText)
       return { transactions: [] }
     }
 
     const data = await res.json()
-    const content = (data.output?.[0]?.content?.[0]?.text ?? "")
+    console.log("[AI] Resposta recebida, output blocks:", data.output?.length)
+
+    const textBlock = (data.output || []).find((block: any) => block.type === "message")
+    const rawContent = textBlock?.content?.[0]?.text ?? ""
+
+    console.log("[AI] Conteúdo raw (200 chars):", rawContent.slice(0, 200))
+
+    const clean = rawContent
       .replace(/```json\n?/g, "")
       .replace(/```\n?/g, "")
       .trim()
 
     let parsed: any
     try {
-      parsed = JSON.parse(content)
+      parsed = JSON.parse(clean)
     } catch {
-      console.error("[AI] JSON invalido:", content.slice(0, 200))
+      console.error("[AI] JSON invalido:", clean.slice(0, 300))
       return { transactions: [] }
     }
 
@@ -73,7 +92,9 @@ export async function extractTransactionsFromPdfWithAI(
         date: String(t.date),
         description: String(t.description ?? "Sem descricao").slice(0, 200),
         amount: Math.abs(Number(t.amount) || 0),
-        type: (["INCOME", "EXPENSE", "TRANSFER"].includes(t.type) ? t.type : "EXPENSE") as ExtractedTransaction["type"],
+        type: (["INCOME", "EXPENSE", "TRANSFER"].includes(t.type)
+          ? t.type
+          : "EXPENSE") as ExtractedTransaction["type"],
         category: String(t.category ?? "Outros"),
       }))
       .filter((t: ExtractedTransaction) => t.amount > 0)
@@ -81,7 +102,7 @@ export async function extractTransactionsFromPdfWithAI(
     console.log("[AI] " + transactions.length + " transacoes extraidas")
     return { transactions }
   } catch (e) {
-    console.error("[AI] Erro:", e)
+    console.error("[AI] Erro geral:", e)
     return { transactions: [] }
   }
 }
