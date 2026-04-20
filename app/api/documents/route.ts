@@ -9,6 +9,8 @@ import { deleteDocumentBlob } from "@/lib/blob"
 import { extractTransactionsFromPdfWithAI } from "@/lib/pdf-ai-extractor"
 import { importTransactionsFromPdfWithDedup } from "@/lib/transaction-import"
 
+export const maxDuration = 60
+
 const MAX_SIZE = 10 * 1024 * 1024 // 10MB
 
 export async function GET(request: NextRequest) {
