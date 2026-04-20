@@ -3,8 +3,11 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { DocumentStatus } from "@prisma/client"
-import { extractTransactionsFromPdfWithAI } from "@/lib/pdf-ai-extractor"
 import { extractTextFromExcel } from "@/lib/document-extract"
+import { checkDocumentsLimit } from "@/lib/rate-limit"
+import { deleteDocumentBlob } from "@/lib/blob"
+import { extractTransactionsFromPdfWithAI } from "@/lib/pdf-ai-extractor"
+import { importTransactionsFromPdfWithDedup } from "@/lib/transaction-import"
 
 const MAX_SIZE = 10 * 1024 * 1024 // 10MB
 
@@ -112,39 +115,26 @@ export async function POST(request: NextRequest) {
           // 1. Extrair texto
           let text = ""
           if (isPdf) {
-            text = await extractTextFromPdf(buffer)
+            // Usa apenas o novo extractor GPT
+            const aiResult = await extractTransactionsFromPdfWithAI(buffer)
+            if (!aiResult.transactions || aiResult.transactions.length === 0) {
+              status = DocumentStatus.FAILED
+              errorMessage = "Nenhuma transação encontrada no PDF."
+            } else {
+              transactionsImported = aiResult.transactions.length
+            }
+            extractedText = null // ou pode extrair texto se necessário
           } else if (isExcel) {
             text = await extractTextFromExcel(buffer)
+            // Aqui pode adicionar lógica para Excel se necessário
           }
 
-          if (!text || text.length < 10) {
+          if (!text && !isPdf) {
             status = DocumentStatus.FAILED
             errorMessage =
               "Não foi possível extrair texto do arquivo. Verifique se o PDF tem texto legível (não é uma imagem escaneada)."
-          } else {
-            extractedText = text.slice(0, 100_000)
-
-            // 2. Parsear transações
-            const bank = detectBankFromText(text)
-            const aiResult = await hybridParseTransactions(text, isPdf ? "pdf" : "excel", bank)
-
-            let transactions: NormalizedTransaction[] = []
-            if (aiResult.transactions.length > 0) {
-              transactions = aiResult.transactions.map((t) => convertToNormalizedTransaction(t))
-              console.info(` Parser retornou ${transactions.length} transações - ${file.name}`)
-            } else {
-              console.warn(` Nenhuma transação encontrada em: ${file.name}`)
-            }
-
-            // 3. Importar transações (com deduplicação)
-            if (transactions.length > 0) {
-              const result = await importTransactionsFromPdfWithDedup(userId, transactions)
-              transactionsImported = result.success
-              if (result.failed > 0 && result.success === 0) {
-                status = DocumentStatus.FAILED
-                errorMessage = result.errors.slice(0, 3).join("; ")
-              }
-            }
+          } else if (!isPdf) {
+            extractedText = text?.slice(0, 100_000) || null
           }
         } catch (err) {
           console.error(` Erro ao processar ${file.name}:`, err)
