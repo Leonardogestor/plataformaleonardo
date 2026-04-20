@@ -3,16 +3,8 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { DocumentStatus } from "@prisma/client"
-import { extractTextFromPdf, extractTextFromExcel } from "@/lib/document-extract"
-import { checkDocumentsLimit } from "@/lib/rate-limit"
-import { deleteDocumentBlob } from "@/lib/blob"
-import {
-  hybridParseTransactions,
-  convertToNormalizedTransaction,
-  type NormalizedTransaction,
-} from "@/lib/ai-transaction-parser"
-import { importTransactionsFromPdfWithDedup } from "@/lib/transaction-import"
-import { detectBankFromText } from "@/lib/bank-parsers"
+import { extractTransactionsFromPdfWithAI } from "@/lib/pdf-ai-extractor"
+import { extractTextFromExcel } from "@/lib/document-extract"
 
 const MAX_SIZE = 10 * 1024 * 1024 // 10MB
 

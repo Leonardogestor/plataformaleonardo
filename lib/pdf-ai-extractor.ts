@@ -6,38 +6,45 @@ export interface ExtractedTransaction {
   category: string
 }
 
-const SYSTEM_PROMPT = `Você é um especialista em extratos bancários brasileiros.
-Analise o texto do extrato e extraia TODAS as transações financeiras.
-
-Retorne APENAS um JSON válido com este formato exato, sem texto adicional:
-{
-  "transactions": [
-    {
-      "date": "YYYY-MM-DD",
-      "description": "Nome limpo do estabelecimento",
-      "amount": 99.99,
-      "type": "EXPENSE",
-      "category": "Alimentação"
-    }
-  ]
-}
-
-Regras:
-- type EXPENSE = saída (compras, pagamentos, Pix enviado)
-- type INCOME = entrada (depósitos, Pix recebido, salário)
-- type TRANSFER = aplicação ou resgate de investimento
-- amount sempre positivo, sem R$
-- description limpa, sem "Compra no débito", "pelo Pix", etc.
-- date formato YYYY-MM-DD
-- category: Alimentação, Transporte, Saúde, Mercado, Lazer, Moradia, Transferência, Investimento, Outros
-- Ignore saldos, cabeçalhos, rodapés e totais por período
-- Inclua TODAS as transações`
-
-export async function extractTransactionsFromPdfWithAI(
-  pdfBuffer: Buffer
-): Promise<{ transactions: ExtractedTransaction[] }> {
-  const apiKey = process.env.OPENAI_API_KEY
+export async function extractTransactionsFromPdfWithAI(pdfBuffer: Buffer): Promise<{ transactions: ExtractedTransaction[] }> {
+  const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
+    throw new Error("OPENAI_API_KEY não definido");
+  }
+  const text = pdfBuffer.toString("latin1");
+  const systemPrompt = `Você é um especialista em extratos bancários brasileiros. Analise o texto do extrato e extraia TODAS as transações financeiras. Retorne APENAS um JSON válido com este formato exato, sem texto adicional: { "transactions": [ { "date": "YYYY-MM-DD", "description": "Nome limpo do estabelecimento", "amount": 99.99, "type": "EXPENSE", "category": "Alimentação" } ] } Regras: - type EXPENSE = saída (compras, pagamentos, Pix enviado) - type INCOME = entrada (depósitos, Pix recebido, salário) - type TRANSFER = aplicação ou resgate de investimento - amount sempre positivo, sem R$ - description limpa, sem "Compra no débito", "pelo Pix", etc. - date formato YYYY-MM-DD - category: Alimentação, Transporte, Saúde, Mercado, Lazer, Moradia, Transferência, Investimento, Outros - Ignore saldos, cabeçalhos, rodapés e totais por período - Inclua TODAS as transações`;
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: text }
+      ],
+      temperature: 0.1,
+      max_tokens: 2048
+    })
+  });
+  if (!response.ok) {
+    throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+  }
+  const data = await response.json();
+  let transactions: ExtractedTransaction[] = [];
+  try {
+    const content = data.choices?.[0]?.message?.content;
+    if (content) {
+      const parsed = JSON.parse(content);
+      transactions = parsed.transactions || [];
+    }
+  } catch (e) {
+    throw new Error("Erro ao analisar resposta da OpenAI: " + e);
+  }
+  return { transactions };
+}
     console.warn("[AI Extractor] OPENAI_API_KEY não configurada")
     return { transactions: [] }
   }
