@@ -116,16 +116,62 @@ export async function POST(request: NextRequest) {
         try {
           // 1. Extrair texto
           let text = ""
+          let aiResult = { transactions: [] }
+          let savedTransactions = 0
           if (isPdf) {
             // Usa apenas o novo extractor GPT
-            const aiResult = await extractTransactionsFromPdfWithAI(buffer)
+            aiResult = await extractTransactionsFromPdfWithAI(buffer)
+            // Cria o documento antes de salvar as transações para obter o documentId
+            const doc = await prisma.document.create({
+              data: {
+                userId,
+                name: file.name,
+                fileName: file.name,
+                mimeType,
+                fileSize: file.size,
+                status,
+                extractedText,
+                errorMessage,
+              },
+            })
             if (!aiResult.transactions || aiResult.transactions.length === 0) {
+              await prisma.document.update({
+                where: { id: doc.id },
+                data: {
+                  status: DocumentStatus.FAILED,
+                  errorMessage: "Nenhuma transação encontrada no PDF.",
+                },
+              })
               status = DocumentStatus.FAILED
               errorMessage = "Nenhuma transação encontrada no PDF."
             } else {
-              transactionsImported = aiResult.transactions.length
+              // Salva as transações extraídas no banco, vinculando ao userId e documentId
+              const txToCreate = aiResult.transactions.map((t: any) => ({
+                userId,
+                documentId: doc.id,
+                date: new Date(t.date),
+                description: t.description,
+                amount: t.amount,
+                type: t.type,
+                category: t.category,
+              }))
+              const created = await prisma.transaction.createMany({ data: txToCreate })
+              savedTransactions = created.count || 0
+              transactionsImported = savedTransactions
+              // Atualiza status do documento para COMPLETED
+              await prisma.document.update({
+                where: { id: doc.id },
+                data: { status: DocumentStatus.COMPLETED },
+              })
             }
             extractedText = null // ou pode extrair texto se necessário
+            // Retorna doc para manter compatibilidade com retorno
+            return {
+              id: doc.id,
+              name: doc.name,
+              status: status,
+              transactionsImported,
+            }
           } else if (isExcel) {
             text = await extractTextFromExcel(buffer)
             // Aqui pode adicionar lógica para Excel se necessário
@@ -144,24 +190,26 @@ export async function POST(request: NextRequest) {
           errorMessage = err instanceof Error ? err.message : "Erro inesperado no processamento"
         }
 
-        const doc = await prisma.document.create({
-          data: {
-            userId,
-            name: file.name,
-            fileName: file.name,
-            mimeType,
-            fileSize: file.size,
-            status,
-            extractedText,
-            errorMessage,
-          },
-        })
-
-        return {
-          id: doc.id,
-          name: doc.name,
-          status: doc.status,
-          transactionsImported,
+        // Para arquivos não-PDF, cria o documento normalmente
+        if (!isPdf) {
+          const doc = await prisma.document.create({
+            data: {
+              userId,
+              name: file.name,
+              fileName: file.name,
+              mimeType,
+              fileSize: file.size,
+              status,
+              extractedText,
+              errorMessage,
+            },
+          })
+          return {
+            id: doc.id,
+            name: doc.name,
+            status: doc.status,
+            transactionsImported,
+          }
         }
       })
     )
