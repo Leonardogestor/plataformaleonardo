@@ -1,3 +1,4 @@
+
 export interface ExtractedTransaction {
   date: string
   description: string
@@ -6,10 +7,10 @@ export interface ExtractedTransaction {
   category: string
 }
 
-const SYSTEM_PROMPT = `Você é especialista em extratos bancários brasileiros. Analise o extrato PDF e extraia TODAS as transações individuais. Retorne APENAS JSON válido, sem texto adicional, sem markdown, sem explicações. Formato obrigatório: {"transactions":[{"date":"YYYY-MM-DD","description":"nome","amount":99.99,"type":"EXPENSE","category":"Alimentação"}]}. Regras: EXPENSE=saída/compra/transferência enviada, INCOME=entrada/transferência recebida/resgate, TRANSFER=investimento/aplicação. amount sempre positivo sem R$. Ignore saldos totais e cabeçalhos. Inclua TODAS as transações.`
+const SYSTEM_PROMPT = `Você é especialista em extratos bancários brasileiros. Analise o texto extraído do PDF e extraia TODAS as transações individuais. Retorne APENAS JSON válido, sem texto adicional, sem markdown, sem explicações. Formato obrigatório: {"transactions":[{"date":"YYYY-MM-DD","description":"nome","amount":99.99,"type":"EXPENSE","category":"Alimentação"}]}. Regras: EXPENSE=saída/compra/transferência enviada, INCOME=entrada/transferência recebida/resgate, TRANSFER=investimento/aplicação. amount sempre positivo sem R$. Ignore saldos totais e cabeçalhos. Inclua TODAS as transações.`
 
 export async function extractTransactionsFromPdfWithAI(
-  pdfBuffer: Buffer
+  extractedText: string
 ): Promise<{ transactions: ExtractedTransaction[] }> {
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) {
@@ -18,61 +19,31 @@ export async function extractTransactionsFromPdfWithAI(
   }
 
   try {
-    console.log("[AI] Enviando PDF para Responses API...")
-    const base64 = pdfBuffer.toString("base64")
-
-    const res = await fetch("https://api.openai.com/v1/responses", {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: "Bearer " + apiKey,
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o",
-        input: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "input_file",
-                filename: "extrato.pdf",
-                file_data: "data:application/pdf;base64," + base64,
-              },
-              {
-                type: "input_text",
-                text: SYSTEM_PROMPT,
-              },
-            ],
-          },
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: extractedText.slice(0, 100_000) },
         ],
+        max_tokens: 4096,
+        temperature: 0.0,
       }),
     })
 
     if (!res.ok) {
       const err = await res.text()
-      console.error("[AI] Responses API erro " + res.status + ": " + err)
+      console.error("[AI] Chat Completions erro " + res.status + ": " + err)
       return { transactions: [] }
     }
 
     const data = await res.json()
-    console.log("[AI] output blocks:", JSON.stringify(data.output?.map((b: any) => b.type)))
-
-    // Lê o texto da resposta — percorre todos os blocks procurando texto
-    let rawText = ""
-    for (const block of data.output ?? []) {
-      if (block.type === "message") {
-        for (const part of block.content ?? []) {
-          if (part.type === "output_text" || part.type === "text") {
-            rawText += part.text ?? ""
-          }
-        }
-      }
-      // Alguns modelos retornam diretamente
-      if (block.type === "text") {
-        rawText += block.text ?? ""
-      }
-    }
-
+    const rawText = data.choices?.[0]?.message?.content || ""
     console.log("[AI] Texto recebido (" + rawText.length + " chars):", rawText.slice(0, 200))
 
     const cleaned = rawText

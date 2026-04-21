@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { DocumentStatus } from "@prisma/client"
-import { extractTextFromExcel } from "@/lib/document-extract"
+import { extractTextFromExcel, extractTextFromPdf } from "@/lib/document-extract"
 import { checkDocumentsLimit } from "@/lib/rate-limit"
 import { deleteDocumentBlob } from "@/lib/blob"
 import { extractTransactionsFromPdfWithAI } from "@/lib/pdf-ai-extractor"
@@ -119,10 +119,10 @@ export async function POST(request: NextRequest) {
           let aiResult = { transactions: [] }
           let savedTransactions = 0
           if (isPdf) {
-            // Usa apenas o novo extractor GPT
-            aiResult = await extractTransactionsFromPdfWithAI(buffer)
-            // Cria o documento antes de salvar as transações para obter o documentId
-            const doc = await prisma.document.create({
+            // 1. Extrai texto legível do PDF
+            const pdfText = await extractTextFromPdf(buffer)
+            extractedText = pdfText?.slice(0, 100_000) || null
+            let doc = await prisma.document.create({
               data: {
                 userId,
                 name: file.name,
@@ -134,6 +134,25 @@ export async function POST(request: NextRequest) {
                 errorMessage,
               },
             })
+            if (!pdfText || pdfText.length < 50) {
+              await prisma.document.update({
+                where: { id: doc.id },
+                data: {
+                  status: DocumentStatus.FAILED,
+                  errorMessage: "Não foi possível extrair texto do PDF",
+                },
+              })
+              status = DocumentStatus.FAILED
+              errorMessage = "Não foi possível extrair texto do PDF"
+              return {
+                id: doc.id,
+                name: doc.name,
+                status,
+                transactionsImported,
+              }
+            }
+            // 2. Extrai transações do texto usando GPT
+            aiResult = await extractTransactionsFromPdfWithAI(pdfText)
             if (!aiResult.transactions || aiResult.transactions.length === 0) {
               await prisma.document.update({
                 where: { id: doc.id },
@@ -164,7 +183,6 @@ export async function POST(request: NextRequest) {
                 data: { status: DocumentStatus.COMPLETED },
               })
             }
-            extractedText = null // ou pode extrair texto se necessário
             // Retorna doc para manter compatibilidade com retorno
             return {
               id: doc.id,
