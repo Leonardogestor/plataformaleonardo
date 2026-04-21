@@ -6,32 +6,127 @@ export interface ExtractedTransaction {
   category: string
 }
 
+const SYSTEM_PROMPT = `Você é especialista em extratos bancários brasileiros.
+Analise o extrato PDF e extraia TODAS as transações individuais.
+Retorne APENAS JSON válido, sem texto adicional, sem markdown:
+{"transactions":[{"date":"YYYY-MM-DD","description":"nome","amount":99.99,"type":"EXPENSE","category":"Alimentação"}]}
+Regras:
+- type: EXPENSE=saída/compra/transferência enviada, INCOME=entrada/transferência recebida/resgate, TRANSFER=investimento/aplicação
+- amount: sempre positivo, sem R$
+- date: YYYY-MM-DD
+- category: Alimentação, Transporte, Saúde, Mercado, Lazer, Moradia, Transferência, Investimento, Outros
+- Ignore saldos, totais, cabeçalhos
+- Inclua TODAS as transações do extrato`
+
 export async function extractTransactionsFromPdfWithAI(
   pdfBuffer: Buffer
 ): Promise<{ transactions: ExtractedTransaction[] }> {
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) {
+    console.error("[AI] OPENAI_API_KEY não configurada")
     return { transactions: [] }
   }
 
-  const base64 = pdfBuffer.toString("base64")
-  const prompt = [
-    "Você é um especialista em extratos bancários brasileiros.",
-    "Analise este extrato PDF do Nubank e extraia TODAS as transações individuais.",
-    "Retorne APENAS um JSON válido, sem texto adicional, sem markdown, sem explicações.",
-    "Formato obrigatório:",
-    '{"transactions":[{"date":"YYYY-MM-DD","description":"nome do estabelecimento ou pessoa","amount":99.99,"type":"EXPENSE","category":"Alimentação"}]}',
-    "Regras:",
-    "- type deve ser EXPENSE para saídas/compras/transferências enviadas",
-    "- type deve ser INCOME para entradas/transferências recebidas/resgates",
-    "- type deve ser TRANSFER para investimentos",
-    "- amount sempre positivo, sem R$",
-    "- date no formato YYYY-MM-DD",
-    "- Ignore linhas de total, saldo e cabeçalho",
-    "- Inclua TODAS as transações do extrato",
-  ].join("\n")
-
   try {
+    console.log("[AI] Fazendo upload do PDF para OpenAI Files API...")
+
+    const formData = new FormData()
+    const blob = new Blob([pdfBuffer], { type: "application/pdf" })
+    formData.append("file", blob, "extrato.pdf")
+    formData.append("purpose", "assistants")
+
+    const uploadRes = await fetch("https://api.openai.com/v1/files", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + apiKey },
+      body: formData,
+    })
+
+    if (!uploadRes.ok) {
+      const err = await uploadRes.text()
+      console.error("[AI] Erro no upload:", uploadRes.status, err)
+      return await extractWithBase64(pdfBuffer, apiKey)
+    }
+
+    const uploadData = await uploadRes.json()
+    const fileId = uploadData.id
+    console.log("[AI] PDF enviado, file_id:", fileId)
+
+    const chatRes = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + apiKey,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o",
+        max_tokens: 16000,
+        temperature: 0.1,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          {
+            role: "user",
+            content: [
+              { type: "text", text: "Extraia todas as transações deste extrato e retorne o JSON." },
+              { type: "file", file: { file_id: fileId } },
+            ],
+          },
+        ],
+      }),
+    })
+
+    fetch("https://api.openai.com/v1/files/" + fileId, {
+      method: "DELETE",
+      headers: { Authorization: "Bearer " + apiKey },
+    }).catch(() => {})
+
+    if (!chatRes.ok) {
+      console.error("[AI] Files API falhou, tentando fallback...")
+      return await extractWithBase64(pdfBuffer, apiKey)
+    }
+
+    const chatData = await chatRes.json()
+    const content = (chatData.choices?.[0]?.message?.content ?? "")
+      .replace(/```json\n?/g, "")
+      .replace(/```\n?/g, "")
+      .trim()
+
+    let parsed: any
+    try {
+      parsed = JSON.parse(content)
+    } catch {
+      console.error("[AI] JSON inválido, tentando fallback...")
+      return await extractWithBase64(pdfBuffer, apiKey)
+    }
+
+    const transactions: ExtractedTransaction[] = (parsed.transactions ?? [])
+      .filter((t: any) => t.date && t.amount && t.type)
+      .map((t: any) => ({
+        date: String(t.date),
+        description: String(t.description ?? "Sem descrição").slice(0, 200),
+        amount: Math.abs(Number(t.amount) || 0),
+        type: (["INCOME", "EXPENSE", "TRANSFER"].includes(t.type)
+          ? t.type
+          : "EXPENSE") as ExtractedTransaction["type"],
+        category: String(t.category ?? "Outros"),
+      }))
+      .filter((t: ExtractedTransaction) => t.amount > 0)
+
+    console.log("[AI] " + transactions.length + " transações via Files API")
+    return { transactions }
+  } catch (error) {
+    console.error("[AI] Erro, tentando fallback:", error)
+    return await extractWithBase64(pdfBuffer, apiKey)
+  }
+}
+
+async function extractWithBase64(
+  pdfBuffer: Buffer,
+  apiKey: string
+): Promise<{ transactions: ExtractedTransaction[] }> {
+  try {
+    console.log("[AI] Fallback: Responses API + base64...")
+    const base64 = pdfBuffer.toString("base64")
+
     const res = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
@@ -51,7 +146,7 @@ export async function extractTransactionsFromPdfWithAI(
               },
               {
                 type: "input_text",
-                text: prompt,
+                text: SYSTEM_PROMPT + "\n\nExtraia todas as transações e retorne o JSON.",
               },
             ],
           },
@@ -60,37 +155,23 @@ export async function extractTransactionsFromPdfWithAI(
     })
 
     if (!res.ok) {
-      const errText = await res.text()
-      console.error("[AI] Responses API erro " + res.status + ": " + errText)
+      console.error("[AI] Fallback falhou:", res.status)
       return { transactions: [] }
     }
 
     const data = await res.json()
-    console.log("[AI] Resposta recebida, output blocks:", data.output?.length)
-
-    const textBlock = (data.output || []).find((block: any) => block.type === "message")
-    const rawContent = textBlock?.content?.[0]?.text ?? ""
-
-    console.log("[AI] Conteúdo raw (200 chars):", rawContent.slice(0, 200))
-
-    const clean = rawContent
+    const textBlock = (data.output ?? []).find((b: any) => b.type === "message")
+    const content = (textBlock?.content?.[0]?.text ?? "")
       .replace(/```json\n?/g, "")
       .replace(/```\n?/g, "")
       .trim()
 
-    let parsed: any
-    try {
-      parsed = JSON.parse(clean)
-    } catch {
-      console.error("[AI] JSON invalido:", clean.slice(0, 300))
-      return { transactions: [] }
-    }
-
+    const parsed = JSON.parse(content)
     const transactions: ExtractedTransaction[] = (parsed.transactions ?? [])
       .filter((t: any) => t.date && t.amount && t.type)
       .map((t: any) => ({
         date: String(t.date),
-        description: String(t.description ?? "Sem descricao").slice(0, 200),
+        description: String(t.description ?? "Sem descrição").slice(0, 200),
         amount: Math.abs(Number(t.amount) || 0),
         type: (["INCOME", "EXPENSE", "TRANSFER"].includes(t.type)
           ? t.type
@@ -99,10 +180,10 @@ export async function extractTransactionsFromPdfWithAI(
       }))
       .filter((t: ExtractedTransaction) => t.amount > 0)
 
-    console.log("[AI] " + transactions.length + " transacoes extraidas")
+    console.log("[AI] " + transactions.length + " transações via fallback")
     return { transactions }
   } catch (e) {
-    console.error("[AI] Erro geral:", e)
+    console.error("[AI] Fallback falhou:", e)
     return { transactions: [] }
   }
 }
