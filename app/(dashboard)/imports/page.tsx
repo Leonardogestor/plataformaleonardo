@@ -234,7 +234,9 @@ export default function ImportsPage() {
   }
 
   const handleUpload = async () => {
+    // MUDANÇA 1: agora só exige arquivos
     if (files.length === 0) {
+      // MUDANÇA 2: mensagem ajustada
       toast({
         title: "Arquivo obrigatório",
         description: "Selecione pelo menos um arquivo para importar",
