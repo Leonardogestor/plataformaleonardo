@@ -82,9 +82,8 @@ export default function ImportsPage() {
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setFiles(Array.from(e.target.files))
-    }
+    const fileList = e.target.files;
+    setFiles(fileList ? Array.from(fileList) : []);
   }
 
   const openRename = (doc: any) => {
