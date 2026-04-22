@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db"
 import { DocumentStatus } from "@prisma/client"
 import { extractTextFromPdf, extractTextFromExcel } from "@/lib/document-extract"
 import { parseTransactionsWithAI, convertToNormalizedTransaction } from "@/lib/ai-transaction-parser"
-import { auditTransactions } from "@/lib/transaction-auditor"
+
 import { importTransactionsFromPdfWithDedup } from "@/lib/transaction-import"
 
 export interface ProcessDocumentJobData {
@@ -185,24 +185,19 @@ export async function processDocumentJob(
     })
 
     // 7. Auditoria: validar e corrigir transações
-    pipelineLogger.info("Auditing transactions", { fileId: data.fileId })
-    const auditedTransactions = auditTransactions(
-      aiResult.transactions.map((tx) => ({
-        date: tx.date,
-        type: tx.type,
-        category: tx.category,
-        value: tx.amount,
-        description: tx.description,
-        raw_description: tx.description,
-      }))
-    )
+
+    // Auditoria desativada (arquivo removido). Passa as transações sem alteração.
+    const auditedTransactions = aiResult.transactions.map((tx) => ({
+      ...tx,
+      corrected: false
+    }))
 
     const correctionStats = {
       total: auditedTransactions.length,
-      corrected: auditedTransactions.filter((t) => t.corrected).length,
+      corrected: 0,
     }
 
-    pipelineLogger.info("Audit completed", {
+    pipelineLogger.info("Audit skipped (arquivo removido)", {
       fileId: data.fileId,
       ...correctionStats,
     })

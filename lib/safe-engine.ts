@@ -1,5 +1,4 @@
-import { ContextualTransaction } from "./context-engine"
-import { EnrichedTransaction } from "./behavioral-analysis"
+
 
 export type TransactionType = "INCOME" | "EXPENSE" | "INVESTIMENTO"
 
@@ -416,7 +415,7 @@ export function clearFailureLogs(): void {
 }
 
 export function wrapContextualTransaction(
-  tx: ContextualTransaction,
+  tx: any,
   source: "parser" | "fallback" | "corrected" = "parser"
 ): SafeTransaction {
   try {
@@ -438,7 +437,7 @@ export function wrapContextualTransaction(
 }
 
 export function wrapEnrichedTransaction(
-  tx: EnrichedTransaction,
+  tx: any,
   source: "parser" | "fallback" | "corrected" = "parser"
 ): SafeTransaction {
   return wrapContextualTransaction(tx, source)
