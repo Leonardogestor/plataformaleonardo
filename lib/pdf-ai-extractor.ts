@@ -1,4 +1,3 @@
-
 export interface ExtractedTransaction {
   date: string
   description: string
@@ -7,7 +6,17 @@ export interface ExtractedTransaction {
   category: string
 }
 
-const SYSTEM_PROMPT = `Você é especialista em extratos bancários brasileiros. Analise o texto extraído do PDF e extraia TODAS as transações individuais. Retorne APENAS JSON válido, sem texto adicional, sem markdown, sem explicações. Formato obrigatório: {"transactions":[{"date":"YYYY-MM-DD","description":"nome","amount":99.99,"type":"EXPENSE","category":"Alimentação"}]}. Regras: EXPENSE=saída/compra/transferência enviada, INCOME=entrada/transferência recebida/resgate, TRANSFER=investimento/aplicação. amount sempre positivo sem R$. Ignore saldos totais e cabeçalhos. Inclua TODAS as transações.`
+const SYSTEM_PROMPT = `Você é especialista em extratos bancários brasileiros.
+Analise o extrato e extraia TODAS as transações individuais.
+Retorne APENAS JSON válido, sem texto adicional, sem markdown:
+{"transactions":[{"date":"YYYY-MM-DD","description":"nome","amount":99.99,"type":"EXPENSE","category":"Alimentação"}]}
+Regras:
+- type: EXPENSE=saída/compra/transferência enviada, INCOME=entrada/transferência recebida/resgate, TRANSFER=investimento/aplicação
+- amount: sempre positivo, sem R$
+- date: YYYY-MM-DD
+- category: Alimentação, Transporte, Saúde, Mercado, Lazer, Moradia, Transferência, Investimento, Outros
+- Ignore saldos, totais, cabeçalhos
+- Inclua TODAS as transações do extrato`
 
 export async function extractTransactionsFromPdfWithAI(
   extractedText: string
@@ -18,49 +27,50 @@ export async function extractTransactionsFromPdfWithAI(
     return { transactions: [] }
   }
 
+  if (!extractedText || extractedText.length < 50) {
+    console.error("[AI] Texto muito curto para processar")
+    return { transactions: [] }
+  }
+
+  console.log("[AI] Enviando " + extractedText.length + " chars para GPT...")
+
   try {
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: "Bearer " + apiKey,
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",
+        max_tokens: 16000,
+        temperature: 0.1,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: extractedText.slice(0, 100_000) },
+          { role: "user", content: "Extrato bancário:\n\n" + extractedText.slice(0, 50000) },
         ],
-        max_tokens: 4096,
-        temperature: 0.0,
       }),
     })
 
     if (!res.ok) {
       const err = await res.text()
-      console.error("[AI] Chat Completions erro " + res.status + ": " + err)
+      console.error("[AI] OpenAI erro " + res.status + ": " + err)
       return { transactions: [] }
     }
 
     const data = await res.json()
-    const rawText = data.choices?.[0]?.message?.content || ""
-    console.log("[AI] Texto recebido (" + rawText.length + " chars):", rawText.slice(0, 200))
-
-    const cleaned = rawText
+    const content = (data.choices?.[0]?.message?.content ?? "")
       .replace(/```json\n?/g, "")
       .replace(/```\n?/g, "")
       .trim()
 
-    if (!cleaned) {
-      console.error("[AI] Resposta vazia da API")
-      return { transactions: [] }
-    }
+    console.log("[AI] Resposta recebida (" + content.length + " chars)")
 
     let parsed: any
     try {
-      parsed = JSON.parse(cleaned)
-    } catch (e) {
-      console.error("[AI] JSON inválido:", cleaned.slice(0, 300))
+      parsed = JSON.parse(content)
+    } catch {
+      console.error("[AI] JSON inválido:", content.slice(0, 300))
       return { transactions: [] }
     }
 
@@ -80,7 +90,7 @@ export async function extractTransactionsFromPdfWithAI(
     console.log("[AI] " + transactions.length + " transações extraídas")
     return { transactions }
   } catch (error) {
-    console.error("[AI] Erro geral:", error)
+    console.error("[AI] Erro:", error)
     return { transactions: [] }
   }
 }
