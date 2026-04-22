@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db"
 import { DocumentStatus } from "@prisma/client"
 import { extractTextFromPdf, extractTextFromExcel } from "@/lib/document-extract"
 import { checkDocumentsLimit } from "@/lib/rate-limit"
-import { deleteDocumentBlob } from "@/lib/blob"
+import { uploadToS3, getS3Url, deleteFromS3 } from "@/lib/s3"
 import { extractTransactionsFromPdfWithAI } from "@/lib/pdf-ai-extractor"
 import { importTransactionsFromPdfWithDedup } from "@/lib/transaction-import"
 
@@ -165,32 +165,28 @@ export async function POST(request: NextRequest) {
           errorMessage = err instanceof Error ? err.message : "Erro inesperado no processamento"
         }
 
-        // Para arquivos não-PDF, cria o documento normalmente
-        if (!isPdf) {
-          const doc = await prisma.document.create({
-            data: {
-              userId,
-              name: file.name,
-              fileName: file.name,
-              mimeType,
-              fileSize: file.size,
-              status,
-              extractedText,
-              errorMessage,
-            },
-          })
-          return {
-            id: doc.id,
-            name: doc.name,
-            status: doc.status,
-            transactionsImported,
-          }
-        }
-        // Garante retorno para todos os caminhos
+        // Upload para S3
+        const s3Key = `documents/${userId}/${Date.now()}-${file.name}`
+        await uploadToS3(buffer, s3Key, mimeType)
+
+        // Cria o documento no banco, incluindo fileKey
+        const doc = await prisma.document.create({
+          data: {
+            userId,
+            name: file.name,
+            fileName: file.name,
+            mimeType,
+            fileSize: file.size,
+            status,
+            extractedText,
+            errorMessage,
+            fileKey: s3Key,
+          },
+        })
         return {
-          id: undefined,
-          name: file.name,
-          status,
+          id: doc.id,
+          name: doc.name,
+          status: doc.status,
           transactionsImported,
         }
       })
@@ -241,7 +237,7 @@ export async function DELETE(request: NextRequest) {
     await Promise.allSettled(
       docs.map((doc) => {
         const ref = doc.fileUrl ?? doc.fileKey
-        return ref ? deleteDocumentBlob(ref) : Promise.resolve()
+        return ref ? deleteFromS3(ref) : Promise.resolve()
       })
     )
 
