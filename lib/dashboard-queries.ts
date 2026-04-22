@@ -36,7 +36,8 @@ export async function getDashboardMetrics(
       where: {
         userId,
         date: {
-          gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+          gte: new Date(year, month - 1, 1),
+          lt: new Date(year, month, 1),
         },
       },
       select: { type: true, amount: true },
@@ -69,7 +70,8 @@ export async function getCategoryBreakdown(
       userId,
       type: "EXPENSE",
       date: {
-        gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+        gte: new Date(year, month - 1, 1),
+        lt: new Date(year, month, 1),
       },
     },
     select: { category: true, amount: true },

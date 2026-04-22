@@ -135,6 +135,25 @@ export async function POST(request: NextRequest) {
                 const result = await importTransactionsFromPdfWithDedup(userId, toImport as any)
                 transactionsImported = result.success
                 console.log("[ROUTE] " + result.success + " transacoes importadas")
+
+                if (result.success > 0) {
+                  const existingAccount = await prisma.account.findFirst({
+                    where: { userId, institution: "Importado via PDF" },
+                  })
+                  if (!existingAccount) {
+                    await prisma.account.create({
+                      data: {
+                        userId,
+                        name: "Conta Principal",
+                        type: "CHECKING",
+                        institution: "Importado via PDF",
+                        balance: 0,
+                        isActive: true,
+                      },
+                    })
+                  }
+                }
+
                 if (result.failed > 0 && result.success === 0) {
                   status = DocumentStatus.FAILED
                   errorMessage = result.errors.slice(0, 3).join("; ")

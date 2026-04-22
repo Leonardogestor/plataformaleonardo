@@ -64,21 +64,15 @@ export async function GET(request: NextRequest) {
       }),
     ])
 
-    // Calcular médias reais
+    // Calcular médias reais (total dividido pelo número de meses, não de transações)
+    const monthsCount = 3
     const incomeTransactions = transactions.filter((t) => t.type === "INCOME")
     const expenseTransactions = transactions.filter((t) => t.type === "EXPENSE")
 
-    const avgIncome =
-      incomeTransactions.length > 0
-        ? incomeTransactions.reduce((sum, t) => sum + Number(t.amount), 0) /
-          incomeTransactions.length
-        : 0
-
-    const avgExpense =
-      expenseTransactions.length > 0
-        ? expenseTransactions.reduce((sum, t) => sum + Number(t.amount), 0) /
-          expenseTransactions.length
-        : 0
+    const totalIncome = incomeTransactions.reduce((sum, t) => sum + Number(t.amount), 0)
+    const totalExpense = expenseTransactions.reduce((sum, t) => sum + Number(t.amount), 0)
+    const avgIncome = totalIncome / monthsCount
+    const avgExpense = totalExpense / monthsCount
 
     const totalAccounts = accounts.reduce((sum, acc) => sum + Number(acc.balance || 0), 0)
     const totalInvestments = investments.reduce(
