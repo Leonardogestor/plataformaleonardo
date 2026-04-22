@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
+export const maxDuration = 60
     }
 
     const { searchParams } = new URL(request.url)
@@ -125,11 +125,9 @@ export async function POST(request: NextRequest) {
             }
 
             // STEP 2: Extrair texto com pdf-parse
-            const pdfText = await extractTextFromPdf(buffer)
-            console.log(`[ROUTE] Texto extraido: ${pdfText.length} chars`)
-
-            if (!pdfText || pdfText.length < 50) {
-              status = DocumentStatus.FAILED
+            uploadToS3(buffer, s3Key, mimeType)
+              .then(() => console.log(`[S3] Upload concluido: ${s3Key}`))
+              .catch((e) => console.error(`[S3] Erro upload S3:`, e))
               errorMessage =
                 "Nao foi possivel extrair texto do PDF. O arquivo pode ser uma imagem escaneada."
             } else {
