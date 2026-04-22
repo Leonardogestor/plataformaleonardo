@@ -1,24 +1,18 @@
-/**
- * Extração confiável de texto para PDFs - Nubank, Itaú, e outros bancos.
- * Usa pdf-parse para máxima estabilidade no Node.js/Vercel serverless.
- */
+import pdfParse from "pdf-parse"
 
-const MAX_EXTRACT_LENGTH = 100_000
+const MAX_LENGTH = 80_000
 
 export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
-  console.log(`[PDF] Iniciando extração de PDF (${buffer.length} bytes)`)
-
+  console.log(`[EXTRACT] Iniciando extração, buffer: ${buffer.length} bytes`)
   try {
-    console.log(`[PDF] Tentando pdf-parse...`)
-    // @ts-ignore
-    const { PDFParse } = await import("pdf-parse")
-    const parser = new PDFParse()
-    const data = await parser.pdf(buffer)
+    const data = await pdfParse(buffer)
     const text = (data.text ?? "").trim()
-    console.log(`[PDF]  SUCESSO! Total: ${text.length} caracteres (${data.numpages} páginas)`)
-    return text.slice(0, MAX_EXTRACT_LENGTH)
+    console.log(`[EXTRACT] Texto extraído: ${text.length} chars`)
+    if (text.length > 50) return text.slice(0, MAX_LENGTH)
+    console.warn("[EXTRACT] Texto muito curto, PDF pode ser imagem")
+    return ""
   } catch (e) {
-    console.error(`[PDF]  Falha na extração: ${e instanceof Error ? e.message : String(e)}`)
+    console.error("[EXTRACT] Erro:", e instanceof Error ? e.message : String(e))
     return ""
   }
 }
@@ -26,61 +20,14 @@ export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
 export async function extractTextFromExcel(buffer: Buffer): Promise<string> {
   try {
     const XLSX = await import("xlsx")
-
-    try {
-      const workbook = XLSX.read(buffer, { type: "buffer", raw: true })
-      const parts: string[] = []
-      for (const name of workbook.SheetNames) {
-        const sheet = workbook.Sheets[name]
-        if (sheet) {
-          const text = XLSX.utils.sheet_to_txt(sheet, { blankrows: false, strip: true })
-          if (text) parts.push(`[${name}]\n${text}`)
-        }
-      }
-      const result = parts.join("\n\n").slice(0, MAX_EXTRACT_LENGTH).trim()
-      if (result.length > 0) return result
-    } catch (xlsxError) {
-      console.warn("XLSX parsing failed, trying CSV:", xlsxError)
+    const workbook = XLSX.read(buffer, { type: "buffer" })
+    const parts: string[] = []
+    for (const name of workbook.SheetNames) {
+      const sheet = workbook.Sheets[name]
+      if (sheet) parts.push(XLSX.utils.sheet_to_csv(sheet))
     }
-
-    const text = buffer.toString("utf-8")
-    if (text.trim().length > 0) {
-      return text.slice(0, MAX_EXTRACT_LENGTH).trim()
-    }
-
-    return ""
-  } catch (e) {
-    console.warn("Excel/CSV extraction failed:", e)
-    return ""
+    return parts.join("\n\n").slice(0, MAX_LENGTH).trim()
+  } catch {
+    return buffer.toString("utf-8").slice(0, MAX_LENGTH).trim()
   }
-}
-
-export async function extractTextFromImage(buffer: Buffer): Promise<string> {
-  try {
-    const Tesseract = await import("tesseract.js")
-    const { data } = await Tesseract.recognize(buffer, "por+eng", {
-      logger: () => {},
-    })
-    const text = data?.text ?? ""
-    return text.slice(0, MAX_EXTRACT_LENGTH).trim()
-  } catch (e) {
-    console.warn("tesseract.js OCR failed:", e)
-    return ""
-  }
-}
-
-export async function extractTextFromFile(buffer: Buffer, mimeType: string): Promise<string> {
-  if (mimeType === "application/pdf") {
-    return extractTextFromPdf(buffer)
-  }
-  if (
-    mimeType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
-    mimeType === "application/vnd.ms-excel"
-  ) {
-    return extractTextFromExcel(buffer)
-  }
-  if (mimeType === "image/jpeg" || mimeType === "image/png") {
-    return extractTextFromImage(buffer)
-  }
-  return ""
 }

@@ -114,94 +114,44 @@ export async function POST(request: NextRequest) {
         let transactionsImported = 0
 
         try {
-          // 1. Extrair texto
           let text = ""
-          let aiResult: { transactions: import("@/lib/pdf-ai-extractor").ExtractedTransaction[] } =
-            { transactions: [] }
-          let savedTransactions = 0
           if (isPdf) {
-            console.log(`[PDF] Extraindo texto do PDF: ${file.name}`)
             const pdfText = await extractTextFromPdf(buffer)
             if (!pdfText || pdfText.length < 50) {
               status = DocumentStatus.FAILED
               errorMessage =
-                "Não foi possível extrair texto do PDF. Verifique se o arquivo tem texto legível."
-              console.warn(
-                `[PDF] ⚠️ Texto muito curto ou vazio em ${file.name}: ${pdfText?.length ?? 0} chars`
-              )
+                "Não foi possível extrair texto do PDF. O arquivo pode ser uma imagem escaneada."
+              console.warn(`[ROUTE] PDF sem texto legível: ${file.name}`)
             } else {
-              console.log(`[PDF] ✅ Texto extraído: ${pdfText.length} chars. Enviando para GPT...`)
-              aiResult = await extractTransactionsFromPdfWithAI(pdfText)
-              if (aiResult.transactions && aiResult.transactions.length > 0) {
-                // Salva as transações extraídas no banco, vinculando ao userId e documentId
-                const doc = await prisma.document.create({
-                  data: {
-                    userId,
-                    name: file.name,
-                    fileName: file.name,
-                    mimeType,
-                    fileSize: file.size,
-                    status,
-                    extractedText: pdfText.slice(0, 100_000),
-                    errorMessage,
-                  },
-                })
-                const txToCreate = aiResult.transactions.map((t: any) => ({
-                  userId,
-                  documentId: doc.id,
-                  date: new Date(t.date),
-                  description: t.description,
+              console.log(`[ROUTE] Texto extraído: ${pdfText.length} chars. Enviando para IA...`)
+              const aiResult = await extractTransactionsFromPdfWithAI(pdfText)
+              if (aiResult.transactions.length > 0) {
+                extractedText = pdfText.slice(0, 10000)
+                const toImport = aiResult.transactions.map((t) => ({
+                  date: t.date,
                   amount: t.amount,
                   type: t.type,
                   category: t.category,
+                  description: t.description,
                 }))
-                const created = await prisma.transaction.createMany({ data: txToCreate })
-                savedTransactions = created.count || 0
-                transactionsImported = savedTransactions
-                await prisma.document.update({
-                  where: { id: doc.id },
-                  data: { status: DocumentStatus.COMPLETED },
-                })
-                return {
-                  id: doc.id,
-                  name: doc.name,
-                  status: DocumentStatus.COMPLETED,
-                  transactionsImported,
+                const result = await importTransactionsFromPdfWithDedup(userId, toImport as any)
+                transactionsImported = result.success
+                console.log(
+                  `[ROUTE] ${result.success} transações importadas, ${result.failed} falhas`
+                )
+                if (result.failed > 0 && result.success === 0) {
+                  status = DocumentStatus.FAILED
+                  errorMessage = result.errors.slice(0, 3).join("; ")
                 }
               } else {
-                // Nenhuma transação encontrada
-                const doc = await prisma.document.create({
-                  data: {
-                    userId,
-                    name: file.name,
-                    fileName: file.name,
-                    mimeType,
-                    fileSize: file.size,
-                    status: DocumentStatus.FAILED,
-                    extractedText: pdfText.slice(0, 100_000),
-                    errorMessage: "Nenhuma transação encontrada no PDF.",
-                  },
-                })
-                return {
-                  id: doc.id,
-                  name: doc.name,
-                  status: DocumentStatus.FAILED,
-                  transactionsImported: 0,
-                }
+                status = DocumentStatus.FAILED
+                errorMessage =
+                  "IA não encontrou transações no PDF. Verifique se é um extrato bancário válido."
               }
-            }
-            // Se não retornou acima, retorna erro
-            return {
-              id: undefined,
-              name: file.name,
-              status,
-              transactionsImported,
             }
           } else if (isExcel) {
             text = await extractTextFromExcel(buffer)
-            // Aqui pode adicionar lógica para Excel se necessário
           }
-
           if (!text && !isPdf) {
             status = DocumentStatus.FAILED
             errorMessage =
