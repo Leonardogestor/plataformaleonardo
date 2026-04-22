@@ -35,9 +35,9 @@ export default function ImportsPage() {
   const [files, setFiles] = useState<File[]>([])
   const [uploading, setUploading] = useState(false)
   const [uploadStatus, setUploadStatus] = useState("")
-  const [selectedBank, setSelectedBank] = useState("")
-  const [selectedMonth, setSelectedMonth] = useState("")
-  const [selectedYear, setSelectedYear] = useState("")
+  const [selectedBank, setSelectedBank] = useState("") // Não obrigatório
+  const [selectedMonth, setSelectedMonth] = useState("") // Não obrigatório
+  const [selectedYear, setSelectedYear] = useState("") // Não obrigatório
   const [processedData, setProcessedData] = useState<any[]>([])
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [detailsDoc, setDetailsDoc] = useState<any | null>(null)
@@ -235,10 +235,10 @@ export default function ImportsPage() {
   }
 
   const handleUpload = async () => {
-    if (!selectedBank || !selectedMonth || !selectedYear || files.length === 0) {
+    if (files.length === 0) {
       toast({
-        title: "Campos obrigatÃ³rios",
-        description: "Preencha todos os campos e selecione arquivos",
+        title: "Arquivo obrigatório",
+        description: "Selecione pelo menos um arquivo para importar",
         variant: "destructive",
       })
       return
