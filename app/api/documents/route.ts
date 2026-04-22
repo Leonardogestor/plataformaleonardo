@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
-export const maxDuration = 60
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
     const { searchParams } = new URL(request.url)
@@ -115,28 +115,16 @@ export async function POST(request: NextRequest) {
 
         try {
           if (isPdf) {
-            // STEP 1: Upload para S3
-            const s3Key = `documents/${userId}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`
-            try {
-              await uploadToS3(buffer, s3Key, mimeType)
-              console.log(`[ROUTE] PDF enviado para S3: ${s3Key}`)
-            } catch (s3Err) {
-              console.error("[ROUTE] Erro S3:", s3Err)
-            }
-
-            // STEP 2: Extrair texto com pdf-parse
-            uploadToS3(buffer, s3Key, mimeType)
-              .then(() => console.log(`[S3] Upload concluido: ${s3Key}`))
-              .catch((e) => console.error(`[S3] Erro upload S3:`, e))
-              errorMessage =
-                "Nao foi possivel extrair texto do PDF. O arquivo pode ser uma imagem escaneada."
+            const pdfText = await extractTextFromPdf(buffer)
+            if (!pdfText || pdfText.length < 50) {
+              status = DocumentStatus.FAILED
+              errorMessage = "Nao foi possivel extrair texto do PDF."
+              console.warn("[ROUTE] PDF sem texto: " + file.name)
             } else {
-              // STEP 3: GPT interpreta o texto
+              console.log("[ROUTE] Texto extraido: " + pdfText.length + " chars")
               const aiResult = await extractTransactionsFromPdfWithAI(pdfText)
-
               if (aiResult.transactions.length > 0) {
                 extractedText = pdfText.slice(0, 10000)
-                // STEP 4: Salvar no banco com deduplicacao
                 const toImport = aiResult.transactions.map((t) => ({
                   date: t.date,
                   amount: t.amount,
@@ -146,37 +134,15 @@ export async function POST(request: NextRequest) {
                 }))
                 const result = await importTransactionsFromPdfWithDedup(userId, toImport as any)
                 transactionsImported = result.success
-                console.log(`[ROUTE] ${result.success} transacoes importadas`)
+                console.log("[ROUTE] " + result.success + " transacoes importadas")
                 if (result.failed > 0 && result.success === 0) {
                   status = DocumentStatus.FAILED
                   errorMessage = result.errors.slice(0, 3).join("; ")
                 }
               } else {
                 status = DocumentStatus.FAILED
-                errorMessage =
-                  "IA nao encontrou transacoes. Verifique se e um extrato bancario valido."
+                errorMessage = "IA nao encontrou transacoes no PDF."
               }
-            }
-
-            // Cria o documento no banco, incluindo fileKey
-            const doc = await prisma.document.create({
-              data: {
-                userId,
-                name: file.name,
-                fileName: file.name,
-                mimeType,
-                fileSize: file.size,
-                status,
-                extractedText,
-                errorMessage,
-                fileKey: s3Key,
-              },
-            })
-            return {
-              id: doc.id,
-              name: doc.name,
-              status: doc.status,
-              transactionsImported,
             }
           } else if (isExcel) {
             let text = await extractTextFromExcel(buffer)

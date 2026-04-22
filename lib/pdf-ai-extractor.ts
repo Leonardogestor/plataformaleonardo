@@ -6,14 +6,6 @@ export interface ExtractedTransaction {
   category: string
 }
 
-export interface ExtractedTransaction {
-  date: string
-  description: string
-  amount: number
-  type: "INCOME" | "EXPENSE" | "TRANSFER"
-  category: string
-}
-
 export async function extractTransactionsFromPdfWithAI(
   extractedText: string
 ): Promise<{ transactions: ExtractedTransaction[] }> {
@@ -27,23 +19,7 @@ export async function extractTransactionsFromPdfWithAI(
     return { transactions: [] }
   }
 
-  console.log(`[AI] Processando ${extractedText.length} chars com gpt-4o-mini...`)
-
-  const prompt = `Você é especialista em extratos bancários brasileiros.
-Analise o texto abaixo e extraia TODAS as transações financeiras individuais.
-Retorne APENAS um JSON válido no formato:
-{"transactions":[{"date":"YYYY-MM-DD","description":"descrição","amount":99.99,"type":"EXPENSE","category":"Alimentação"}]}
-
-Regras:
-- type: INCOME=entrada/recebido/resgate, EXPENSE=saída/compra/pagamento/débito, TRANSFER=transferência entre contas/investimento
-- amount: sempre número positivo, sem símbolo R$
-- date: formato YYYY-MM-DD obrigatório
-- category: Alimentação, Transporte, Saúde, Mercado, Lazer, Moradia, Transferência, Investimento, Receita, Outros
-- Ignore linhas de saldo total, cabeçalhos e rodapés
-- Inclua TODAS as transações sem exceção
-
-Texto do extrato:
-${extractedText.slice(0, 50000)}`
+  console.log("[AI] Enviando " + extractedText.length + " chars para gpt-4o-mini")
 
   try {
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -53,12 +29,19 @@ ${extractedText.slice(0, 50000)}`
         model: "gpt-4o-mini",
         max_tokens: 16000,
         temperature: 0,
-        messages: [{ role: "user", content: prompt }],
+        messages: [
+          {
+            role: "system",
+            content:
+              'Voce e especialista em extratos bancarios brasileiros. Extraia TODAS as transacoes e retorne APENAS JSON: {"transactions":[{"date":"YYYY-MM-DD","description":"nome","amount":99.99,"type":"EXPENSE","category":"Alimentacao"}]}. type: INCOME=entrada/recebido, EXPENSE=saida/compra/pagamento, TRANSFER=investimento/aplicacao. amount sempre positivo. Ignore saldos e cabecalhos.',
+          },
+          { role: "user", content: "Extrato:\n\n" + extractedText.slice(0, 50000) },
+        ],
       }),
     })
 
     if (!res.ok) {
-      console.error("[AI] Erro API:", res.status, await res.text())
+      console.error("[AI] Erro:", res.status)
       return { transactions: [] }
     }
 
@@ -68,14 +51,19 @@ ${extractedText.slice(0, 50000)}`
       .replace(/```\n?/g, "")
       .trim()
 
-    console.log(`[AI] Resposta: ${content.length} chars`)
+    let parsed: any
+    try {
+      parsed = JSON.parse(content)
+    } catch {
+      console.error("[AI] JSON invalido:", content.slice(0, 200))
+      return { transactions: [] }
+    }
 
-    const parsed = JSON.parse(content)
-    const transactions: ExtractedTransaction[] = (parsed.transactions ?? [])
+    const transactions = (parsed.transactions ?? [])
       .filter((t: any) => t.date && t.amount && t.type)
       .map((t: any) => ({
         date: String(t.date).trim(),
-        description: String(t.description ?? "Sem descrição").slice(0, 200),
+        description: String(t.description ?? "Sem descricao").slice(0, 200),
         amount: Math.abs(Number(t.amount) || 0),
         type: (["INCOME", "EXPENSE", "TRANSFER"].includes(t.type) ? t.type : "EXPENSE") as
           | "INCOME"
@@ -85,7 +73,7 @@ ${extractedText.slice(0, 50000)}`
       }))
       .filter((t: ExtractedTransaction) => t.amount > 0)
 
-    console.log(`[AI] ${transactions.length} transações extraídas`)
+    console.log("[AI] " + transactions.length + " transacoes extraidas")
     return { transactions }
   } catch (e) {
     console.error("[AI] Erro:", e instanceof Error ? e.message : String(e))
