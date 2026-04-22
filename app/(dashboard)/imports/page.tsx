@@ -1,4 +1,4 @@
-�"use client"
+ÿ"use client"
 
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -17,7 +17,7 @@ import { Upload, FileText, AlertCircle, RefreshCw, Trash2, Download, Pencil } fr
 import { toast } from "@/hooks/use-toast"
 
 export default function ImportsPage() {
-  // Importar transações do documento para a tela de transações
+  // Importar transaÃ§Ãµes do documento para a tela de transaÃ§Ãµes
   const handleImportarParaTransacao = async (docId: string) => {
     try {
       const res = await fetch(`/api/documents/${docId}/import`, { method: "POST" })
@@ -29,15 +29,15 @@ export default function ImportsPage() {
         alert(`Erro: ${data.error}`)
       }
     } catch (e) {
-      alert(`Erro na requisi��o: ${e}`)
+      alert(`Erro na requisição: ${e}`)
     }
   }
   const [files, setFiles] = useState<File[]>([])
   const [uploading, setUploading] = useState(false)
   const [uploadStatus, setUploadStatus] = useState("")
-  const [selectedBank, setSelectedBank] = useState("") // N�o obrigat�rio
-  const [selectedMonth, setSelectedMonth] = useState("") // N�o obrigat�rio
-  const [selectedYear, setSelectedYear] = useState("") // N�o obrigat�rio
+  const [selectedBank, setSelectedBank] = useState("") // Não obrigatório
+  const [selectedMonth, setSelectedMonth] = useState("") // Não obrigatório
+  const [selectedYear, setSelectedYear] = useState("") // Não obrigatório
   const [processedData, setProcessedData] = useState<any[]>([])
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [detailsDoc, setDetailsDoc] = useState<any | null>(null)
@@ -65,7 +65,7 @@ export default function ImportsPage() {
     return () => clearInterval(interval)
   }, [processedData])
 
-  // Auto-import removido - usu�rio clica em "Importar para Transa��es" manualmente
+  // Auto-import removido - usuário clica em "Importar para Transações" manualmente
 
   const loadDocuments = async () => {
     try {
@@ -74,7 +74,7 @@ export default function ImportsPage() {
         const data = await response.json()
         // GET /api/documents retorna array direto
         setProcessedData(Array.isArray(data) ? data : data.documents || [])
-        console.log("�x` Documentos carregados:", Array.isArray(data) ? data.length : data)
+        console.log("ðx` Documentos carregados:", Array.isArray(data) ? data.length : data)
       }
     } catch (error) {
       console.error("Error loading documents:", error)
@@ -135,7 +135,7 @@ export default function ImportsPage() {
       const data = await response.json()
       setTransactionsDoc({ doc, data })
     } catch {
-      toast({ title: "Erro ao carregar transações", variant: "destructive" })
+      toast({ title: "Erro ao carregar transaÃ§Ãµes", variant: "destructive" })
     } finally {
       setLoadingTransactions(null)
     }
@@ -149,11 +149,11 @@ export default function ImportsPage() {
       const transactions = data.transactions ?? []
 
       if (transactions.length === 0) {
-        toast({ title: "Nenhuma transação para exportar", variant: "destructive" })
+        toast({ title: "Nenhuma transaÃ§Ã£o para exportar", variant: "destructive" })
         return
       }
 
-      const header = "Data,Descrição,Categoria,Subcategoria,Valor (R$)"
+      const header = "Data,DescriÃ§Ã£o,Categoria,Subcategoria,Valor (R$)"
       const rows = transactions.map((t: any) =>
         [
           t.date,
@@ -171,9 +171,9 @@ export default function ImportsPage() {
       a.download = `transacoes_${doc.fileName?.replace(/\.[^.]+$/, "") ?? doc.id}.csv`
       a.click()
       URL.revokeObjectURL(url)
-      toast({ title: `${transactions.length} transações exportadas` })
+      toast({ title: `${transactions.length} transaÃ§Ãµes exportadas` })
     } catch {
-      toast({ title: "Erro ao exportar transações", variant: "destructive" })
+      toast({ title: "Erro ao exportar transaÃ§Ãµes", variant: "destructive" })
     }
   }
 
@@ -188,7 +188,7 @@ export default function ImportsPage() {
       })
       if (!response.ok) throw new Error()
       setProcessedData([])
-      toast({ title: `${processedData.length} documentos excluídos com sucesso` })
+      toast({ title: `${processedData.length} documentos excluÃ­dos com sucesso` })
     } catch {
       toast({ title: "Erro ao excluir documentos", variant: "destructive" })
     }
@@ -201,7 +201,7 @@ export default function ImportsPage() {
       const response = await fetch(`/api/documents/${id}`, { method: "DELETE" })
       if (!response.ok) throw new Error("Erro ao excluir")
       setProcessedData((prev) => prev.filter((doc) => doc.id !== id))
-      toast({ title: "Documento excluído com sucesso" })
+      toast({ title: "Documento excluÃ­do com sucesso" })
     } catch (error) {
       toast({ title: "Erro ao excluir documento", variant: "destructive" })
     } finally {
@@ -234,11 +234,11 @@ export default function ImportsPage() {
   }
 
   const handleUpload = async () => {
-    // MUDAN�A 1: agora s� exige arquivos
+    // MUDANÇA 1: agora só exige arquivos
     if (files.length === 0) {
-      // MUDAN�A 2: mensagem ajustada
+      // MUDANÇA 2: mensagem ajustada
       toast({
-        title: "Arquivo obrigat�rio",
+        title: "Arquivo obrigatório",
         description: "Selecione pelo menos um arquivo para importar",
         variant: "destructive",
       })
@@ -254,7 +254,7 @@ export default function ImportsPage() {
       })
       formData.append("name", `Extrato ${selectedBank} - ${selectedMonth}/${selectedYear}`)
 
-      setUploadStatus("Enviando e processando transações...")
+      setUploadStatus("Enviando e processando transaÃ§Ãµes...")
 
       const response = await fetch("/api/documents", {
         method: "POST",
@@ -269,14 +269,14 @@ export default function ImportsPage() {
       const result = await response.json()
 
       toast({
-        title: "Upload concluído",
+        title: "Upload concluÃ­do",
         description: `${result.total || files.length} arquivo(s) processados com sucesso`,
       })
 
       // Show processed data immediately
       if (result.documents && result.documents.length > 0) {
         setProcessedData(result.documents)
-        console.log("�x Upload result:", result)
+        console.log("ðx Upload result:", result)
       }
 
       // Refresh documents list
@@ -301,9 +301,9 @@ export default function ImportsPage() {
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Importação de Documentos</h1>
+          <h1 className="text-3xl font-bold">ImportaÃ§Ã£o de Documentos</h1>
           <p className="text-muted-foreground">
-            Importe extratos bancários e documentos financeiros
+            Importe extratos bancÃ¡rios e documentos financeiros
           </p>
         </div>
         <Button onClick={loadDocuments} variant="outline" size="sm">
@@ -329,7 +329,7 @@ export default function ImportsPage() {
                   <SelectValue placeholder="Selecione o banco" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="itau">Itaú</SelectItem>
+                  <SelectItem value="itau">ItaÃº</SelectItem>
                   <SelectItem value="bradesco">Bradesco</SelectItem>
                   <SelectItem value="santander">Santander</SelectItem>
                   <SelectItem value="bb">Banco do Brasil</SelectItem>
@@ -341,15 +341,15 @@ export default function ImportsPage() {
             </div>
 
             <div>
-              <Label htmlFor="month">Mês</Label>
+              <Label htmlFor="month">MÃªs</Label>
               <Select value={selectedMonth} onValueChange={setSelectedMonth}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione o mês" />
+                  <SelectValue placeholder="Selecione o mÃªs" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="01">Janeiro</SelectItem>
                   <SelectItem value="02">Fevereiro</SelectItem>
-                  <SelectItem value="03">Março</SelectItem>
+                  <SelectItem value="03">MarÃ§o</SelectItem>
                   <SelectItem value="04">Abril</SelectItem>
                   <SelectItem value="05">Maio</SelectItem>
                   <SelectItem value="06">Junho</SelectItem>
@@ -413,7 +413,7 @@ export default function ImportsPage() {
         <div className="text-center py-8 text-muted-foreground">
           <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
           <p className="text-lg font-medium">Nenhum documento encontrado</p>
-          <p className="text-sm">Faça upload de arquivos PDF para começar</p>
+          <p className="text-sm">FaÃ§a upload de arquivos PDF para comeÃ§ar</p>
         </div>
       )}
 
@@ -473,10 +473,10 @@ export default function ImportsPage() {
                       }`}
                     >
                       {doc.status === "COMPLETED"
-                        ? "�S& Concluído"
+                        ? "âS& ConcluÃ­do"
                         : doc.status === "PROCESSING"
-                          ? "⏳ Processando"
-                          : "�R Falhou"}
+                          ? "â³ Processando"
+                          : "âR Falhou"}
                     </span>
                   </div>
 
@@ -500,20 +500,20 @@ export default function ImportsPage() {
                       <p className="font-medium text-xs font-mono">{doc.id?.slice(0, 8)}...</p>
                     </div>
                     <div>
-                      <span className="text-muted-foreground">Texto extraído:</span>
+                      <span className="text-muted-foreground">Texto extraÃ­do:</span>
                       <p className="font-medium">
                         {doc.extractedText ? `${doc.extractedText.length} caracteres` : "N/A"}
                       </p>
                     </div>
                   </div>
 
-                  {/* �x� FOR�!ADO: Informações de processamento */}
+                  {/* ðx¥ FORÃ!ADO: InformaÃ§Ãµes de processamento */}
                   {doc.processingInfo && (
                     <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded text-sm">
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                         <div>
                           <span className="text-blue-700 font-medium">
-                            Transações processadas:
+                            TransaÃ§Ãµes processadas:
                           </span>
                           <p className="font-bold text-blue-900">
                             {doc.processingInfo.transactionsProcessed || 0}
@@ -526,7 +526,7 @@ export default function ImportsPage() {
                           </p>
                         </div>
                         <div>
-                          <span className="text-blue-700 font-medium">�altima atualização:</span>
+                          <span className="text-blue-700 font-medium">Ãaltima atualizaÃ§Ã£o:</span>
                           <p className="font-bold text-blue-900">
                             {doc.processingInfo.lastUpdate
                               ? new Date(doc.processingInfo.lastUpdate).toLocaleTimeString("pt-BR")
@@ -539,13 +539,13 @@ export default function ImportsPage() {
 
                   {doc.errorMessage && (
                     <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
-                      <strong>�R Erro:</strong> {doc.errorMessage}
+                      <strong>âR Erro:</strong> {doc.errorMessage}
                     </div>
                   )}
 
                   {doc.extractedText && (
                     <div className="mb-3 p-3 bg-zinc-900 border border-zinc-700 rounded text-sm">
-                      <strong className="text-zinc-300">�x Preview do texto extraído:</strong>
+                      <strong className="text-zinc-300">ðx Preview do texto extraÃ­do:</strong>
                       <div className="mt-2 p-2 bg-zinc-900 text-zinc-100 border border-zinc-700 rounded text-xs font-mono max-h-32 overflow-y-auto">
                         {doc.extractedText.slice(0, 300)}
                         {doc.extractedText.length > 300 ? "..." : ""}
@@ -573,7 +573,7 @@ export default function ImportsPage() {
                         >
                           {loadingTransactions === doc.id
                             ? "Carregando..."
-                            : "�x` Ver Transações"}
+                            : "ðx` Ver TransaÃ§Ãµes"}
                         </Button>
                         <Button size="sm" variant="outline" onClick={() => handleExportar(doc)}>
                           <Download className="h-4 w-4 mr-1" />
@@ -585,13 +585,13 @@ export default function ImportsPage() {
                           onClick={() => handleImportarParaTransacao(doc.id)}
                         >
                           <Upload className="h-4 w-4 mr-1" />
-                          IMPORTAR PARA TRANSA�!ÒO
+                          IMPORTAR PARA TRANSAÃ!ÃO
                         </Button>
                       </>
                     )}
                     {doc.status === "FAILED" && (
                       <Button size="sm" variant="outline" onClick={() => handleReprocess(doc)}>
-                        �x Reprocessar
+                        ðx Reprocessar
                       </Button>
                     )}
                     <Button
@@ -609,15 +609,15 @@ export default function ImportsPage() {
               ))}
             </div>
 
-            {/* �x� FOR�!ADO: Estatísticas gerais */}
+            {/* ðx¥ FORÃ!ADO: EstatÃ­sticas gerais */}
             <div className="mt-6 p-4 bg-muted rounded-lg">
-              <h4 className="font-semibold mb-3">�x` Estatísticas Gerais</h4>
+              <h4 className="font-semibold mb-3">ðx` EstatÃ­sticas Gerais</h4>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-green-600">
                     {processedData.filter((d) => d.status === "COMPLETED").length}
                   </div>
-                  <div className="text-muted-foreground">Concluídos</div>
+                  <div className="text-muted-foreground">ConcluÃ­dos</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-yellow-600">
@@ -647,16 +647,16 @@ export default function ImportsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <AlertCircle className="h-5 w-5" />
-            Informações Importantes
+            InformaÃ§Ãµes Importantes
           </CardTitle>
         </CardHeader>
         <CardContent>
           <ul className="space-y-2 text-sm text-muted-foreground">
-            <li>⬢ Formatos suportados: PDF, Excel (XLSX), CSV</li>
-            <li>⬢ Tamanho máximo por arquivo: 10MB</li>
-            <li>⬢ Múltiplos arquivos podem ser selecionados</li>
-            <li>⬢ O processamento é feito automaticamente após o upload</li>
-            <li>⬢ Você será notificado quando o processamento for concluído</li>
+            <li>â¬¢ Formatos suportados: PDF, Excel (XLSX), CSV</li>
+            <li>â¬¢ Tamanho mÃ¡ximo por arquivo: 10MB</li>
+            <li>â¬¢ MÃºltiplos arquivos podem ser selecionados</li>
+            <li>â¬¢ O processamento Ã© feito automaticamente apÃ³s o upload</li>
+            <li>â¬¢ VocÃª serÃ¡ notificado quando o processamento for concluÃ­do</li>
           </ul>
         </CardContent>
       </Card>
@@ -699,7 +699,7 @@ export default function ImportsPage() {
                   </p>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Transações:</span>
+                  <span className="text-muted-foreground">TransaÃ§Ãµes:</span>
                   <p className="font-medium">{detailsDoc.transactionCount ?? 0}</p>
                 </div>
               </div>
@@ -711,13 +711,13 @@ export default function ImportsPage() {
               {detailsDoc.extractedText && (
                 <div>
                   <p className="text-muted-foreground mb-1">
-                    Texto extraído ({detailsDoc.extractedText.length} caracteres):
+                    Texto extraÃ­do ({detailsDoc.extractedText.length} caracteres):
                   </p>
                   <div className="p-3 bg-white dark:bg-zinc-900 rounded text-xs font-mono max-h-48 overflow-y-auto whitespace-pre-wrap text-black dark:text-white border">
                     {detailsDoc.extractedText.slice(0, 1000)}
                     {detailsDoc.extractedText.length > 1000 ? "..." : ""}
                   </div>
-                  {/* Função handleImportarParaTransacao removida do JSX. */}
+                  {/* FunÃ§Ã£o handleImportarParaTransacao removida do JSX. */}
                 </div>
               )}
             </div>
@@ -725,11 +725,11 @@ export default function ImportsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal: Ver Transações */}
+      {/* Modal: Ver TransaÃ§Ãµes */}
       <Dialog open={!!transactionsDoc} onOpenChange={(open) => !open && setTransactionsDoc(null)}>
         <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>Transações � {transactionsDoc?.doc?.name}</DialogTitle>
+            <DialogTitle>TransaÃ§Ãµes â¬ {transactionsDoc?.doc?.name}</DialogTitle>
           </DialogHeader>
           {transactionsDoc &&
             (() => {
@@ -746,11 +746,11 @@ export default function ImportsPage() {
                 return (
                   <div className="py-8 space-y-4">
                     <p className="text-center text-muted-foreground text-sm">
-                      Nenhuma transação encontrada para este documento.
+                      Nenhuma transaÃ§Ã£o encontrada para este documento.
                     </p>
                     {transactionsDoc.doc.extractedText ? (
                       <div className="p-4 bg-muted/40 border rounded text-sm space-y-2">
-                        <p className="font-medium">Texto extraído disponível para revisão</p>
+                        <p className="font-medium">Texto extraÃ­do disponÃ­vel para revisÃ£o</p>
                         <div className="max-h-48 overflow-y-auto rounded border bg-background p-3 font-mono text-xs whitespace-pre-wrap">
                           {transactionsDoc.doc.extractedText.slice(0, 1500)}
                           {transactionsDoc.doc.extractedText.length > 1500 ? "..." : ""}
@@ -759,17 +759,17 @@ export default function ImportsPage() {
                     ) : (
                       <div className="p-4 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800 space-y-2">
                         <p>
-                          <strong>Por quê?</strong> O texto deste PDF não pôde ser extraído
+                          <strong>Por quÃª?</strong> O texto deste PDF nÃ£o pÃ´de ser extraÃ­do
                           automaticamente.
                         </p>
                         <p>
                           O arquivo pode ser baseado em imagem (escaneado) ou protegido contra
-                          cópia. O parser funciona apenas em PDFs com texto digital.
+                          cÃ³pia. O parser funciona apenas em PDFs com texto digital.
                         </p>
                         <p>
-                          <strong>Solução:</strong> Exporte o extrato diretamente do app/site do
-                          banco como <strong>CSV</strong> ou como PDF digital (não escaneado),
-                          depois faça o upload novamente.
+                          <strong>SoluÃ§Ã£o:</strong> Exporte o extrato diretamente do app/site do
+                          banco como <strong>CSV</strong> ou como PDF digital (nÃ£o escaneado),
+                          depois faÃ§a o upload novamente.
                         </p>
                       </div>
                     )}
@@ -788,7 +788,7 @@ export default function ImportsPage() {
                       </p>
                     </div>
                     <div className="rounded-lg border p-3 text-center">
-                      <p className="text-xs text-muted-foreground mb-1">Total Saídas</p>
+                      <p className="text-xs text-muted-foreground mb-1">Total SaÃ­das</p>
                       <p className="text-lg font-bold text-red-600">
                         R$ {totalSaidas.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                       </p>
@@ -812,7 +812,7 @@ export default function ImportsPage() {
                             Data
                           </th>
                           <th className="text-left px-3 py-2 font-semibold border-b">
-                            Descrição
+                            DescriÃ§Ã£o
                           </th>
                           <th className="text-left px-3 py-2 font-semibold border-b whitespace-nowrap">
                             Categoria
@@ -837,18 +837,18 @@ export default function ImportsPage() {
                             <td className="px-3 py-2 font-mono text-xs whitespace-nowrap border-b">
                               {t.date
                                 ? new Date(t.date + "T00:00:00").toLocaleDateString("pt-BR")
-                                : "�"}
+                                : "â¬"}
                             </td>
                             <td className="px-3 py-2 border-b max-w-xs">
                               <span className="block truncate" title={t.description}>
-                                {t.description || "�"}
+                                {t.description || "â¬"}
                               </span>
                             </td>
                             <td className="px-3 py-2 border-b capitalize whitespace-nowrap">
-                              {t.category || "�"}
+                              {t.category || "â¬"}
                             </td>
                             <td className="px-3 py-2 border-b text-muted-foreground capitalize whitespace-nowrap">
-                              {t.subcategory || "�"}
+                              {t.subcategory || "â¬"}
                             </td>
                             <td
                               className={`px-3 py-2 border-b text-right font-semibold whitespace-nowrap ${t.amount >= 0 ? "text-green-600" : "text-red-600"}`}
@@ -862,7 +862,7 @@ export default function ImportsPage() {
                               <span
                                 className={`text-xs px-2 py-0.5 rounded-full font-medium ${t.amount >= 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}
                               >
-                                {t.amount >= 0 ? "Entrada" : "Saída"}
+                                {t.amount >= 0 ? "Entrada" : "SaÃ­da"}
                               </span>
                             </td>
                           </tr>
@@ -874,7 +874,7 @@ export default function ImportsPage() {
                             colSpan={4}
                             className="px-3 py-2 border-t text-right text-xs uppercase tracking-wide text-muted-foreground"
                           >
-                            {txs.length} transações
+                            {txs.length} transaÃ§Ãµes
                           </td>
                           <td
                             className={`px-3 py-2 border-t text-right whitespace-nowrap ${saldo >= 0 ? "text-green-600" : "text-red-600"}`}
