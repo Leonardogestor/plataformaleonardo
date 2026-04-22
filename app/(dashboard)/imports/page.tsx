@@ -30,13 +30,13 @@ export default function ImportsPage() {
 
   const loadDocuments = async () => {
     try {
-      const response = await fetch("/api/documents")
-      if (response.ok) {
-        const data = await response.json()
+      const res = await fetch("/api/documents")
+      if (res.ok) {
+        const data = await res.json()
         setProcessedData(Array.isArray(data) ? data : data.documents || [])
       }
-    } catch (error) {
-      console.error("Erro ao carregar documentos:", error)
+    } catch (e) {
+      console.error(e)
     }
   }
 
@@ -48,42 +48,31 @@ export default function ImportsPage() {
 
   const handleUpload = async () => {
     if (files.length === 0) {
-      toast({
-        title: "Arquivo obrigatorio",
-        description: "Selecione pelo menos um arquivo",
-        variant: "destructive",
-      })
+      toast({ title: "Selecione um arquivo", variant: "destructive" })
       return
     }
-
     setUploading(true)
     try {
       const formData = new FormData()
-      files.forEach((file) => formData.append("files", file))
+      files.forEach((f) => formData.append("files", f))
       if (selectedBank) formData.append("bank", selectedBank)
       if (selectedMonth) formData.append("month", selectedMonth)
       if (selectedYear) formData.append("year", selectedYear)
 
-      const response = await fetch("/api/documents", { method: "POST", body: formData })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Erro ao fazer upload")
+      const res = await fetch("/api/documents", { method: "POST", body: formData })
+      if (!res.ok) {
+        const e = await res.json()
+        throw new Error(e.error || "Erro no upload")
       }
 
-      const result = await response.json()
-      toast({
-        title: "Upload concluido",
-        description: result.message || "Arquivo processado com sucesso",
-      })
-
-      if (result.documents?.length > 0) setProcessedData(result.documents)
+      const result = await res.json()
+      toast({ title: "Processando...", description: result.message })
       await loadDocuments()
       setFiles([])
-    } catch (error) {
+    } catch (e) {
       toast({
         title: "Erro no upload",
-        description: error instanceof Error ? error.message : "Erro inesperado",
+        description: e instanceof Error ? e.message : "Erro",
         variant: "destructive",
       })
     } finally {
@@ -95,19 +84,18 @@ export default function ImportsPage() {
     if (!confirm("Excluir este documento?")) return
     setDeletingId(id)
     try {
-      const response = await fetch(`/api/documents/${id}`, { method: "DELETE" })
-      if (!response.ok) throw new Error("Erro ao excluir")
-      setProcessedData((prev) => prev.filter((doc) => doc.id !== id))
-      toast({ title: "Documento excluido com sucesso" })
+      await fetch(`/api/documents/${id}`, { method: "DELETE" })
+      setProcessedData((prev) => prev.filter((d) => d.id !== id))
+      toast({ title: "Documento excluido" })
     } catch {
-      toast({ title: "Erro ao excluir documento", variant: "destructive" })
+      toast({ title: "Erro ao excluir", variant: "destructive" })
     } finally {
       setDeletingId(null)
     }
   }
 
   const handleDeleteAll = async () => {
-    if (!confirm(`Excluir todos os ${processedData.length} documentos?`)) return
+    if (!confirm("Excluir todos os documentos?")) return
     try {
       await fetch("/api/documents", {
         method: "DELETE",
@@ -115,9 +103,9 @@ export default function ImportsPage() {
         body: JSON.stringify({}),
       })
       setProcessedData([])
-      toast({ title: "Todos os documentos foram excluidos" })
+      toast({ title: "Todos os documentos excluidos" })
     } catch {
-      toast({ title: "Erro ao excluir documentos", variant: "destructive" })
+      toast({ title: "Erro ao excluir", variant: "destructive" })
     }
   }
 
@@ -142,7 +130,7 @@ export default function ImportsPage() {
             <Upload className="h-5 w-5" />
             Upload de Arquivos
           </CardTitle>
-          <CardDescription>Selecione os arquivos PDF ou Excel para importar</CardDescription>
+          <CardDescription>Selecione arquivos PDF ou Excel para importar</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -202,7 +190,6 @@ export default function ImportsPage() {
           <div>
             <Label>Arquivos</Label>
             <Input
-              id="files"
               type="file"
               multiple
               accept=".pdf,.xlsx,.xls,.csv"
@@ -213,10 +200,10 @@ export default function ImportsPage() {
 
           {files.length > 0 && (
             <div className="space-y-1">
-              {files.map((file, index) => (
-                <div key={index} className="flex items-center gap-2 text-sm">
+              {files.map((f, i) => (
+                <div key={i} className="flex items-center gap-2 text-sm">
                   <FileText className="h-4 w-4" />
-                  {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                  {f.name} ({(f.size / 1024 / 1024).toFixed(2)} MB)
                 </div>
               ))}
             </div>
@@ -232,13 +219,13 @@ export default function ImportsPage() {
         <div className="text-center py-8 text-muted-foreground">
           <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
           <p className="text-lg font-medium">Nenhum documento encontrado</p>
-          <p className="text-sm">Faca upload de arquivos PDF para comecar</p>
+          <p className="text-sm">Faca upload de um arquivo PDF para comecar</p>
         </div>
       ) : (
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>Documentos Processados ({processedData.length})</CardTitle>
+              <CardTitle>Documentos ({processedData.length})</CardTitle>
               <Button
                 onClick={handleDeleteAll}
                 variant="outline"
@@ -251,16 +238,28 @@ export default function ImportsPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {processedData.map((doc, index) => (
-                <div key={doc.id || index} className="border rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <div>
-                      <h4 className="font-semibold">{doc.name}</h4>
-                      <p className="text-sm text-muted-foreground">{doc.fileName}</p>
-                    </div>
+            <div className="space-y-3">
+              {processedData.map((doc, i) => (
+                <div
+                  key={doc.id || i}
+                  className="border rounded-lg p-4 flex items-center justify-between"
+                >
+                  <div>
+                    <p className="font-semibold">{doc.name}</p>
+                    <p className="text-sm text-muted-foreground">{doc.fileName}</p>
+                    {doc.errorMessage && (
+                      <p className="text-sm text-red-600 mt-1">{doc.errorMessage}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3">
                     <span
-                      className={`px-3 py-1 rounded-full text-xs font-medium ${doc.status === "COMPLETED" ? "bg-green-100 text-green-800" : doc.status === "PROCESSING" ? "bg-yellow-100 text-yellow-800" : "bg-red-100 text-red-800"}`}
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        doc.status === "COMPLETED"
+                          ? "bg-green-100 text-green-800"
+                          : doc.status === "PROCESSING"
+                            ? "bg-yellow-100 text-yellow-800"
+                            : "bg-red-100 text-red-800"
+                      }`}
                     >
                       {doc.status === "COMPLETED"
                         ? "Concluido"
@@ -268,22 +267,16 @@ export default function ImportsPage() {
                           ? "Processando"
                           : "Falhou"}
                     </span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-red-600"
+                      disabled={deletingId === doc.id}
+                      onClick={() => handleDelete(doc.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
-                  {doc.errorMessage && (
-                    <div className="mb-2 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
-                      Erro: {doc.errorMessage}
-                    </div>
-                  )}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-red-600"
-                    disabled={deletingId === doc.id}
-                    onClick={() => handleDelete(doc.id)}
-                  >
-                    <Trash2 className="h-4 w-4 mr-1" />
-                    {deletingId === doc.id ? "Excluindo..." : "Excluir"}
-                  </Button>
                 </div>
               ))}
             </div>

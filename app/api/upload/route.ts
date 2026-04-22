@@ -5,6 +5,7 @@ import { generateFileHash } from "@/lib/utils/crypto"
 import { prisma } from "@/lib/db"
 import { DocumentStatus } from "@prisma/client"
 import { addTransactionProcessingJob } from "@/lib/queue/queue"
+import { uploadToS3 } from "@/lib/s3"
 import { apiLogger } from "@/lib/utils/logger"
 import { z } from "zod"
 
@@ -97,7 +98,11 @@ export async function POST(request: NextRequest) {
     //   })
     // }
 
-    // Salvar documento com status PROCESSING
+    // Gerar chave única para o S3
+    const s3Key = `documents/${session.user.id}/${Date.now()}_${file.name}`
+    await uploadToS3(Buffer.from(buffer), s3Key, file.type)
+
+    // Salvar documento com status PROCESSING e caminho do S3
     const document = await prisma.document.create({
       data: {
         userId: session.user.id,
@@ -106,17 +111,19 @@ export async function POST(request: NextRequest) {
         mimeType: file.type,
         fileSize: file.size,
         status: DocumentStatus.PROCESSING,
+        fileUrl: s3Key,
       },
     })
 
     apiLogger.info("Document saved successfully", {
       fileId: document.id,
       fileHash,
+      s3Key,
     })
 
     // Adicionar job na fila (NÃO BLOQUEANTE)
     const jobResult = await addTransactionProcessingJob({
-      fileUrl: `/api/documents/${document.id}/download`,
+      fileUrl: s3Key,
       userId: session.user.id,
       fileName: file.name,
       fileId: document.id,

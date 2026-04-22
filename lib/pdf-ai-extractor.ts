@@ -6,6 +6,14 @@ export interface ExtractedTransaction {
   category: string
 }
 
+export interface ExtractedTransaction {
+  date: string
+  description: string
+  amount: number
+  type: "INCOME" | "EXPENSE" | "TRANSFER"
+  category: string
+}
+
 export async function extractTransactionsFromPdfWithAI(
   extractedText: string
 ): Promise<{ transactions: ExtractedTransaction[] }> {

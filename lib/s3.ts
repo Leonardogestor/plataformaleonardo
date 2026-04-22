@@ -17,6 +17,7 @@ const s3 = new S3Client({
 const BUCKET = process.env.AWS_S3_BUCKET_NAME!
 
 export async function uploadToS3(buffer: Buffer, key: string, mimeType: string): Promise<string> {
+  console.log(`[S3] Enviando ${key} (${buffer.length} bytes)`)
   await s3.send(
     new PutObjectCommand({
       Bucket: BUCKET,
@@ -25,18 +26,20 @@ export async function uploadToS3(buffer: Buffer, key: string, mimeType: string):
       ContentType: mimeType,
     })
   )
+  console.log(`[S3] Upload concluido: ${key}`)
   return key
-}
-
-export async function getS3Url(key: string): Promise<string> {
-  const command = new GetObjectCommand({ Bucket: BUCKET, Key: key })
-  return getSignedUrl(s3, command, { expiresIn: 3600 })
 }
 
 export async function deleteFromS3(key: string): Promise<void> {
   try {
     await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }))
+    console.log(`[S3] Arquivo deletado: ${key}`)
   } catch (e) {
     console.error("[S3] Erro ao deletar:", e)
   }
+}
+
+export async function getS3SignedUrl(key: string): Promise<string> {
+  const command = new GetObjectCommand({ Bucket: BUCKET, Key: key })
+  return getSignedUrl(s3, command, { expiresIn: 3600 })
 }

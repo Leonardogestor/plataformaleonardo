@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db"
 import { DocumentStatus } from "@prisma/client"
 import { extractTextFromPdf, extractTextFromExcel } from "@/lib/document-extract"
 import { checkDocumentsLimit } from "@/lib/rate-limit"
-import { uploadToS3, getS3Url, deleteFromS3 } from "@/lib/s3"
+import { uploadToS3, getS3SignedUrl, deleteFromS3 } from "@/lib/s3"
 import { extractTransactionsFromPdfWithAI } from "@/lib/pdf-ai-extractor"
 import { importTransactionsFromPdfWithDedup } from "@/lib/transaction-import"
 
@@ -114,19 +114,31 @@ export async function POST(request: NextRequest) {
         let transactionsImported = 0
 
         try {
-          let text = ""
           if (isPdf) {
+            // STEP 1: Upload para S3
+            const s3Key = `documents/${userId}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`
+            try {
+              await uploadToS3(buffer, s3Key, mimeType)
+              console.log(`[ROUTE] PDF enviado para S3: ${s3Key}`)
+            } catch (s3Err) {
+              console.error("[ROUTE] Erro S3:", s3Err)
+            }
+
+            // STEP 2: Extrair texto com pdf-parse
             const pdfText = await extractTextFromPdf(buffer)
+            console.log(`[ROUTE] Texto extraido: ${pdfText.length} chars`)
+
             if (!pdfText || pdfText.length < 50) {
               status = DocumentStatus.FAILED
               errorMessage =
-                "Não foi possível extrair texto do PDF. O arquivo pode ser uma imagem escaneada."
-              console.warn(`[ROUTE] PDF sem texto legível: ${file.name}`)
+                "Nao foi possivel extrair texto do PDF. O arquivo pode ser uma imagem escaneada."
             } else {
-              console.log(`[ROUTE] Texto extraído: ${pdfText.length} chars. Enviando para IA...`)
+              // STEP 3: GPT interpreta o texto
               const aiResult = await extractTransactionsFromPdfWithAI(pdfText)
+
               if (aiResult.transactions.length > 0) {
                 extractedText = pdfText.slice(0, 10000)
+                // STEP 4: Salvar no banco com deduplicacao
                 const toImport = aiResult.transactions.map((t) => ({
                   date: t.date,
                   amount: t.amount,
@@ -136,9 +148,7 @@ export async function POST(request: NextRequest) {
                 }))
                 const result = await importTransactionsFromPdfWithDedup(userId, toImport as any)
                 transactionsImported = result.success
-                console.log(
-                  `[ROUTE] ${result.success} transações importadas, ${result.failed} falhas`
-                )
+                console.log(`[ROUTE] ${result.success} transacoes importadas`)
                 if (result.failed > 0 && result.success === 0) {
                   status = DocumentStatus.FAILED
                   errorMessage = result.errors.slice(0, 3).join("; ")
@@ -146,47 +156,71 @@ export async function POST(request: NextRequest) {
               } else {
                 status = DocumentStatus.FAILED
                 errorMessage =
-                  "IA não encontrou transações no PDF. Verifique se é um extrato bancário válido."
+                  "IA nao encontrou transacoes. Verifique se e um extrato bancario valido."
               }
             }
+
+            // Cria o documento no banco, incluindo fileKey
+            const doc = await prisma.document.create({
+              data: {
+                userId,
+                name: file.name,
+                fileName: file.name,
+                mimeType,
+                fileSize: file.size,
+                status,
+                extractedText,
+                errorMessage,
+                fileKey: s3Key,
+              },
+            })
+            return {
+              id: doc.id,
+              name: doc.name,
+              status: doc.status,
+              transactionsImported,
+            }
           } else if (isExcel) {
-            text = await extractTextFromExcel(buffer)
-          }
-          if (!text && !isPdf) {
-            status = DocumentStatus.FAILED
-            errorMessage =
-              "Não foi possível extrair texto do arquivo. Verifique se o PDF tem texto legível (não é uma imagem escaneada)."
-          } else if (!isPdf) {
-            extractedText = text?.slice(0, 100_000) || null
+            let text = await extractTextFromExcel(buffer)
+            if (!text) {
+              status = DocumentStatus.FAILED
+              errorMessage =
+                "Nao foi possivel extrair texto do arquivo. Verifique se o arquivo e valido."
+            } else {
+              extractedText = text.slice(0, 100_000)
+            }
+            // Cria o documento no banco, incluindo fileKey
+            const s3Key = `documents/${userId}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`
+            await uploadToS3(buffer, s3Key, mimeType)
+            const doc = await prisma.document.create({
+              data: {
+                userId,
+                name: file.name,
+                fileName: file.name,
+                mimeType,
+                fileSize: file.size,
+                status,
+                extractedText,
+                errorMessage,
+                fileKey: s3Key,
+              },
+            })
+            return {
+              id: doc.id,
+              name: doc.name,
+              status: doc.status,
+              transactionsImported,
+            }
           }
         } catch (err) {
           console.error(` Erro ao processar ${file.name}:`, err)
           status = DocumentStatus.FAILED
           errorMessage = err instanceof Error ? err.message : "Erro inesperado no processamento"
         }
-
-        // Upload para S3
-        const s3Key = `documents/${userId}/${Date.now()}-${file.name}`
-        await uploadToS3(buffer, s3Key, mimeType)
-
-        // Cria o documento no banco, incluindo fileKey
-        const doc = await prisma.document.create({
-          data: {
-            userId,
-            name: file.name,
-            fileName: file.name,
-            mimeType,
-            fileSize: file.size,
-            status,
-            extractedText,
-            errorMessage,
-            fileKey: s3Key,
-          },
-        })
         return {
-          id: doc.id,
-          name: doc.name,
-          status: doc.status,
+          id: null,
+          name: file.name,
+          status,
           transactionsImported,
         }
       })

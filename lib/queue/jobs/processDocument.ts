@@ -1,8 +1,17 @@
 import { pipelineLogger } from "@/lib/utils/logger"
 import { prisma } from "@/lib/db"
 import { DocumentStatus } from "@prisma/client"
-import { extractTextFromPdf, extractTextFromExcel } from "@/lib/document-extract"
-import { parseTransactionsWithAI, convertToNormalizedTransaction } from "@/lib/ai-transaction-parser"
+import {
+  extractTextFromPdf,
+  extractTextFromExcel,
+  extractTextFromPdfWithOcr,
+} from "@/lib/document-extract"
+import {
+  parseTransactionsWithAI,
+  convertToNormalizedTransaction,
+} from "@/lib/ai-transaction-parser"
+import { GetObjectCommand } from "@aws-sdk/client-s3"
+import { s3 } from "@/lib/s3"
 
 import { importTransactionsFromPdfWithDedup } from "@/lib/transaction-import"
 
@@ -62,14 +71,12 @@ export async function processDocumentJob(
     })
     syncLogId = logEntry.id
 
-    // 3. Baixar arquivo real
-    pipelineLogger.info("Downloading file", { fileId: data.fileId })
-    const response = await fetch(data.fileUrl, { cache: "no-store" })
-    if (!response.ok) {
-      throw new Error(`Falha ao baixar arquivo: ${response.statusText}`)
-    }
-
-    const arrayBuffer = await response.arrayBuffer()
+    // 3. Baixar arquivo real do S3
+    pipelineLogger.info("Downloading file from S3", { fileId: data.fileId, s3Key: data.fileUrl })
+    const s3Obj = await s3.send(
+      new GetObjectCommand({ Bucket: process.env.AWS_S3_BUCKET_NAME!, Key: data.fileUrl })
+    )
+    const arrayBuffer = await s3Obj.Body.transformToByteArray()
     const buffer = Buffer.from(arrayBuffer)
 
     pipelineLogger.info("File downloaded", {
@@ -81,7 +88,7 @@ export async function processDocumentJob(
     let extractedText = ""
 
     if (document.mimeType === "application/pdf") {
-      extractedText = await extractTextFromPdf(buffer)
+      extractedText = await extractTextFromPdfWithOcr(buffer)
     } else if (
       document.mimeType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
       document.mimeType === "application/vnd.ms-excel" ||
@@ -189,7 +196,7 @@ export async function processDocumentJob(
     // Auditoria desativada (arquivo removido). Passa as transações sem alteração.
     const auditedTransactions = aiResult.transactions.map((tx) => ({
       ...tx,
-      corrected: false
+      corrected: false,
     }))
 
     const correctionStats = {
