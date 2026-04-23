@@ -20,6 +20,7 @@ const emptyDashboardData = {
   tendencia_patrimonial: "estável" as const,
   impacto_longo_prazo: null as string | null,
   decisao_recomendada: null as string | null,
+  independencia_financeira: null as {
     patrimonioAtual: number
     despesaAnual: number
     patrimonioNecessario: number

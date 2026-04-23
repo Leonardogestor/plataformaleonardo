@@ -80,5 +80,3 @@ export function NetWorthChart({ pessimista, base, otimista }: NetWorthChartProps
     </div>
   )
 }
-  )
-}
