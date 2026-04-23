@@ -32,8 +32,18 @@ export async function extractTransactionsFromPdfWithAI(
         messages: [
           {
             role: "system",
-            content:
-              'Voce e especialista em extratos bancarios brasileiros. Extraia TODAS as transacoes e retorne APENAS JSON: {"transactions":[{"date":"YYYY-MM-DD","description":"nome","amount":99.99,"type":"EXPENSE","category":"Alimentacao"}]}. type: INCOME=entrada/recebido, EXPENSE=saida/compra/pagamento, TRANSFER=investimento/aplicacao. amount sempre positivo. Ignore saldos e cabecalhos.',
+            content: [
+              "Você é especialista em extratos bancários brasileiros.",
+              'Extraia TODAS as transações e retorne APENAS JSON: {"transactions":[{"date":"YYYY-MM-DD","description":"nome","amount":99.99,"type":"EXPENSE","category":"Alimentacao"}]}',
+              "Regras:",
+              "- Converta datas no formato DD/MM/YYYY para YYYY-MM-DD (ISO).",
+              "- Interprete valores brasileiros: 1.234,56 = 1234.56.",
+              "- Se o valor for débito (saída), amount deve ser negativo.",
+              "- type: INCOME=entrada/recebido, EXPENSE=saída/compra/pagamento, TRANSFER=investimento/aplicação.",
+              "- Ignore saldos, cabeçalhos e totais.",
+              '- Se o extrato for do Santander e houver log de OCR, inclua um campo "ocrLog" com o texto bruto extraído.',
+              "- Sempre retorne um array completo de transações extraídas.",
+            ].join(" "),
           },
           { role: "user", content: "Extrato:\n\n" + extractedText.slice(0, 50000) },
         ],

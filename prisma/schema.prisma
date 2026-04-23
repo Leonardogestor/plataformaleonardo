@@ -220,6 +220,9 @@ model Transaction {
   isPending             Boolean?          @default(false)
   subcategory           String?
   status                String?           @default("ACTIVE")
+  currency              String            @default("BRL")
+  originalCurrency      String?
+  rawText               String?
   account               Account?          @relation(fields: [accountId], references: [id])
   card                  Card?             @relation(fields: [cardId], references: [id])
   document              Document?         @relation(fields: [documentId], references: [id])
@@ -542,14 +545,14 @@ model ProcessedWebhookEvent {
 }
 
 model PasswordSetupToken {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
-  tokenHash String   @unique
+  tokenHash String    @unique
   email     String
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([email])

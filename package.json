@@ -1,5 +1,6 @@
 {
   "name": "lmg-platform",
+  "type": "module",
   "version": "1.0.0",
   "description": "LMG PLATAFORMA FINANCEIRA - Gestão Financeira e Patrimonial",
   "private": true,

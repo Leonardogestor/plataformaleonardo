@@ -35,6 +35,86 @@ async function main() {
     },
   })
 
+  // Criar contas e transações de teste coerentes com a planilha
+  const conta = await prisma.account.create({
+    data: {
+      userId: client.id,
+      name: "Conta Corrente",
+      balance: 10000,
+    },
+  })
+
+  await prisma.transaction.createMany({
+    data: [
+      {
+        userId: client.id,
+        amount: 5000,
+        type: "INCOME",
+        category: "Salário",
+        date: new Date(new Date().setMonth(new Date().getMonth() - 2)),
+        description: "Salário Março",
+        status: "green",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        userId: client.id,
+        amount: -2000,
+        type: "EXPENSE",
+        category: "Aluguel",
+        date: new Date(new Date().setMonth(new Date().getMonth() - 2)),
+        description: "Aluguel Março",
+        status: "green",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        userId: client.id,
+        amount: 5000,
+        type: "INCOME",
+        category: "Salário",
+        date: new Date(new Date().setMonth(new Date().getMonth() - 1)),
+        description: "Salário Abril",
+        status: "green",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        userId: client.id,
+        amount: -2000,
+        type: "EXPENSE",
+        category: "Aluguel",
+        date: new Date(new Date().setMonth(new Date().getMonth() - 1)),
+        description: "Aluguel Abril",
+        status: "green",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        userId: client.id,
+        amount: 5000,
+        type: "INCOME",
+        category: "Salário",
+        date: new Date(),
+        description: "Salário Maio",
+        status: "green",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        userId: client.id,
+        amount: -2000,
+        type: "EXPENSE",
+        category: "Aluguel",
+        date: new Date(),
+        description: "Aluguel Maio",
+        status: "green",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ],
+  })
+
   console.log("✅ Novo usuário cliente criado")
   console.log(`   ID: ${client.id}`)
   console.log(`   Email: ${client.email}`)
@@ -45,7 +125,7 @@ async function main() {
   console.log("\n📧 Credenciais de acesso do cliente:")
   console.log("👤 Email: suportelmgconsultoria@gmail.com")
   console.log("🔑 Senha: Lmg@2026")
-  console.log("\n� O usuário inicia com todos os dados zerados, pronto para preencher!")
+  console.log("\nO usuário inicia com dados de teste coerentes com a planilha!")
 }
 
 main()

@@ -1,17 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import {
-  getDashboardMetrics,
-  getCategoryBreakdown,
-  getMonthlyEvolution,
-  getRecentTransactions,
-  getInsights,
-  getRiscoConsolidado,
-  getTendenciaPatrimonial,
-  getInsightsEstrategicos,
-  getIndependenciaFinanceira,
-} from "@/lib/dashboard-queries"
+
+import { DashboardService } from "@/lib/dashboard-service"
 
 const emptyDashboardData = {
   metrics: {
@@ -38,7 +29,6 @@ const emptyDashboardData = {
   } | null,
 }
 
-export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
@@ -55,53 +45,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Invalid month or year parameters" }, { status: 400 })
     }
 
-    const [
-      metrics,
-      categories,
-      monthlyData,
-      recentTransactions,
-      insights,
-      risco_consolidado,
-      tendencia_patrimonial,
-      insightsEstrategicos,
-      independencia_financeira,
-    ] = await Promise.all([
-      getDashboardMetrics(session.user.id, month, year),
-      getCategoryBreakdown(session.user.id, month, year),
-      getMonthlyEvolution(session.user.id, month, year),
-      getRecentTransactions(session.user.id, 10, month, year),
-      getInsights(session.user.id, month, year),
-      getRiscoConsolidado(session.user.id, month, year),
-      getTendenciaPatrimonial(session.user.id, month, year),
-      getInsightsEstrategicos(session.user.id, month, year),
-      getIndependenciaFinanceira(session.user.id, month, year),
-    ])
-
-    return NextResponse.json({
-      metrics,
-      categories,
-      monthlyData,
-      recentTransactions,
-      insights,
-      risco_consolidado,
-      tendencia_patrimonial,
-      impacto_longo_prazo: insightsEstrategicos.impacto_longo_prazo,
-      decisao_recomendada: insightsEstrategicos.decisao_recomendada,
-      independencia_financeira,
-      month, // Include month/year in response for debugging
-      year,
-    })
+    // Usar o DashboardService para consolidar os dados do motor
+    const dashboardData = await DashboardService.getDashboardData(session.user.id, month, year)
+    return NextResponse.json(dashboardData)
   } catch (error) {
     console.error("Dashboard API Error:", error)
-    // Se o banco estiver inacessível, retorna dados vazios para o dashboard ainda renderizar
-    const isDbError =
-      error instanceof Error &&
-      (error.name === "PrismaClientInitializationError" ||
-        error.message?.includes("Can't reach database") ||
-        error.message?.includes("Connection refused"))
-    if (isDbError) {
-      return NextResponse.json(emptyDashboardData)
-    }
     return NextResponse.json({ error: "Erro ao carregar dashboard" }, { status: 500 })
   }
 }

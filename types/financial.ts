@@ -3,40 +3,37 @@ export type TransactionType = "income" | "expense" | "investment" | "investment_
 
 export interface Transaction {
   id: string
-  amount: number
-  type: TransactionType
-  category: string
-  date: string
+  valor: number // padronizado conforme planilha
+  tipo: TransactionType
+  categoria: string
+  data: string
   status: "green" | "yellow" | "red"
-  description: string
-  userId: string
-  createdAt: Date
-  updatedAt: Date
+  descricao: string
+  usuarioId: string
+  criadoEm: Date
+  atualizadoEm: Date
 }
 
 // 🧩 ESTRUTURA HÍBRIDA - Manual + Automático
 export interface FinancialField {
-  value: number
-  isManual: boolean
+  valor: number
+  manual: boolean
 }
 
 export interface MonthlyProjection {
-  month: number
-  year: number
+  mes: number
+  ano: number
 
-  // Valores financeiros com controle manual/automático
   receita: FinancialField
   despesas: FinancialField
   percentualInvestimento: FinancialField
 
-  // Valores calculados
   investimento: number
   resultado: number
-  savingsRate: number
+  taxaEconomia: number
 
-  // Metadados
-  createdAt: Date
-  updatedAt: Date
+  criadoEm: Date
+  atualizadoEm: Date
 }
 
 export interface FinancialCalculations {

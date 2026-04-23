@@ -7,6 +7,30 @@
 import crypto from "crypto"
 import { prisma } from "@/lib/db"
 
+// Utilitário para normalizar valores brasileiros (1.234,56 → 1234.56)
+function parseBrazilianNumber(input: string | number): number {
+  if (typeof input === "number") return input
+  if (typeof input !== "string") return NaN
+  // Remove milhar, troca vírgula por ponto
+  const clean = input.replace(/\./g, "").replace(/,/g, ".")
+  return Number(clean)
+}
+
+// Validação rigorosa de transação
+function validateTransaction(t: any) {
+  // Data válida
+  const dateObj = new Date(t.date)
+  if (!(dateObj instanceof Date) || isNaN(dateObj.getTime())) {
+    throw new Error(`Data inválida: ${t.date}`)
+  }
+  // Valor válido
+  const amount = parseBrazilianNumber(t.amount)
+  if (!isFinite(amount)) {
+    throw new Error(`Valor inválido: ${t.amount}`)
+  }
+  return { ...t, amount, date: dateObj }
+}
+
 export interface NormalizedTransaction {
   type: "INCOME" | "EXPENSE" | "TRANSFER"
   category: string
@@ -51,13 +75,20 @@ export function pdfTransactionExternalId(
  */
 export async function importTransactionsFromPdfWithDedup(
   userId: string,
-  transactions: NormalizedTransaction[]
+  transactions: (NormalizedTransaction & { rawText?: string })[],
+  rawText?: string // texto bruto do extrato
 ): Promise<ImportTransactionsResult> {
   const results = { success: 0, failed: 0, errors: [] as string[] }
 
-  for (const t of transactions) {
-    const externalId = pdfTransactionExternalId(userId, t.date, t.amount, t.description)
+  for (const tOrig of transactions) {
     try {
+      const t = validateTransaction(tOrig)
+      const externalId = pdfTransactionExternalId(
+        userId,
+        t.date.toISOString(),
+        t.amount,
+        t.description
+      )
       await prisma.transaction.upsert({
         where: { externalTransactionId: externalId },
         create: {
@@ -68,10 +99,11 @@ export async function importTransactionsFromPdfWithDedup(
           subcategory: t.subcategory ?? null,
           amount: t.amount,
           description: t.description,
-          date: new Date(t.date),
+          date: t.date,
           accountId: t.accountId ?? null,
           isPending: false,
           externalTransactionId: externalId,
+          rawText: t.rawText || rawText || null,
         },
         update: {
           documentId: t.documentId ?? null,
@@ -79,13 +111,14 @@ export async function importTransactionsFromPdfWithDedup(
           description: t.description,
           category: t.category,
           subcategory: t.subcategory ?? null,
+          rawText: t.rawText || rawText || null,
         },
       })
       results.success++
     } catch (error) {
       results.failed++
       const msg = error instanceof Error ? error.message : String(error)
-      results.errors.push(`${t.description}: ${msg}`)
+      results.errors.push(`${tOrig.description}: ${msg}`)
     }
   }
 
@@ -99,13 +132,14 @@ export async function importTransactionsFromPdfWithDedup(
  */
 export async function importTransactionsForUser(
   userId: string,
-  transactions: NormalizedTransaction[],
-  options?: { accountId?: string | null }
+  transactions: (NormalizedTransaction & { rawText?: string })[],
+  options?: { accountId?: string | null; rawText?: string }
 ): Promise<ImportTransactionsResult> {
   const results = { success: 0, failed: 0, errors: [] as string[] }
 
-  for (const t of transactions) {
+  for (const tOrig of transactions) {
     try {
+      const t = validateTransaction(tOrig)
       const accountId = t.accountId ?? options?.accountId ?? null
       await prisma.$transaction(async (tx) => {
         await tx.transaction.create({
@@ -117,9 +151,10 @@ export async function importTransactionsForUser(
             subcategory: t.subcategory ?? null,
             amount: t.amount,
             description: t.description,
-            date: new Date(t.date),
+            date: t.date,
             accountId,
             isPending: false,
+            rawText: t.rawText || options?.rawText || null,
           },
         })
         if (accountId) {
@@ -134,7 +169,7 @@ export async function importTransactionsForUser(
     } catch (error) {
       results.failed++
       const msg = error instanceof Error ? error.message : String(error)
-      results.errors.push(`${t.description}: ${msg}`)
+      results.errors.push(`${tOrig.description}: ${msg}`)
     }
   }
 
