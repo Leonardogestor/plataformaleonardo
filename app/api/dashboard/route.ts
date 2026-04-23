@@ -20,15 +20,12 @@ const emptyDashboardData = {
   tendencia_patrimonial: "estável" as const,
   impacto_longo_prazo: null as string | null,
   decisao_recomendada: null as string | null,
-  independencia_financeira: null as {
     patrimonioAtual: number
     despesaAnual: number
     patrimonioNecessario: number
     percentual: number
     mensagem: string
   } | null,
-}
-
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
@@ -52,4 +49,5 @@ const emptyDashboardData = {
     console.error("Dashboard API Error:", error)
     return NextResponse.json({ error: "Erro ao carregar dashboard" }, { status: 500 })
   }
+}
 }

@@ -17,22 +17,17 @@ import {
   X,
   RefreshCw,
 } from "lucide-react"
-import {
-  useFinancialProjections,
-  isFieldManual,
-  getFieldValue,
-} from "@/hooks/use-financial-projections"
+// Removed import for non-existent hook
 import { formatCurrency, formatPercent } from "@/lib/utils"
 
 export function ProjectionsManager() {
-  const {
-    projections,
-    currentProjection,
-    loading,
-    updateField,
-    recalculateAll,
-    generateProjections,
-  } = useFinancialProjections()
+  // TODO: Implementar lógica de projeções ou importar hook correto
+  const projections = []
+  const currentProjection = null
+  const loading = false
+  const updateField = () => {}
+  const recalculateAll = () => {}
+  const generateProjections = () => {}
 
   const [editingField, setEditingField] = useState<{
     month: number
@@ -308,4 +303,5 @@ export function ProjectionsManager() {
       </Card>
     </div>
   )
+}
 }

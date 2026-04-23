@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db"
 import { ProjectionsEngine } from "@/lib/ProjectionsEngine"
 
 // Endpoint para disparar recálculo global das projeções (dummy, placeholder)
+export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
@@ -16,7 +17,11 @@ import { ProjectionsEngine } from "@/lib/ProjectionsEngine"
     const accounts = await prisma.account.findMany({ where: { userId } })
     const investments = await prisma.investment.findMany({ where: { userId } })
     // Chamar o ProjectionsEngine centralizado
-    const projections = ProjectionsEngine.calcularProjecao(12, { transactions, accounts, investments })
+    const projections = ProjectionsEngine.calcularProjecao(12, {
+      transactions,
+      accounts,
+      investments,
+    })
     return NextResponse.json({ projections })
   } catch (error) {
     return NextResponse.json({ error: "Erro ao recalcular projeções" }, { status: 500 })

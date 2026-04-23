@@ -35,4 +35,4 @@ import { ProjectionsEngine } from "../../../lib/ProjectionsEngine"
 }
 
 // Force dynamic rendering for this route
-export const dynamic = "force-dynamic"
+  export const dynamic = "force-dynamic"
