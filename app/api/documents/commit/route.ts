@@ -74,7 +74,13 @@ export async function POST(request: NextRequest) {
   })
   const existingSet = new Set(existingTxs.map((t) => t.externalTransactionId))
 
-  const toCreate = transactions.filter((_, idx) => !existingSet.has(externalIds[idx] ?? ""))
+  const seenInBatch = new Set<string>()
+  const toCreate = transactions.filter((_, idx) => {
+    const id = externalIds[idx] ?? ""
+    if (existingSet.has(id) || seenInBatch.has(id)) return false
+    seenInBatch.add(id)
+    return true
+  })
   const duplicateCount = transactions.length - toCreate.length
 
   if (toCreate.length === 0) {
