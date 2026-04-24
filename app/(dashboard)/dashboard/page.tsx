@@ -9,7 +9,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
-  Building2,
   FileText,
   ChevronRight,
   Loader2,
@@ -20,14 +19,6 @@ import {
 import { useGlobalDate } from "@/contexts/global-date-context"
 import { useFinancialDataSafe } from "@/hooks/use-financial-data-safe"
 import dynamic from "next/dynamic"
-
-const DocumentUploadDialog = dynamic(
-  () =>
-    import("@/components/documents/document-upload-dialog").then((mod) => ({
-      default: mod.DocumentUploadDialog,
-    })),
-  { ssr: false }
-)
 
 const BalanceSummary = dynamic(
   () =>
@@ -136,21 +127,6 @@ export default function DashboardPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Connected Data - Maintained */}
-      <Card className="border-border/60 bg-muted/20">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base font-semibold">
-            <Building2 className="h-4 w-4 text-primary" />
-            Dados conectados
-          </CardTitle>
-          <CardDescription>
-            Envie PDFs ou planilhas Excel para uma visão completa das suas finanças.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-3">
-          <DocumentUploadDialog />
-        </CardContent>
-      </Card>
     </div>
   )
 }

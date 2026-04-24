@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
+import Image from "next/image"
 
 const registerSchema = z
   .object({
@@ -87,7 +88,9 @@ export default function RegisterPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <div className="flex items-center justify-center mb-4">
-            <div className="h-12 w-12 rounded-lg bg-primary" />
+            <div className="h-12 w-12 rounded-lg bg-primary flex items-center justify-center overflow-hidden">
+              <Image src="/logo.png" alt="LMG" width={48} height={48} className="object-contain" />
+            </div>
           </div>
           <CardTitle className="text-center text-2xl">Criar Conta</CardTitle>
           <CardDescription className="text-center">

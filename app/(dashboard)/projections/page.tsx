@@ -1,5 +1,5 @@
 "use client"
-// TELA 4: Projeções - Estrutura inicial
+
 import { useState, useEffect } from "react"
 import { SummaryCards } from "@/components/projections/summary-cards"
 import { NetWorthChart } from "@/components/projections/net-worth-chart"
@@ -7,33 +7,77 @@ import { DetailsTabs } from "@/components/projections/details-tabs"
 import { GoalsStatus } from "@/components/projections/goals-status"
 import { InsightsBlock } from "@/components/projections/insights-block"
 
-import { TooltipProgressiva } from "@/components/tooltip-progressiva"
+type ProjectionRow = {
+  mes: number
+  patrimonio: number
+  patrimonioNecessario: number
+  despesasMensais: number
+  aporteMensal: number
+  idadeAposentadoria: number | null
+}
+
+type ProjectionData = {
+  pessimista: ProjectionRow[]
+  base: ProjectionRow[]
+  otimista: ProjectionRow[]
+}
+
+function buildSummary(base: ProjectionRow[]) {
+  if (!base.length) {
+    return { avgIncome: 0, avgExpense: 0, avgSaving: 0, finalNetWorth: 0, status: "Sem dados" }
+  }
+  const last = base[base.length - 1]!
+  const avgExpense = base.reduce((s, r) => s + r.despesasMensais, 0) / base.length
+  const avgSaving = base.reduce((s, r) => s + r.aporteMensal, 0) / base.length
+  return {
+    avgIncome: avgExpense + avgSaving,
+    avgExpense,
+    avgSaving,
+    finalNetWorth: last.patrimonio,
+    status: last.patrimonio >= last.patrimonioNecessario ? "Meta atingida" : "Em progresso",
+  }
+}
+
+function buildSeries(base: ProjectionRow[]) {
+  return base.map((r) => ({
+    month: r.mes,
+    netWorth: r.patrimonio,
+    income: r.despesasMensais + r.aporteMensal,
+    expense: r.despesasMensais,
+    saving: r.aporteMensal,
+    investment: r.aporteMensal,
+  }))
+}
 
 export default function ProjectionsPage() {
-  // Estado inicial: período e cenário
-  const [period, setPeriod] = useState(12) // meses
+  const [period, setPeriod] = useState(12)
   const [scenario, setScenario] = useState("baseline")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [summary, setSummary] = useState<any>(null)
-  const [series, setSeries] = useState<any[]>([])
-  const [goals, setGoals] = useState<any[]>([])
-  const [insights, setInsights] = useState<string[]>([])
+  const [data, setData] = useState<ProjectionData | null>(null)
 
   useEffect(() => {
     setLoading(true)
     setError(null)
     fetch(`/api/projections?period=${period}&scenario=${scenario}`)
       .then((res) => (res.ok ? res.json() : Promise.reject("Erro ao buscar projeções")))
-      .then((data) => {
-        setSummary(data.summary)
-        setSeries(data.series || [])
-        setGoals(data.goals || [])
-        setInsights(data.insights || [])
+      .then((json) => {
+        if (json.base && Array.isArray(json.base)) {
+          setData({
+            pessimista: json.pessimista || [],
+            base: json.base,
+            otimista: json.otimista || [],
+          })
+        } else {
+          setData(null)
+        }
       })
-      .catch(() => setError("Erro ao buscar projeções"))
+      .catch(() => setError("Não foi possível carregar as projeções. Verifique sua conexão."))
       .finally(() => setLoading(false))
   }, [period, scenario])
+
+  const summary = data ? buildSummary(data.base) : null
+  const series = data ? buildSeries(data.base) : []
 
   return (
     <div className="space-y-6">
@@ -65,19 +109,28 @@ export default function ProjectionsPage() {
           </select>
         </div>
       </div>
+
       {loading ? (
-        <div className="text-muted-foreground">Carregando projeções...</div>
+        <div className="text-muted-foreground py-12 text-center">Carregando projeções...</div>
       ) : error ? (
-        <div className="text-destructive">{error}</div>
-      ) : summary ? (
+        <div className="text-destructive py-12 text-center">{error}</div>
+      ) : !data ? (
+        <div className="text-muted-foreground py-12 text-center">
+          Adicione transações para ver suas projeções financeiras.
+        </div>
+      ) : (
         <>
-          <SummaryCards summary={summary} />
-          <NetWorthChart data={series} />
+          {summary && <SummaryCards summary={summary} />}
+          <NetWorthChart
+            pessimista={data.pessimista}
+            base={data.base}
+            otimista={data.otimista}
+          />
           <DetailsTabs series={series} />
-          <GoalsStatus goals={goals} />
-          <InsightsBlock insights={insights} />
+          <GoalsStatus goals={[]} />
+          <InsightsBlock insights={[]} />
         </>
-      ) : null}
+      )}
     </div>
   )
 }

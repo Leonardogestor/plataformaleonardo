@@ -3,6 +3,7 @@
 import { useMemo } from "react"
 import { useFinancialDataSafe } from "./use-financial-data-safe"
 import { useGlobalDate } from "@/contexts/global-date-context"
+import { useAnamnesis } from "./use-anamnesis"
 
 interface StrategyData {
   diagnosis: {
@@ -38,16 +39,33 @@ interface StrategyData {
   }
 }
 
+function calcAge(birthDate: string | null): number {
+  if (!birthDate) return 30
+  const birth = new Date(birthDate)
+  const today = new Date()
+  const age = today.getFullYear() - birth.getFullYear()
+  const hasBirthdayPassed =
+    today.getMonth() > birth.getMonth() ||
+    (today.getMonth() === birth.getMonth() && today.getDate() >= birth.getDate())
+  return hasBirthdayPassed ? age : age - 1
+}
+
+function idealSavingsForRisk(riskLevel: string | null): number {
+  if (riskLevel === "CONSERVADOR") return 0.30
+  if (riskLevel === "AGRESSIVO") return 0.20
+  return 0.25 // MODERADO ou não definido
+}
+
 export function useStrategy(): StrategyData | null {
   const { calculations, finalBalance, isLoading } = useFinancialDataSafe()
-  const { month, year } = useGlobalDate()
+  useGlobalDate()
+  const { profile: anamnesisProfile } = useAnamnesis()
 
   return useMemo(() => {
     if (isLoading || !calculations) return null
 
     const { receitas, despesas, investimentos, resultado, savingsRate } = calculations
-    const currentAge = 30 // Could be from user profile
-    const annualIncome = receitas * 12
+    const currentAge = calcAge(anamnesisProfile?.birthDate ?? null)
     const annualSavings = resultado * 12
     const currentWealth = finalBalance || 0
 
@@ -120,8 +138,8 @@ export function useStrategy(): StrategyData | null {
 
     const estimatedRetirementAge = currentAge + yearsToRetirement
 
-    // 1. FINANCIAL DIAGNOSIS - FIXED LOGIC
-    const idealSavingsRate = 0.25 // 25% ideal for financial independence
+    // 1. FINANCIAL DIAGNOSIS - personalizado pelo perfil da anamnese
+    const idealSavingsRate = idealSavingsForRisk(anamnesisProfile?.riskLevel ?? null)
 
     const diagnosis = {
       savingsRate,

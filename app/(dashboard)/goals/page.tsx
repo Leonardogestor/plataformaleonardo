@@ -61,7 +61,7 @@ export default function GoalsPage() {
       ])
       if (goalsRes.ok) {
         const data = await goalsRes.json()
-        setGoals(data)
+        setGoals(Array.isArray(data) ? data : (data.goals ?? []))
       }
       if (analyticsRes.ok) {
         const data = await analyticsRes.json()

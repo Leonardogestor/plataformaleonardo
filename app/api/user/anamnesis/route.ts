@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -209,66 +209,145 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// Função de análise das respostas
+// Função de análise multidimensional das respostas (usa TODOS os 20+ campos)
 function analyzeResponses(responses: any) {
-  let score = 0
-  let riskScore = 0
+  // ── DIMENSÃO 1: Saúde Financeira (0–10) ──────────────────────────────────
+  let healthScore = 5.0
 
-  // Análise do contexto financeiro
-  if (responses.financialContext.financialSituation === "CRITICA") {
-    score -= 2
-  } else if (responses.financialContext.financialSituation === "ORGANIZADA") {
-    score += 1
-  }
+  // Situação financeira geral
+  if (responses.financialContext.financialSituation === "ORGANIZADA") healthScore += 2.0
+  else if (responses.financialContext.financialSituation === "DESORGANIZADA") healthScore -= 1.0
+  else if (responses.financialContext.financialSituation === "CRITICA") healthScore -= 3.0
 
-  if (responses.financialContext.hasDebts === "SIM_PREOCUPANTE") {
-    score -= 1
-  }
+  // Dívidas
+  if (responses.financialContext.hasDebts === "NAO") healthScore += 1.5
+  else if (responses.financialContext.hasDebts === "SIM_PREOCUPANTE") healthScore -= 2.0
+  // SIM_CONTROLE: neutro
 
-  // Análise do comportamento
-  if (responses.financialBehavior.moneyHandling === "PLANEJA_ANTES") {
-    score += 2
-  } else if (responses.financialBehavior.moneyHandling === "GASTA_SEM_PLANEJAR") {
-    score -= 1
-  }
+  // Padrão de gastos
+  if (responses.budgetControl.spendingPattern === "MUITO_PREVISIVEL") healthScore += 1.0
+  else if (responses.budgetControl.spendingPattern === "IMPREVISIVEL") healthScore -= 1.0
 
-  if (responses.financialBehavior.trackingFrequency === "TODA_SEMANA") {
-    score += 1
-  }
+  // Disciplina orçamentária
+  if (responses.budgetControl.budgetHandling === "SEGUE_RIGOROSAMENTE") healthScore += 1.5
+  else if (responses.budgetControl.budgetHandling === "GUIA_FLEXIVEL") healthScore += 0.5
+  else if (responses.budgetControl.budgetHandling === "CRIA_NAO_SEGUE") healthScore -= 0.5
+  else if (responses.budgetControl.budgetHandling === "NAO_FAZ_ORCAMENTO") healthScore -= 1.5
 
-  // Análise de risco
-  if (responses.riskProfile.investmentProfile === "CONSERVADOR") {
-    riskScore = 1
-  } else if (responses.riskProfile.investmentProfile === "MODERADO") {
-    riskScore = 2
-  } else {
-    riskScore = 3
-  }
+  // Uso de crédito/cartões
+  if (responses.cardsInstallments.cardCount === "0-1") healthScore += 0.5
+  else if (responses.cardsInstallments.cardCount === "4-5") healthScore -= 0.5
+  else if (responses.cardsInstallments.cardCount === "+5") healthScore -= 1.0
 
-  // Determinar perfil principal
-  let profileType = "CONTROLE"
-  if (score >= 2) {
-    profileType = "CRESCIMENTO"
-  } else if (score < 0) {
-    profileType = "RECUPERACAO"
-  }
+  if (responses.cardsInstallments.installmentFrequency === "NUNCA") healthScore += 0.5
+  else if (responses.cardsInstallments.installmentFrequency === "REGULARMENTE") healthScore -= 0.5
+  else if (responses.cardsInstallments.installmentFrequency === "FREQUENTEMENTE") healthScore -= 1.0
 
-  // Determinar nível de risco
-  let riskLevel = "CONSERVADOR"
-  if (riskScore === 2) {
-    riskLevel = "MODERADO"
-  } else if (riskScore === 3) {
-    riskLevel = "AGRESSIVO"
-  }
+  healthScore = Math.max(0, Math.min(10, healthScore))
 
-  // Gerar estratégias personalizadas
+  // ── DIMENSÃO 2: Maturidade Comportamental (0–10) ──────────────────────────
+  let behaviorScore = 5.0
+
+  // Como lida com dinheiro
+  if (responses.financialBehavior.moneyHandling === "PLANEJA_ANTES") behaviorScore += 2.5
+  else if (responses.financialBehavior.moneyHandling === "TENTA_CONTROLAR") behaviorScore += 0.0
+  else if (responses.financialBehavior.moneyHandling === "GASTA_SEM_PLANEJAR") behaviorScore -= 2.5
+
+  // Frequência de acompanhamento
+  if (responses.financialBehavior.trackingFrequency === "TODA_SEMANA") behaviorScore += 2.0
+  else if (responses.financialBehavior.trackingFrequency === "MENSAL") behaviorScore += 0.5
+  else if (responses.financialBehavior.trackingFrequency === "RARAMENTE") behaviorScore -= 2.0
+
+  // Prioridade com o dinheiro
+  if (responses.financialBehavior.moneyPriority === "GUARDA_INVESTE") behaviorScore += 2.0
+  else if (responses.financialBehavior.moneyPriority === "PAGA_CONTAS") behaviorScore += 0.5
+  else if (responses.financialBehavior.moneyPriority === "GASTA") behaviorScore -= 1.5
+
+  // Disposição para ajustar gastos
+  if (responses.executionCapacity.willingnessToAdjust === "REDUZ_SIGNIFICATIVO") behaviorScore += 1.0
+  else if (responses.executionCapacity.willingnessToAdjust === "AJUSTA_ALGUNS") behaviorScore += 0.0
+  else if (responses.executionCapacity.willingnessToAdjust === "MANTEM_TUDO") behaviorScore -= 1.5
+
+  behaviorScore = Math.max(0, Math.min(10, behaviorScore))
+
+  // ── DIMENSÃO 3: Tolerância Real ao Risco (0–10) ───────────────────────────
+  // Não é espelho da auto-declaração — é inferida de múltiplas fontes
+  let riskScore = 5.0
+
+  // Auto-declaração pesa 35% (não 100%)
+  if (responses.riskProfile.investmentProfile === "AGRESSIVO") riskScore += 1.75
+  else if (responses.riskProfile.investmentProfile === "CONSERVADOR") riskScore -= 1.75
+  // MODERADO: neutro
+
+  // Reação real a perdas — sinal comportamental forte (peso 30%)
+  if (responses.riskProfile.lossReaction === "BUSCA_RETORNO_RISCO") riskScore += 1.5
+  else if (responses.riskProfile.lossReaction === "EVITA_RISCO") riskScore -= 1.5
+  // ACEITA_MODERADAS: neutro
+
+  // Preferência de crescimento declarada (peso 20%)
+  if (responses.executionCapacity.growthPreference === "CRESCIMENTO_AGRESSIVO") riskScore += 1.0
+  else if (responses.executionCapacity.growthPreference === "SEGURANCA") riskScore -= 1.0
+
+  // Fase de carreira — jovens têm horizonte mais longo (peso 10%)
+  if (responses.lifeMoment.careerStage === "INICIO_CARREIRA") riskScore += 0.75
+  else if (responses.lifeMoment.careerStage === "CRESCIMENTO_PROFISSIONAL") riskScore += 0.25
+  else if (responses.lifeMoment.careerStage === "TRANSICAO") riskScore -= 0.5
+
+  // Dependentes reduzem tolerância a risco
+  if (responses.lifeMoment.hasDependents) riskScore -= 0.75
+
+  // Renda variável indica maior tolerância à incerteza
+  if (responses.financialContext.incomeType === "VARIAVEL") riskScore += 0.5
+  else if (responses.financialContext.incomeType === "FIXA") riskScore -= 0.25
+
+  // Saúde financeira ruim não suporta risco alto — ancoragem de segurança
+  if (healthScore < 4) riskScore = Math.min(riskScore, 5.5)
+
+  riskScore = Math.max(0, Math.min(10, riskScore))
+
+  // ── DIMENSÃO 4: Clareza de Objetivos (0–10) ───────────────────────────────
+  let goalsScore = 5.0
+
+  if (responses.objectives.hasGoals) goalsScore += 2.0
+  else goalsScore -= 1.5
+
+  const goalCount: number = responses.objectives.goals?.length ?? 0
+  if (goalCount >= 4) goalsScore += 2.0
+  else if (goalCount >= 2) goalsScore += 1.0
+  else if (goalCount === 1) goalsScore += 0.5
+  else goalsScore -= 1.0
+
+  // Objetivos de longo prazo indicam maturidade financeira
+  const longTermGoals = ["Aposentadoria", "Independência financeira", "Comprar imóvel"]
+  const hasLongTermGoal = longTermGoals.some((g) => responses.objectives.goals?.includes(g))
+  if (hasLongTermGoal) goalsScore += 1.0
+
+  goalsScore = Math.max(0, Math.min(10, goalsScore))
+
+  // ── PERFIL PRINCIPAL (healthScore 50% + behaviorScore 35% + goalsScore 15%) ──
+  const overallScore = healthScore * 0.5 + behaviorScore * 0.35 + goalsScore * 0.15
+
+  let profileType: string
+  if (overallScore >= 6.5) profileType = "CRESCIMENTO"
+  else if (overallScore <= 4.0) profileType = "RECUPERACAO"
+  else profileType = "CONTROLE"
+
+  // ── NÍVEL DE RISCO (inferido, não apenas auto-declarado) ──────────────────
+  let riskLevel: string
+  if (riskScore >= 6.5) riskLevel = "AGRESSIVO"
+  else if (riskScore <= 4.0) riskLevel = "CONSERVADOR"
+  else riskLevel = "MODERADO"
+
   const strategies = generateStrategies(profileType, riskLevel, responses)
 
   return {
     profileType,
     riskLevel,
-    score,
-    riskScore,
+    score: Math.round(overallScore * 10) / 10,
+    riskScore: Math.round(riskScore * 10) / 10,
+    healthScore: Math.round(healthScore * 10) / 10,
+    behaviorScore: Math.round(behaviorScore * 10) / 10,
+    goalsScore: Math.round(goalsScore * 10) / 10,
     strategies,
     recommendations: generateRecommendations(profileType, riskLevel, responses),
     automationLevel: determineAutomationLevel(responses),
@@ -276,7 +355,7 @@ function analyzeResponses(responses: any) {
   }
 }
 
-function generateStrategies(profileType: string, riskLevel: string, responses: any) {
+function generateStrategies(profileType: string, riskLevel: string, _responses: any) {
   const strategies = []
 
   // Estratégias baseadas no perfil
@@ -348,7 +427,7 @@ function generateStrategies(profileType: string, riskLevel: string, responses: a
   return strategies
 }
 
-function generateRecommendations(profileType: string, riskLevel: string, responses: any) {
+function generateRecommendations(_profileType: string, _riskLevel: string, responses: any) {
   const recommendations = []
 
   // Recomendações baseadas no comportamento
@@ -401,13 +480,17 @@ function determineAutomationLevel(responses: any) {
 }
 
 function determineInterventionLevel(responses: any) {
-  let level = "SUAVE"
+  let urgency = 0
 
-  if (responses.financialContext.financialSituation === "CRITICA") {
-    level = "INTENSO"
-  } else if (responses.executionCapacity.willingnessToAdjust === "REDUZ_SIGNIFICATIVO") {
-    level = "MODERADO"
-  }
+  if (responses.financialContext.financialSituation === "CRITICA") urgency += 3
+  else if (responses.financialContext.financialSituation === "DESORGANIZADA") urgency += 1
 
-  return level
+  if (responses.financialContext.hasDebts === "SIM_PREOCUPANTE") urgency += 2
+  if (responses.financialBehavior.moneyHandling === "GASTA_SEM_PLANEJAR") urgency += 1
+  if (responses.budgetControl.budgetHandling === "NAO_FAZ_ORCAMENTO") urgency += 1
+  if (responses.cardsInstallments.installmentFrequency === "FREQUENTEMENTE") urgency += 1
+
+  if (urgency >= 4) return "INTENSO"
+  if (urgency >= 2) return "MODERADO"
+  return "SUAVE"
 }

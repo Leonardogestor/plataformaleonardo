@@ -8,7 +8,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
@@ -50,7 +50,6 @@ export async function GET(request: NextRequest) {
     const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome) * 100 : 0
 
     // Gerar insights baseados no perfil + dados reais
-    const responses = anamnesis.responses as any
     const insights = generateInsights(anamnesis, transactions, savingsRate)
 
     // Configuração personalizada do dashboard
@@ -213,7 +212,7 @@ function analyzeGoalsProgress(anamnesis: any, transactions: any[]) {
   }))
 }
 
-function calculateHealthScore(anamnesis: any, savingsRate: number, transactions: any[]): number {
+function calculateHealthScore(anamnesis: any, savingsRate: number, _transactions: any[]): number {
   let score = 0
 
   // Taxa de poupança (40 pontos)
@@ -233,7 +232,7 @@ function calculateHealthScore(anamnesis: any, savingsRate: number, transactions:
   else if (responses.financialContext?.financialSituation === "DESORGANIZADA") score += 10
 
   // Dívidas (10 pontos)
-  if (responses.financialContext?.hasDebts === "NÃO") score += 10
+  if (responses.financialContext?.hasDebts === "NAO") score += 10
   else if (responses.financialContext?.hasDebts === "SIM_CONTROLE") score += 5
 
   return Math.min(100, score)
