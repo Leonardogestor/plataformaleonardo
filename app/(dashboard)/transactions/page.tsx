@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import TransactionsTable from "@/components/transactions/transactions-table"
 import { TransactionFilters } from "@/components/transactions/transaction-filters"
 import { Button } from "@/components/ui/button"
-import { Plus, Upload, Receipt, Trash2, CheckSquare, Square, Edit } from "lucide-react"
+import { Plus, Upload, Receipt, Trash2, CheckSquare, Square, Edit, RefreshCw } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { TransactionsSkeleton } from "@/components/ui/loading-skeletons"
 import { EmptyState } from "@/components/ui/empty-state"
@@ -13,6 +13,7 @@ import { ErrorBoundary } from "@/components/ui/error-boundary"
 import dynamic from "next/dynamic"
 import { Transaction } from "@prisma/client"
 import { TransactionWithRelations } from "@/types/transaction"
+import { PdfStagingUpload } from "@/components/documents/pdf-staging-upload"
 
 // Lazy load do TransactionDialog para melhorar performance
 const TransactionDialog = dynamic(
@@ -40,6 +41,7 @@ interface Pagination {
 }
 
 export default function TransactionsPage() {
+  const [isSyncing, setIsSyncing] = useState(false)
   const [transactions, setTransactions] = useState<TransactionWithRelations[]>([])
   const [selectedTransactions, setSelectedTransactions] = useState<string[]>([])
   const [isAllSelected, setIsAllSelected] = useState(false)
@@ -212,6 +214,43 @@ export default function TransactionsPage() {
     setIsDialogOpen(true)
   }
 
+  // Função para sincronizar dados
+  const handleSync = async () => {
+    setIsSyncing(true)
+    try {
+      const now = new Date()
+      const month = now.getMonth() + 1
+      const year = now.getFullYear()
+      const response = await fetch("/api/sync/launch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ month, year }),
+      })
+      if (response.ok) {
+        toast({
+          title: "Plataforma 100% Sincronizada!",
+          description: "Todos os dados foram atualizados com sucesso.",
+        })
+        // Opcional: disparar evento global para recarregar abas
+        window.dispatchEvent(new CustomEvent("platform-synced"))
+      } else {
+        toast({
+          title: "Erro ao sincronizar",
+          description: "Tente novamente em instantes.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Erro ao sincronizar",
+        description: "Tente novamente em instantes.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSyncing(false)
+    }
+  }
+
   return (
     <ErrorBoundary>
       <div className="space-y-6">
@@ -222,14 +261,28 @@ export default function TransactionsPage() {
               Gerencie todas as suas movimentações financeiras
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button variant="outline" onClick={() => router.push("/transactions/import")}>
               <Upload className="mr-2 h-4 w-4" />
               Importar CSV
             </Button>
+            <PdfStagingUpload onCommitSuccess={fetchTransactions} />
             <Button onClick={() => setIsDialogOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
               Nova Transação
+            </Button>
+            <Button onClick={handleSync} disabled={isSyncing} variant="secondary">
+              {isSyncing ? (
+                <>
+                  <RefreshCw className="animate-spin mr-2 h-4 w-4" />
+                  Sincronizando...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Sincronizar Dashboard
+                </>
+              )}
             </Button>
           </div>
         </div>
@@ -332,3 +385,5 @@ export default function TransactionsPage() {
     </ErrorBoundary>
   )
 }
+
+// Corrigir returns soltos após o componente (garantia de build)

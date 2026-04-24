@@ -32,7 +32,7 @@ function validateTransaction(t: any) {
 }
 
 export interface NormalizedTransaction {
-  type: "INCOME" | "EXPENSE" | "TRANSFER"
+  type: "INCOME" | "EXPENSE" | "TRANSFER" | "INVESTMENT"
   category: string
   subcategory?: string | null
   amount: number
@@ -76,44 +76,68 @@ export function pdfTransactionExternalId(
 export async function importTransactionsFromPdfWithDedup(
   userId: string,
   transactions: (NormalizedTransaction & { rawText?: string })[],
-  rawText?: string // texto bruto do extrato
+  rawText?: string
 ): Promise<ImportTransactionsResult> {
   const results = { success: 0, failed: 0, errors: [] as string[] }
 
   for (const tOrig of transactions) {
     try {
-      const t = validateTransaction(tOrig)
+      const safeCategory = tOrig.category && tOrig.category.trim() ? tOrig.category : "Outros"
+      const t = validateTransaction({ ...tOrig, category: safeCategory })
       const externalId = pdfTransactionExternalId(
         userId,
         t.date.toISOString(),
         t.amount,
         t.description
       )
-      await prisma.transaction.upsert({
-        where: { externalTransactionId: externalId },
-        create: {
-          userId,
-          documentId: t.documentId ?? null,
-          type: t.type,
-          category: t.category,
-          subcategory: t.subcategory ?? null,
-          amount: t.amount,
-          description: t.description,
-          date: t.date,
-          accountId: t.accountId ?? null,
-          isPending: false,
-          externalTransactionId: externalId,
-          rawText: t.rawText || rawText || null,
-        },
-        update: {
-          documentId: t.documentId ?? null,
-          amount: t.amount,
-          description: t.description,
-          category: t.category,
-          subcategory: t.subcategory ?? null,
-          rawText: t.rawText || rawText || null,
-        },
+
+      await prisma.$transaction(async (tx) => {
+        // Verificar se já existe para saber se é CREATE (afeta saldo) ou UPDATE (não afeta)
+        const existing = await tx.transaction.findUnique({
+          where: { externalTransactionId: externalId },
+          select: { id: true },
+        })
+
+        await tx.transaction.upsert({
+          where: { externalTransactionId: externalId },
+          create: {
+            userId,
+            documentId: t.documentId ?? null,
+            type: t.type,
+            category: t.category,
+            subcategory: t.subcategory ?? null,
+            amount: t.amount,
+            description: t.description,
+            date: t.date,
+            accountId: t.accountId ?? null,
+            isPending: false,
+            externalTransactionId: externalId,
+            rawText: t.rawText || rawText || null,
+          },
+          update: {
+            documentId: t.documentId ?? null,
+            amount: t.amount,
+            description: t.description,
+            category: t.category,
+            subcategory: t.subcategory ?? null,
+            rawText: t.rawText || rawText || null,
+          },
+        })
+
+        // Atualizar saldo apenas em CREATE e somente se tem conta associada
+        // Reprocessamento do mesmo extrato não duplica o saldo
+        if (!existing && t.accountId) {
+          const increment =
+            t.type === "INCOME" ? t.amount
+            : t.type === "INVESTMENT" ? -t.amount
+            : -Math.abs(t.amount) // EXPENSE e demais reduzem o saldo
+          await tx.account.update({
+            where: { id: t.accountId },
+            data: { balance: { increment } },
+          })
+        }
       })
+
       results.success++
     } catch (error) {
       results.failed++

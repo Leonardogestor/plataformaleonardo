@@ -14,14 +14,8 @@ import {
 } from "@/lib/transaction-import"
 import {
   hybridParseTransactions,
-  refineTransactionsWithAI,
   convertToNormalizedTransaction,
 } from "@/lib/ai-transaction-parser"
-
-const DEFAULT_CATEGORY = "Outros"
-
-/** Limite de transações por documento para evitar abuso e estouro de execução (ex: PDF com 10k+ linhas). */
-const MAX_TRANSACTIONS_PER_DOCUMENT = 5000
 
 /**
  * Process a document: fetch PDF from blob, extract text, parse, import transactions, update document and SyncLog.
@@ -101,38 +95,48 @@ export async function processDocumentPdf(documentId: string): Promise<void> {
     }
 
     // Sempre usar o parser de IA (OpenAI)
-    let transactions: NormalizedTransaction[] = []
-    let parsingMethod = "ai_only"
     const bank = detectBankFromText(text)
     const aiResult = await hybridParseTransactions(text, "pdf", bank)
 
-    // 🔥 NOVO: Fallback quando não encontra transações
     if (!aiResult.transactions.length) {
-      console.warn("⚠️ AI parsing não encontrou transações — usando fallback")
-      // Criar transação mínima do texto extraído
-      const fallbackTx: NormalizedTransaction = {
-        date: new Date().toISOString().slice(0, 10)!,
-        amount: 0,
-        type: "EXPENSE",
-        category: "Documentos",
-        description: text.slice(0, 100),
-      }
-      transactions = [fallbackTx]
-      parsingMethod = "fallback"
-    } else {
-      transactions = aiResult.transactions.map((t) => {
-        const normalized = convertToNormalizedTransaction(t)
-        return {
-          type: normalized.type,
-          category: normalized.category,
-          amount: normalized.amount,
-          description: normalized.description,
-          date: normalized.date,
-        }
+      // Nenhuma transação encontrada: atualizar documento como FAILED sem criar registros poluídos
+      const finishedAt = new Date()
+      const durationMs = finishedAt.getTime() - startedAt.getTime()
+      await prisma.document.update({
+        where: { id: documentId },
+        data: {
+          status: DocumentStatus.FAILED,
+          errorMessage: "Nenhuma transação encontrada no documento",
+          extractedText: text.slice(0, 100_000),
+          updatedAt: finishedAt,
+        },
       })
-      parsingMethod = "ai_only"
-      console.info(`✅ AI parsing retornou ${transactions.length} transações`)
+      await prisma.syncLog.update({
+        where: { id: syncLogId },
+        data: {
+          finishedAt,
+          durationMs,
+          transactionsProcessed: 0,
+          status: DocumentStatus.FAILED,
+          error: "Nenhuma transação encontrada no documento",
+        },
+      })
+      console.warn(JSON.stringify({ type: "pdf_processing", documentId, durationMs, transactionsProcessed: 0, status: DocumentStatus.FAILED }))
+      return
     }
+
+    const transactions: NormalizedTransaction[] = aiResult.transactions.map((t) => {
+      const normalized = convertToNormalizedTransaction(t)
+      return {
+        type: normalized.type,
+        category:
+          normalized.category && normalized.category.trim() ? normalized.category : "Outros",
+        amount: normalized.amount,
+        description: normalized.description,
+        date: normalized.date,
+      }
+    })
+    console.info(`✅ AI parsing retornou ${transactions.length} transações`)
 
     const result = await importTransactionsFromPdfWithDedup(userId, transactions)
     const transactionsProcessed = result.success

@@ -3,17 +3,16 @@ import { ProjectionsEngine } from "@/lib/ProjectionsEngine"
 import type { NextRequest } from "next/server"
 
 // Utilitário: converte transações do banco para o formato do motor
-function mapTransactionsToEngineInputs(transactions: any[]) {
-  // Exemplo: agrupar receitas, despesas, investimentos, etc.
+export function mapTransactionsToEngineInputs(transactions: { type: string; amount: any }[]) {
   let receita = 0,
-    despesas = 0,
+    despesasOperacionais = 0,
     investimento = 0
   for (const t of transactions) {
     if (t.type === "INCOME") receita += Number(t.amount)
-    else if (t.type === "EXPENSE") despesas += Math.abs(Number(t.amount))
+    else if (t.type === "EXPENSE") despesasOperacionais += Math.abs(Number(t.amount))
     else if (t.type === "INVESTMENT") investimento += Math.abs(Number(t.amount))
   }
-  return { receita, despesas, investimento }
+  return { receita, despesasOperacionais, investimento }
 }
 
 export class DashboardService {
@@ -31,30 +30,32 @@ export class DashboardService {
     })
 
     // 2. Mapear para inputs do motor
-    const engineInputs = mapTransactionsToEngineInputs(transactions)
+    const { receita, despesasOperacionais, investimento } =
+      mapTransactionsToEngineInputs(transactions)
 
-    // 3. Rodar projeção do motor
-    const projecoes = ProjectionsEngine.calcularProjecao(1, engineInputs)
-    const proj = projecoes[0]
+    // 3. Resultado do mês: receitas - despesas operacionais (NÃO desconta investimento)
+    const resultado = receita - despesasOperacionais
 
-    // 4. Calcular taxa de poupança
-    const savingsRate = proj && proj.receita.valor > 0 ? proj.resultado / proj.receita.valor : 0
+    // 4. Taxa de poupança: (receita - despesas operacionais) / receita
+    // Definição consistente com orchestration-service — não desconta investimentos
+    const savingsRate = receita > 0 ? resultado / receita : 0
 
-    // 5. Status crítica/segura (dummy)
-    const statusReserva = proj && proj.resultado > 0 ? "segura" : "crítica"
+    // 5. Status crítica/segura
+    const statusReserva = resultado > 0 ? "segura" : "crítica"
 
     // 6. Lógica de cor/alerta
-    const alerta = proj && proj.resultado < 0
+    const alerta = resultado < 0
 
-    // 7. Patrimônio projetado (dummy)
-    const patrimonioProjetado = proj && proj.resultado + proj.investimento
+    // 7. Patrimônio projetado: saldo anterior + resultado + investimento
+    // (Aqui pode-se buscar saldo anterior real se disponível)
+    const patrimonioProjetado = resultado + investimento
 
     // 8. Retorno final
     return {
-      receita: proj.receita.valor,
-      despesas: proj.despesas.valor,
-      investimento: proj.investimento,
-      resultado: proj.resultado,
+      receita,
+      despesasOperacionais,
+      investimento,
+      resultado,
       savingsRate,
       statusReserva,
       alerta,

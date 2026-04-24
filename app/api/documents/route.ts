@@ -10,6 +10,7 @@ import { extractTransactionsFromPdfWithAI } from "@/lib/pdf-ai-extractor"
 import { importTransactionsFromPdfWithDedup } from "@/lib/transaction-import"
 
 export const maxDuration = 60
+// export const runtime = "edge" // Alternativa para runtime edge
 
 const MAX_SIZE = 10 * 1024 * 1024 // 10MB
 
@@ -48,8 +49,10 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // 1. Autenticação
+    console.log("[POST] Iniciando upload de documento")
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
+      console.log("[POST] Falha na autenticação")
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
@@ -57,6 +60,7 @@ export async function POST(request: NextRequest) {
     try {
       const rl = await checkDocumentsLimit(request)
       if (rl.limited) {
+        console.log("[POST] Rate limit atingido")
         return NextResponse.json(
           { error: "Limite de uploads excedido. Tente novamente em alguns minutos." },
           { status: 429 }
@@ -70,6 +74,7 @@ export async function POST(request: NextRequest) {
     let formData: FormData
     try {
       formData = await request.formData()
+      console.log("[POST] FormData parseado com sucesso")
     } catch (e) {
       console.error("formData parse error:", e)
       return NextResponse.json(
@@ -80,8 +85,8 @@ export async function POST(request: NextRequest) {
 
     // 4. Coletar arquivos - aceita campo "file" (singular) ou "files" (múltiplos)
     const rawFiles = [...formData.getAll("file"), ...formData.getAll("files")]
-
     const files: File[] = rawFiles.filter((f): f is File => f instanceof File && f.size > 0)
+    console.log(`[POST] ${files.length} arquivo(s) recebido(s)`)
 
     if (files.length === 0) {
       return NextResponse.json({ error: "Nenhum arquivo válido enviado." }, { status: 400 })
@@ -99,6 +104,11 @@ export async function POST(request: NextRequest) {
 
     // 6. Processar cada arquivo: extrair texto -> parsear -> importar transações
     const userId = session.user.id
+
+    // Se quiser responder imediatamente e processar em background:
+    // setImmediate(async () => { ...processamento... })
+    // return NextResponse.json({ received: true, message: "Recebi! Processando em background." }, { status: 202 })
+
     const createdDocs = await Promise.all(
       files.map(async (file) => {
         const fileName = file.name.toLowerCase()
@@ -115,26 +125,33 @@ export async function POST(request: NextRequest) {
 
         try {
           if (isPdf) {
+            console.log(`[POST] Extraindo texto do PDF: ${file.name}`)
+            // Upload S3 antecipado para garantir fileKey mesmo em caso de falha de parsing
+            const s3Key = `documents/${userId}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`
+            await uploadToS3(buffer, s3Key, mimeType)
+
             const pdfText = await extractTextFromPdf(buffer)
             if (!pdfText || pdfText.length < 50) {
               status = DocumentStatus.FAILED
               errorMessage = "Nao foi possivel extrair texto do PDF."
               console.warn("[ROUTE] PDF sem texto: " + file.name)
             } else {
-              console.log("[ROUTE] Texto extraido: " + pdfText.length + " chars")
+              console.log(`[POST] Texto extraído (${pdfText.length} chars)`)
+              console.log(`[POST] Enviando texto para IA`)
               const aiResult = await extractTransactionsFromPdfWithAI(pdfText)
               if (aiResult.transactions.length > 0) {
                 extractedText = pdfText.slice(0, 10000)
                 const toImport = aiResult.transactions.map((t) => ({
                   date: t.date,
                   amount: t.amount,
-                  type: t.type,
+                  type: t.type as "INCOME" | "EXPENSE" | "TRANSFER" | "INVESTMENT",
                   category: t.category,
                   description: t.description,
                 }))
-                const result = await importTransactionsFromPdfWithDedup(userId, toImport as any)
+                console.log(`[POST] Salvando transações no Prisma`)
+                const result = await importTransactionsFromPdfWithDedup(userId, toImport)
                 transactionsImported = result.success
-                console.log("[ROUTE] " + result.success + " transacoes importadas")
+                console.log(`[POST] ${result.success} transações importadas`)
 
                 if (result.success > 0) {
                   const existingAccount = await prisma.account.findFirst({
@@ -163,7 +180,28 @@ export async function POST(request: NextRequest) {
                 errorMessage = "IA nao encontrou transacoes no PDF."
               }
             }
+            // Persiste Document record para PDFs (auditoria + vínculo com transações)
+            const doc = await prisma.document.create({
+              data: {
+                userId,
+                name: file.name,
+                fileName: file.name,
+                mimeType,
+                fileSize: file.size,
+                status,
+                extractedText,
+                errorMessage,
+                fileKey: s3Key,
+              },
+            })
+            return {
+              id: doc.id,
+              name: doc.name,
+              status: doc.status,
+              transactionsImported,
+            }
           } else if (isExcel) {
+            console.log(`[POST] Extraindo texto do Excel: ${file.name}`)
             let text = await extractTextFromExcel(buffer)
             if (!text) {
               status = DocumentStatus.FAILED
@@ -196,7 +234,7 @@ export async function POST(request: NextRequest) {
             }
           }
         } catch (err) {
-          console.error(` Erro ao processar ${file.name}:`, err)
+          console.error(`[POST] Erro ao processar ${file.name}:`, err)
           status = DocumentStatus.FAILED
           errorMessage = err instanceof Error ? err.message : "Erro inesperado no processamento"
         }
@@ -214,6 +252,10 @@ export async function POST(request: NextRequest) {
       0
     )
 
+    console.log(
+      `[POST] Finalizado. ${createdDocs.length} arquivo(s), ${totalTransactions} transações importadas.`
+    )
+
     return NextResponse.json(
       {
         success: true,
@@ -225,7 +267,7 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     )
   } catch (error) {
-    console.error("POST /api/documents error:", error)
+    console.error("[POST] Erro geral:", error)
     const detail = error instanceof Error ? error.message : String(error)
     return NextResponse.json(
       { error: "Erro ao salvar documento. Tente novamente.", detail },

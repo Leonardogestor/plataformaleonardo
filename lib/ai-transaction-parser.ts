@@ -12,7 +12,7 @@
 export interface NormalizedTransaction {
   date: string // YYYY-MM-DD
   amount: number // sempre positivo
-  type: "INCOME" | "EXPENSE" | "TRANSFER"
+  type: "INCOME" | "EXPENSE" | "TRANSFER" | "INVESTMENT"
   category: string
   description: string
   sourceFile?: string
@@ -255,9 +255,9 @@ function extractTransactionsFromText(text: string): Array<{
 /**
  * PASSO 2: Classificar tipo
  */
-function classifyType(desc: string, value: number): "INCOME" | "EXPENSE" | "TRANSFER" {
+function classifyType(desc: string, value: number): "INCOME" | "EXPENSE" | "TRANSFER" | "INVESTMENT" {
   const d = desc.toLowerCase()
-  if (d.includes("aplicação") || d.includes("rdb") || d.includes("investimento")) return "TRANSFER"
+  if (d.includes("aplicação") || d.includes("rdb") || d.includes("investimento")) return "INVESTMENT"
   if (d.includes("resgate")) return "INCOME"
   if (value > 0) return "INCOME"
   if (value < 0) return "EXPENSE"
@@ -379,11 +379,11 @@ function normalizeTransaction(raw: {
 }): NormalizedTransaction {
   const cleanedDesc = cleanDescription(raw.rawDescription)
 
-  let type: "INCOME" | "EXPENSE" | "TRANSFER"
+  let type: "INCOME" | "EXPENSE" | "TRANSFER" | "INVESTMENT"
   const d = raw.rawDescription.toLowerCase()
 
   if (d.includes("aplicação") || d.includes("rdb") || d.includes("investimento")) {
-    type = "TRANSFER"
+    type = "INVESTMENT"
   } else if (d.includes("resgate")) {
     type = "INCOME"
   } else if (raw.isExpense === true) {
@@ -423,13 +423,27 @@ export async function parseTransactionsWithAI(
   _sourceType: "pdf" | "excel" | "csv" = "pdf",
   _bankHint?: string
 ): Promise<{ transactions: NormalizedTransaction[]; summary?: { confidence: number } }> {
+  // INSTRUÇÃO DE SISTEMA RÍGIDA:
+  // Sempre classifique como TRANSFER qualquer transação que contenha as palavras-chave:
+  // "TED", "DOC", "PIX MESMA TITULARIDADE", "TRANSFERÊNCIA", "TRANSFERENCIA", "ENTRE CONTAS", "MESMA TITULARIDADE"
+  // Isso vale para qualquer variação de caixa ou acentuação.
   if (!text || text.trim().length === 0) {
     return { transactions: [] }
   }
 
   try {
     const rawTransactions = extractTransactionsFromText(text)
-    const normalized = rawTransactions.map((raw) => normalizeTransaction(raw))
+    const normalized = rawTransactions.map((raw) => {
+      let tx = normalizeTransaction(raw)
+      // Pós-processamento rígido para TRANSFER
+      const desc = tx.description.toLowerCase()
+      if (
+        /ted|doc|pix mesma titularidade|transfer[êe]ncia|entre contas|mesma titularidade/.test(desc)
+      ) {
+        tx.type = "TRANSFER"
+      }
+      return tx
+    })
 
     return {
       transactions: normalized,

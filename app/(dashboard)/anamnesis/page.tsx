@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -16,6 +17,7 @@ interface AnamnesisData {
 }
 
 export default function AnamnesisPage() {
+  const router = useRouter()
   const { data: session } = useSession()
   const [showForm, setShowForm] = useState(false)
   const [anamnesis, setAnamnesis] = useState<AnamnesisData | null>(null)
@@ -66,6 +68,8 @@ export default function AnamnesisPage() {
         setAnamnesis(data.anamnesis)
         setShowForm(false)
         alert("✅ Anámnese salva com sucesso!")
+        // Atualiza dashboard/estratégia imediatamente
+        router.refresh()
       } else {
         const errorText = await response.text()
         console.error("Erro na resposta:", errorText)

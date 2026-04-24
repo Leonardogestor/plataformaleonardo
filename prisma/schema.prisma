@@ -1,3 +1,35 @@
+model FinancialSummary {
+  id                    String   @id @default(cuid())
+  userId                String
+  month                 Int
+  year                  Int
+  savingsRate           Float
+  retirementAge         Float
+  netWorth              Float
+  totalIncome           Float
+  totalExpenses         Float
+  totalInvestments      Float
+  saldoAcumulado        Float
+  resultado             Float
+  patrimonioNecessario  Float
+  evolucaoPatrimonial   Json
+  aporteMedio           Float
+  idade                 Int
+  aporteMetasNecessario Float
+  metasConflito         Boolean
+  alocacaoPorCategoria  Json
+  saldosContas          Json
+  limitesCartoes        Json
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, month, year], name: "userId_month_year")
+  @@index([userId, month, year])
+  @@map("financial_summary")
+}
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -58,33 +90,36 @@ model Budget {
 }
 
 model User {
-  id                     String                    @id @default(cuid())
-  name                   String
-  email                  String                    @unique
-  password               String
-  role                   UserRole                  @default(USER)
-  createdAt              DateTime                  @default(now())
-  updatedAt              DateTime                  @updatedAt
-  accounts               Account[]
-  bankConnections        BankConnection[]
-  budgets                Budget[]
-  cards                  Card[]
-  categorizationRules    CategoryRule[]
-  documents              Document[]
-  financial_ledger       financial_ledger[]
-  financial_snapshots    financial_snapshots[]
-  goals                  Goal[]
-  governanceChecklist    GovernanceChecklistItem[]
-  investments            Investment[]
-  transactions           Transaction[]
-  subscriptions          Subscription[]
-  featureAccess          FeatureAccess[]
-  passwordSetupTokens    PasswordSetupToken[]
-  anamnesis              UserAnamnesis?
+  id                  String                    @id @default(cuid())
+  name                String
+  email               String                    @unique
+  password            String
+  role                UserRole                  @default(USER)
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+  accounts            Account[]
+  bankConnections     BankConnection[]
+  budgets             Budget[]
+  cards               Card[]
+  categorizationRules CategoryRule[]
+  documents           Document[]
+  financial_ledger    financial_ledger[]
+  financial_snapshots financial_snapshots[]
+  goals               Goal[]
+  governanceChecklist GovernanceChecklistItem[]
+  investments         Investment[]
+  transactions        Transaction[]
+  subscriptions       Subscription[]
+  featureAccess       FeatureAccess[]
+  passwordSetupTokens PasswordSetupToken[]
+  anamnesis           UserAnamnesis?
+
   rawTransactions        RawTransaction[]
   parsedTransactions     ParsedTransaction[]
   normalizedTransactions NormalizedTransaction[]
   merchantMappings       MerchantMapping[]
+
+  financialSummaries FinancialSummary[]
 
   @@map("users")
 }
@@ -421,6 +456,7 @@ enum TransactionType {
   INCOME
   EXPENSE
   TRANSFER
+  INVESTMENT
 }
 
 enum GoalStatus {

@@ -1,4 +1,36 @@
 /**
+ * Aloca recursos disponíveis entre metas, priorizando urgentes (<3 meses).
+ * Se cashFlow for insuficiente, 100% vai para URGENTE, o resto é distribuído proporcionalmente.
+ * Retorna array com { goalId, name, alocado }
+ */
+export function alocarAportesMetas(goals: GoalRow[], cashFlowDisponivel: number) {
+  const ativos = goals.filter((g) => g.status === "ACTIVE" && g.remaining > 0)
+  if (ativos.length === 0 || cashFlowDisponivel <= 0) return []
+
+  // Separar metas urgentes (<3 meses)
+  const urgentes = ativos.filter((g) => getClassificacaoEstrategica(g) === "URGENTE")
+  const naoUrgentes = ativos.filter((g) => getClassificacaoEstrategica(g) !== "URGENTE")
+
+  if (urgentes.length > 0) {
+    // Se há urgentes, priorizar 100% do cashFlow para elas, proporcional ao valor restante
+    const totalRestanteUrgentes = urgentes.reduce((s, g) => s + g.remaining, 0)
+    return urgentes.map((g) => ({
+      goalId: g.id,
+      name: g.name,
+      alocado:
+        totalRestanteUrgentes > 0 ? (g.remaining / totalRestanteUrgentes) * cashFlowDisponivel : 0,
+    }))
+  }
+
+  // Se não há urgentes, distribuir proporcionalmente entre todas
+  const totalRestante = ativos.reduce((s, g) => s + g.remaining, 0)
+  return ativos.map((g) => ({
+    goalId: g.id,
+    name: g.name,
+    alocado: totalRestante > 0 ? (g.remaining / totalRestante) * cashFlowDisponivel : 0,
+  }))
+}
+/**
  * Analytics para metas financeiras: classificação, impacto no patrimônio, conflitos.
  */
 

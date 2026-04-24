@@ -2,7 +2,7 @@ export interface ExtractedTransaction {
   date: string
   description: string
   amount: number
-  type: "INCOME" | "EXPENSE" | "TRANSFER"
+  type: "INCOME" | "EXPENSE" | "TRANSFER" | "INVESTMENT"
   category: string
 }
 
@@ -39,7 +39,7 @@ export async function extractTransactionsFromPdfWithAI(
               "- Converta datas no formato DD/MM/YYYY para YYYY-MM-DD (ISO).",
               "- Interprete valores brasileiros: 1.234,56 = 1234.56.",
               "- Se o valor for débito (saída), amount deve ser negativo.",
-              "- type: INCOME=entrada/recebido, EXPENSE=saída/compra/pagamento, TRANSFER=investimento/aplicação.",
+              "- type: INCOME=entrada/salário/pix recebido, EXPENSE=saída/compra/pagamento, INVESTMENT=aplicação/investimento/rdb/cdb/tesouro, TRANSFER=transferência entre contas.",
               "- Ignore saldos, cabeçalhos e totais.",
               '- Se o extrato for do Santander e houver log de OCR, inclua um campo "ocrLog" com o texto bruto extraído.',
               "- Sempre retorne um array completo de transações extraídas.",
@@ -75,10 +75,9 @@ export async function extractTransactionsFromPdfWithAI(
         date: String(t.date).trim(),
         description: String(t.description ?? "Sem descricao").slice(0, 200),
         amount: Math.abs(Number(t.amount) || 0),
-        type: (["INCOME", "EXPENSE", "TRANSFER"].includes(t.type) ? t.type : "EXPENSE") as
-          | "INCOME"
-          | "EXPENSE"
-          | "TRANSFER",
+        type: (["INCOME", "EXPENSE", "TRANSFER", "INVESTMENT"].includes(t.type)
+          ? t.type
+          : "EXPENSE") as "INCOME" | "EXPENSE" | "TRANSFER" | "INVESTMENT",
         category: String(t.category ?? "Outros"),
       }))
       .filter((t: ExtractedTransaction) => t.amount > 0)

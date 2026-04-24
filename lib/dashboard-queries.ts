@@ -46,16 +46,19 @@ export async function getDashboardMetrics(
 
   const netWorth = (accounts || []).reduce((sum: number, acc: any) => sum + Number(acc.balance), 0)
 
-  const monthIncome = (transactions || [])
+  // Ignorar TRANSFER em todos os cálculos
+  const filtered = (transactions || []).filter((t: any) => t.type !== "TRANSFER")
+  const monthIncome = filtered
     .filter((t: any) => t.type === "INCOME")
     .reduce((sum: number, t: any) => sum + Number(t.amount), 0)
 
-  const monthExpense = (transactions || [])
+  const monthExpense = filtered
     .filter((t: any) => t.type === "EXPENSE")
     .reduce((sum: number, t: any) => sum + Number(t.amount), 0)
 
   const cashFlow = monthIncome - monthExpense
-  const savingsRate = monthIncome > 0 ? (cashFlow / monthIncome) * 100 : 0
+  // ratio 0-1 (consistente com FinancialSummary.savingsRate e orchestration-service)
+  const savingsRate = monthIncome > 0 ? cashFlow / monthIncome : 0
 
   return { netWorth, monthIncome, monthExpense, cashFlow, savingsRate }
 }
@@ -65,7 +68,8 @@ export async function getCategoryBreakdown(
   month: number,
   year: number
 ): Promise<CategoryData[]> {
-  const transactions = await prisma.transaction.findMany({
+  const rows = await prisma.transaction.groupBy({
+    by: ["category"],
     where: {
       userId,
       type: "EXPENSE",
@@ -74,37 +78,25 @@ export async function getCategoryBreakdown(
         lt: new Date(year, month, 1),
       },
     },
-    select: { category: true, amount: true },
+    _sum: { amount: true },
+    _count: { _all: true },
+    orderBy: { _sum: { amount: "desc" } },
   })
 
-  const categoryMap = new Map<string, { total: number; count: number }>()
-  let totalExpenses = 0
+  const totalExpenses = rows.reduce((sum, r) => sum + Number(r._sum.amount ?? 0), 0)
 
-  ;(transactions || []).forEach((t: any) => {
-    const amount = Number(t.amount)
-    totalExpenses += amount
-    const current = categoryMap.get(t.category) || { total: 0, count: 0 }
-    categoryMap.set(t.category, {
-      total: current.total + amount,
-      count: current.count + 1,
-    })
+  return rows.map((r) => {
+    const total = Number(r._sum.amount ?? 0)
+    return {
+      category: r.category,
+      total,
+      percentage: totalExpenses > 0 ? (total / totalExpenses) * 100 : 0,
+      count: r._count._all,
+    }
   })
-
-  return Array.from(categoryMap.entries())
-    .map(([category, data]) => ({
-      category,
-      total: data.total,
-      percentage: totalExpenses > 0 ? (data.total / totalExpenses) * 100 : 0,
-      count: data.count,
-    }))
-    .sort((a, b) => b.total - a.total)
 }
 
-export async function getMonthlyEvolution(
-  userId: string,
-  month?: number,
-  year?: number
-): Promise<MonthlyData[]> {
+export async function getMonthlyEvolution(userId: string): Promise<MonthlyData[]> {
   const sixMonthsAgo = new Date()
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
 
@@ -154,8 +146,16 @@ export async function getRecentTransactions(
   month?: number,
   year?: number
 ) {
+  const dateFilter =
+    month !== undefined && year !== undefined
+      ? { gte: new Date(year, month - 1, 1), lt: new Date(year, month, 1) }
+      : undefined
+
   return prisma.transaction.findMany({
-    where: { userId },
+    where: {
+      userId,
+      ...(dateFilter ? { date: dateFilter } : {}),
+    },
     orderBy: { date: "desc" },
     take: limit,
     include: {
@@ -338,15 +338,8 @@ export async function getRiscoConsolidado(
   return "baixo"
 }
 
-export async function getTendenciaPatrimonial(
-  userId: string,
-  month: number,
-  year: number
-): Promise<TendenciaPatrimonial> {
-  const [monthlyData, metrics] = await Promise.all([
-    getMonthlyEvolution(userId),
-    getDashboardMetrics(userId, month, year),
-  ])
+export async function getTendenciaPatrimonial(userId: string): Promise<TendenciaPatrimonial> {
+  const monthlyData = await getMonthlyEvolution(userId)
   if (monthlyData.length < 2) return "estável"
 
   const last = monthlyData[monthlyData.length - 1]!.netWorth

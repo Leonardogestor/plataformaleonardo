@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/db"
+import { GoalStatus } from "@prisma/client"
 import { z } from "zod"
 
 const goalSchema = z.object({
@@ -20,28 +21,36 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url)
+    const month = parseInt(searchParams.get("month") || (new Date().getMonth() + 1).toString())
+    const year = parseInt(searchParams.get("year") || new Date().getFullYear().toString())
     const status = searchParams.get("status") || undefined
 
-    const where: any = {
-      userId: session.user.id,
-    }
-    if (status) where.status = status
-
-    const goals = await prisma.goal.findMany({
-      where,
-      include: {
-        contributions: {
-          orderBy: { date: "asc" },
+    // Snapshot fornece apenas métricas agregadas — nunca substitui a lista de goals
+    const [snapshot, goals] = await Promise.all([
+      prisma.financialSummary.findUnique({
+        where: { userId_month_year: { userId: session.user.id, month, year } },
+        select: { aporteMetasNecessario: true, metasConflito: true },
+      }),
+      prisma.goal.findMany({
+        where: {
+          userId: session.user.id,
+          ...(status ? { status: status as GoalStatus } : {}),
         },
-      },
-      orderBy: { deadline: "asc" },
-    })
+        include: {
+          contributions: {
+            orderBy: { date: "asc" },
+          },
+        },
+        orderBy: { deadline: "asc" },
+      }),
+    ])
 
     // Calcular progresso, projeções e evolução mensal
     const enrichedGoals = goals.map((goal) => {
-      const progress = Number(goal.targetAmount) > 0
-        ? (Number(goal.currentAmount) / Number(goal.targetAmount)) * 100
-        : 0
+      const progress =
+        Number(goal.targetAmount) > 0
+          ? (Number(goal.currentAmount) / Number(goal.targetAmount)) * 100
+          : 0
 
       const daysRemaining = Math.ceil(
         (new Date(goal.deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
@@ -75,7 +84,11 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    return NextResponse.json(enrichedGoals)
+    return NextResponse.json({
+      goals: enrichedGoals,
+      aporteMetasNecessario: snapshot?.aporteMetasNecessario ?? null,
+      metasConflito: snapshot?.metasConflito ?? null,
+    })
   } catch (error) {
     console.error("Erro ao buscar metas:", error)
     return NextResponse.json({ error: "Erro interno" }, { status: 500 })

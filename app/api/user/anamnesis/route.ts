@@ -110,6 +110,9 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    // Invalidar snapshots consolidados — anamnese afeta idade e projeções em todos os meses
+    await prisma.financialSummary.deleteMany({ where: { userId: session.user.id } })
+
     return NextResponse.json({
       success: true,
       anamnesis,
@@ -186,6 +189,9 @@ export async function PUT(request: NextRequest) {
         riskLevel: analysis.riskLevel,
       },
     })
+
+    // Invalidar snapshots consolidados para forçar recálculo com novos dados de perfil
+    await prisma.financialSummary.deleteMany({ where: { userId: session.user.id } })
 
     return NextResponse.json({
       success: true,
